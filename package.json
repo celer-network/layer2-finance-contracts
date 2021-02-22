@@ -1,0 +1,47 @@
+{
+  "name": "layer2-finance-contracts",
+  "version": "0.0.1",
+  "description": "Layer 2 Finance Contracts",
+  "scripts": {
+    "build": "npm run compile && npm run typechain",
+    "compile": "npx buidler compile",
+    "typechain": "npx buidler compile && typechain --outDir typechain --target ethers 'build/*.json'",
+    "bind:go": "npx buidler compile && scripts/bind_go.sh",
+    "test": "npx buidler test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/celer-network/layer2-finance-contracts.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/celer-network/layer2-finance-contracts/issues"
+  },
+  "homepage": "https://github.com/celer-network/layer2-finance-contracts#readme",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.1",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@openzeppelin/contracts": "^3.4.0",
+    "@typechain/ethers-v5": "^5.0.0",
+    "@typechain/truffle-v5": "^4.0.1",
+    "@typechain/web3-v1": "^2.0.0",
+    "@types/chai": "^4.2.15",
+    "@types/mocha": "^8.2.0",
+    "@types/node": "^14.14.27",
+    "@types/sinon-chai": "^3.2.5",
+    "chai": "^4.3.0",
+    "ethereum-waffle": "^3.2.2",
+    "ethers": "^5.0.31",
+    "hardhat": "^2.0.10",
+    "hardhat-typechain": "^0.3.4",
+    "husky": "^5.0.9",
+    "prettier": "^2.2.1",
+    "prettier-plugin-solidity": "^1.0.0-beta.5",
+    "ts-node": "^9.1.1",
+    "typechain": "^4.0.1",
+    "typescript": "^4.1.5"
+  },
+  "dependencies": {
+    "solc": "0.7.6"
+  }
+}
