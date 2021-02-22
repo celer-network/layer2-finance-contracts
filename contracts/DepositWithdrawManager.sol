@@ -26,6 +26,7 @@ contract DepositWithdrawManager {
     enum PendingDepositStatus { Pending, Done }
     struct PendingDeposit {
         uint32 accountIndex;
+        uint32 tokenIndex;
         uint256 amount;
         PendingDepositStatus status;
     }
@@ -33,6 +34,7 @@ contract DepositWithdrawManager {
 
     enum PendingWithdrawStatus { Pending, Ready, Done }
     struct PendingWithdraw {
+        uint32 tokenIndex;
         uint256 amount;
         uint256 blockIndex; // block containing the withdraw
         uint256 deadline; // block number after which L1 withdraw is allowed
