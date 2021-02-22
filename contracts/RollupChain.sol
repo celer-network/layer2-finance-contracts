@@ -1,4 +1,5 @@
-pragma solidity ^0.6.6;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.6.0 <0.8.0;
 pragma experimental ABIEncoderV2;
 
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
@@ -21,13 +22,12 @@ contract RollupChain {
     // The token registry
     TokenRegistry tokenRegistry;
 
-    // All the blocks!
+    // All the blocks (prepared and/or executed).
     dt.Block[] public blocks;
+    uint256 countExecuted = 0;
 
-    // Each block above has an associated DeFi block, each one containing
-    // an array of DeFi entries.  Because of this nesting, this variable is
-    // "private" and with its own getter functions.
-    dt.DeFi[] private defis;
+    // Each block above has an associated block of intents.
+    dt.Intent[][] public intentBlocks;
 
     bytes32 public constant ZERO_BYTES32 = 0x0000000000000000000000000000000000000000000000000000000000000000;
     // State tree height
@@ -39,8 +39,9 @@ contract RollupChain {
     address public validatorAddress;
 
     /* Events */
-    event RollupBlockCommitted(uint256 blockNumber, bytes[] transitions);
-    event DeFiOutcome(uint32 deFiIndex, bool redeem, uint256 amount);
+    event RollupBlockPrepared(uint256 blockNumber, bytes[] transitions, bytes[] intents);
+    event RollupBlockExecuted(uint256 blockNumber);
+    event HarvestDone();
 
     /***************
      * Constructor *
@@ -86,25 +87,28 @@ contract RollupChain {
     }
 
     /**
-     * Commits a new block which is then rolled up.
+     * Submit a prepared batch as a new rollup block.
      */
-    function commitBlock(
-        uint256 _blockNumber,
-        bytes[] calldata _transitions
+    function prepareBatch(
+        bytes[] calldata _transitions,
+        bytes[] calldata _intents
     ) external returns (bytes32) {
         require(
             msg.sender == committerAddress,
             "Only the committer may submit blocks"
         );
-        require(_blockNumber == blocks.length, "Wrong block number");
 
+        // TODO: root = hash(hash(transition) + hash(intents)).
+        uint256 blockNumber = blocks.length;
         bytes32 root = merkleUtils.getMerkleRoot(_transitions);
         dt.Block memory rollupBlock = dt.Block(root);
         blocks.push(rollupBlock);
-        // NOTE: Toggle the event if you'd like easier historical block queries
-        emit RollupBlockCommitted(_blockNumber, _transitions);
+        emit RollupBlockPrepared(blockNumber, _transitions, _intents);
 
         return root;
+    }
+
+    function executeBatch() external {
     }
 
     /**********************
@@ -451,8 +455,7 @@ contract RollupChain {
             _accountInfo.account ==
             0x0000000000000000000000000000000000000000 &&
             _accountInfo.balances.length == 0 &&
-            _accountInfo.transferNonces.length == 0 &&
-            _accountInfo.withdrawNonces.length == 0
+            _accountInfo.nonces.length == 0
         ) {
             return abi.encodePacked(uint256(0));
         }
@@ -462,8 +465,7 @@ contract RollupChain {
             abi.encode(
                 _accountInfo.account,
                 _accountInfo.balances,
-                _accountInfo.transferNonces,
-                _accountInfo.withdrawNonces
+                _accountInfo.nonces
             );
     }
 }

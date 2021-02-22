@@ -1,4 +1,5 @@
-pragma solidity ^0.6.6;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.6.0 <0.8.0;
 
 import "openzeppelin-solidity/contracts/access/Ownable.sol";
 import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
