@@ -12,6 +12,8 @@ interface IStrategy {
 
     event UnCommitted(uint256 nativeTokenAmount, uint256 burnedStTokenAmount);
 
+    event PriceUpdated(uint256 oldPrice, uint256 newPrice);
+
     /**
      * Commit native tokens from the controller to the strategy, minting stToken.
      *
@@ -27,9 +29,16 @@ interface IStrategy {
     function aggregatedUncommit(uint256 stTokenAmount) external;
 
     /**
-     * Harvest the yield of the strategy and reflect it in the price of the stToken.
+     * Apply the queued stToken price update.
+     *
+     * @param price The new price of the stToken.
      */
-    function updatePricePerShare() external;
+    function updatePricePerShare(uint256 price) external;
+
+    /**
+     * Harvest the yield of the strategy, reflect it in the price of the stToken and queue the price update.
+     */
+    function enqueuePricePerShareUpdate() external;
 
     /**
      * Return the price of each share of stToken.
