@@ -1,49 +1,27 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.6.0 <0.8.0;
-pragma experimental ABIEncoderV2;
 
 /**
- * Strategy provides abstraction for a DeFi strategy. A single type of native token can be committed to or uncommitted
- * from a strategy. Periodically, the yield
+ * Strategy provides abstraction for a DeFi strategy. A single type of asset token can be committed to or uncommitted
+ * from a strategy per instructions from L2. Periodically, the yield is reflected in the asset balance and synced back
+ * to L2.
  */
 interface IStrategy {
-    event Committed(uint256 nativeTokenAmount, uint256 mintedStTokenAmount);
+    event Committed(uint256 commitAmount);
 
-    event UnCommitted(uint256 nativeTokenAmount, uint256 burnedStTokenAmount);
-
-    event PriceUpdated(uint256 oldPrice, uint256 newPrice);
+    event UnCommitted(uint256 uncommitAmount);
 
     /**
-     * Commit native tokens from the controller to the strategy, minting stToken.
+     * Update and return the new asset balance.
+     */
+    function syncBalance() external returns (uint256);
+
+    /**
+     * Commit to / uncommit from strategies per instructions from L2.
      *
-     * @param nativeTokenAmount The amount of native token to commit.
+     * @param commitAmount The aggregated amount to commit.
+     * @param uncommitAmount The aggregated amount to uncommit.
      */
-    function aggregatedCommit(uint256 nativeTokenAmount) external;
-
-    /**
-     * Withdraw funds from the strategy back to the controller, burning stToken.
-     *
-     * @param stTokenAmount The amount of native token to commit.
-     */
-    function aggregatedUncommit(uint256 stTokenAmount) external;
-
-    /**
-     * Apply the queued stToken price update.
-     *
-     * @param price The new price of the stToken.
-     */
-    function updatePricePerShare(uint256 price) external;
-
-    /**
-     * Harvest the yield of the strategy, reflect it in the price of the stToken and queue the price update.
-     */
-    function enqueuePricePerShareUpdate() external;
-
-    /**
-     * Return the price of each share of stToken.
-     *
-     * @return (nativeTokenBalance / stTokenTotalSupply) * (1e18)
-     */
-    function getPricePerShare() external view returns (uint256);
+    function syncCommitment(uint256 commitAmount, uint256 uncommitAmount) external;
 }
