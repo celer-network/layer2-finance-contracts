@@ -7,8 +7,7 @@ import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 
 /* Internal Imports */
 import {DataTypes} from "./DataTypes.sol";
-import {AccountRegistry} from "./AccountRegistry.sol";
-import {TokenRegistry} from "./TokenRegistry.sol";
+import {Registry} from "./Registry.sol";
 
 
 contract TransitionEvaluator {
@@ -22,14 +21,12 @@ contract TransitionEvaluator {
     uint8 constant TRANSITION_TYPE_CREATE_AND_TRANSFER = 3;
     uint8 constant TRANSITION_TYPE_TRANSFER = 4;
 
-    AccountRegistry accountRegistry;
-    TokenRegistry tokenRegistry;
+    Registry registry;
 
-    constructor(address _accountRegistryAddress, address _tokenRegistryAddress)
+    constructor(address _registryAddress)
         public
     {
-        accountRegistry = AccountRegistry(_accountRegistryAddress);
-        tokenRegistry = TokenRegistry(_tokenRegistryAddress);
+        registry = Registry(_registryAddress);
     }
 
     function evaluateTransition(
@@ -39,10 +36,10 @@ contract TransitionEvaluator {
         // Convert our inputs to memory
         bytes memory transition = _transition;
 
-
-            DataTypes.StorageSlot[] memory storageSlots
+        DataTypes.StorageSlot[] memory storageSlots
          = new DataTypes.StorageSlot[](_storageSlots.length);
         // Direct copy not supported by Solidity yet
+        /*
         for (uint256 i = 0; i < _storageSlots.length; i++) {
             uint256 slotIndex = _storageSlots[i].slotIndex;
             address account = _storageSlots[i].value.account;
@@ -59,6 +56,7 @@ contract TransitionEvaluator {
                 )
             );
         }
+        */
 
         // Extract the transition type
         uint8 transitionType = extractTransitionType(transition);
@@ -124,18 +122,19 @@ contract TransitionEvaluator {
              = decodeDepositTransition(rawTransition);
             stateRoot = transition.stateRoot;
             storageSlots = new uint256[](1);
-            storageSlots[0] = transition.accountSlotIndex;
+            storageSlots[0] = transition.accountId;
         } else if (transitionType == TRANSITION_TYPE_WITHDRAW) {
 
                 DataTypes.WithdrawTransition memory transition
              = decodeWithdrawTransition(rawTransition);
             stateRoot = transition.stateRoot;
             storageSlots = new uint256[](1);
-            storageSlots[0] = transition.accountSlotIndex;
+            storageSlots[0] = transition.accountId;
         }
         return (stateRoot, storageSlots);
     }
 
+    /*
     function getWithdrawTxHash(DataTypes.WithdrawTx memory _withdrawTx)
         internal
         pure
@@ -145,7 +144,7 @@ contract TransitionEvaluator {
             keccak256(
                 abi.encodePacked(
                     accountRegistry.accountAddresses(_withdrawTx.accountIndex),
-                    tokenRegistry.tokenIndexToTokenAddress(_withdrawTx.tokenIndex),
+                    tokenRegistry.assetIndexToAddress(_withdrawTx.assetId),
                     _withdrawTx.amount,
                     _withdrawTx.nonce
                 )
@@ -169,6 +168,7 @@ contract TransitionEvaluator {
             "Nonce array must be empty"
         );
     }
+    */
 
     /**
      * Apply a DepositTransition.
@@ -179,21 +179,16 @@ contract TransitionEvaluator {
     ) public view returns (DataTypes.AccountInfo memory) {
         address account = _storageSlot.value.account;
 
-        DataTypes.DepositTx memory depositTx = DataTypes.DepositTx(
-            accountRegistry.registeredAccounts(account),
-            _transition.tokenIndex,
-            _transition.amount,
-            _transition.nonce
-        );
-
         // TODO (dominator008): Verify signature of depositer
 
         DataTypes.AccountInfo memory outputStorage;
-        uint256 tokenIndex = _transition.tokenIndex;
-        uint256 oldBalance = _storageSlot.value.balances[tokenIndex];
-        _storageSlot.value.balances[tokenIndex] = oldBalance.add(
-            depositTx.amount
+        uint32 assetId = _transition.assetId;
+        /*
+        uint256 oldBalance = _storageSlot.value.balances[assetId];
+        _storageSlot.value.balances[assetId] = oldBalance.add(
+            _transition.amount
         );
+        */
         outputStorage = _storageSlot.value;
         return outputStorage;
     }
@@ -207,9 +202,10 @@ contract TransitionEvaluator {
     ) public view returns (DataTypes.AccountInfo memory) {
         address account = _storageSlot.value.account;
 
+        /*
         DataTypes.WithdrawTx memory withdrawTx = DataTypes.WithdrawTx(
             accountRegistry.registeredAccounts(account),
-            _transition.tokenIndex,
+            _transition.assetId,
             _transition.amount,
             _transition.nonce
         );
@@ -220,16 +216,20 @@ contract TransitionEvaluator {
             ECDSA.recover(prefixedHash, _transition.signature) == account,
             "Withdraw signature is invalid!"
         );
+        */
+
         DataTypes.AccountInfo memory outputStorage;
-        uint256 tokenIndex = _transition.tokenIndex;
-        uint256 oldBalance = _storageSlot.value.balances[tokenIndex];
-        _storageSlot.value.balances[tokenIndex] = oldBalance.sub(
-            withdrawTx.amount
+        uint32 assetId = _transition.assetId;
+        /*
+        uint256 oldBalance = _storageSlot.value.balances[assetId];
+        _storageSlot.value.balances[assetId] = oldBalance.sub(
+            _transition.amount
         );
         uint256 oldWithdrawNonce = _storageSlot
             .value
-            .nonces[tokenIndex];
-        _storageSlot.value.nonces[tokenIndex] = oldWithdrawNonce.add(1);
+            .nonces[assetId];
+        _storageSlot.value.nonces[assetId] = oldWithdrawNonce.add(1);
+        */
         outputStorage = _storageSlot.value;
         return outputStorage;
     }
@@ -248,8 +248,10 @@ contract TransitionEvaluator {
             keccak256(
                 abi.encode(
                     _accountInfo.account,
-                    _accountInfo.balances,
-                    _accountInfo.nonces
+                    _accountInfo.accountId,
+                    _accountInfo.idleAssets,
+                    _accountInfo.stTokens,
+                    _accountInfo.timestamp
                 )
             );
     }
@@ -266,23 +268,25 @@ contract TransitionEvaluator {
         (
             uint8 transitionType,
             bytes32 stateRoot,
-            uint256 accountSlotIndex,
-            uint32 tokenIndex,
+            address account,
+            uint32 accountId,
+            uint32 assetId,
             uint256 amount,
-            uint256 nonce,
+            uint64 timestamp,
             bytes memory signature
         ) = abi.decode(
             (_rawBytes),
-            (uint8, bytes32, uint256, uint32, uint256, uint256, bytes)
+            (uint8, bytes32, address, uint32, uint32, uint256, uint64, bytes)
         );
         DataTypes.DepositTransition memory transition = DataTypes
             .DepositTransition(
             transitionType,
             stateRoot,
-            accountSlotIndex,
-            tokenIndex,
+            account,
+            accountId,
+            assetId,
             amount,
-            nonce,
+            timestamp,
             signature
         );
         return transition;
@@ -296,23 +300,25 @@ contract TransitionEvaluator {
         (
             uint8 transitionType,
             bytes32 stateRoot,
-            uint256 accountSlotIndex,
-            uint32 tokenIndex,
+            uint32 accountId,
+            address targetAccount,
+            uint32 assetId,
             uint256 amount,
-            uint256 nonce,
+            uint64 timestamp,
             bytes memory signature
         ) = abi.decode(
             (_rawBytes),
-            (uint8, bytes32, uint256, uint32, uint256, uint256, bytes)
+            (uint8, bytes32, uint32, address, uint32, uint256, uint64, bytes)
         );
         DataTypes.WithdrawTransition memory transition = DataTypes
             .WithdrawTransition(
             transitionType,
             stateRoot,
-            accountSlotIndex,
-            tokenIndex,
+            accountId,
+            targetAccount,
+            assetId,
             amount,
-            nonce,
+            timestamp,
             signature
         );
         return transition;
@@ -326,11 +332,12 @@ contract TransitionEvaluator {
         bytes memory _rawTransition
     ) public view returns (bool) {
 
+        /*
             DataTypes.WithdrawTransition memory transition
          = decodeWithdrawTransition(_rawTransition);
         DataTypes.WithdrawTx memory withdrawTx = DataTypes.WithdrawTx(
             accountRegistry.registeredAccounts(_account),
-            transition.tokenIndex,
+            transition.assetId,
             transition.amount,
             transition.nonce
         );
@@ -341,6 +348,7 @@ contract TransitionEvaluator {
             ECDSA.recover(prefixedHash, transition.signature) == _account,
             "Withdraw signature is invalid!"
         );
+        */
         return true;
     }
 }

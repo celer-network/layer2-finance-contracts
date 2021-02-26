@@ -8,7 +8,6 @@ import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import {DataTypes as dt} from "./DataTypes.sol";
 import {MerkleUtils} from "./MerkleUtils.sol";
 import {TransitionEvaluator} from "./TransitionEvaluator.sol";
-import {TokenRegistry} from "./TokenRegistry.sol";
 
 
 contract RollupChain {
@@ -19,15 +18,62 @@ contract RollupChain {
     TransitionEvaluator transitionEvaluator;
     // The Merkle Tree library (currently a contract for ease of testing)
     MerkleUtils merkleUtils;
-    // The token registry
-    TokenRegistry tokenRegistry;
 
     // All the blocks (prepared and/or executed).
     dt.Block[] public blocks;
     uint256 countExecuted = 0;
 
-    // Each block above has an associated block of intents.
-    dt.Intent[][] public intentBlocks;
+    // Track pending deposits roundtrip status across L1->L2->L1.
+    // Each deposit record ID is a count++ (i.e. it's a queue).
+    // - L1 deposit() creates it in "pending" status
+    // - commitBlock() moves it to "done" status
+    // - fraudulent block moves it back to "pending" status
+    // - executeBlock() deletes it
+    enum PendingDepositStatus { Pending, Done }
+    struct PendingDeposit {
+        address account;
+        uint32 assetId;
+        uint256 amount;
+        uint256 blockId; // block containing the deposit L2 transition
+        PendingDepositStatus status;
+    }
+    mapping(uint256 => PendingDeposit) public pendingDeposits;
+    uint256 pendingDepositsExecuteHead; // moves up inside blockExecute() -- lowest
+    uint256 pendingDepositsCommitHead;  // moves up inside blockCommit() -- intermediate
+    uint256 pendingDepositsTail;        // moves up inside L1 deposit() -- highest
+
+    // Track pending withdraws arriving from L2 then done on L1, per target address.
+    // - commitBlock() creates it in "pending" status
+    // - executeBlock() moves it to "ready" status
+    // - fraudulent block moves it back to "pending" status
+    // - L1 withdraw(), after deadline passes, gives the funds and deletes it
+    enum PendingWithdrawStatus { Pending, Ready }
+    struct PendingWithdraw {
+        uint32 assetIndex;
+        uint256 amount;
+        uint256 blockId;  // block containing the withdraw L2 transition
+        uint256 deadline; // cannot L1-withdraw before this deadline
+        PendingWithdrawStatus status;
+    }
+    mapping(address => PendingWithdraw[]) public pendingWithdraws;
+
+    // Track pending L1-to-L2 balance sync roundrip across L1->L2->L1.
+    // Each balance sync record ID is a count++ (i.e. it's a queue).
+    // - L1-to-L2 Balance Sync creates in "pending" status
+    // - commitBlock() moves it to "done" status
+    // - fraudulent block moves it back to "pending" status
+    // - executeBlock() deletes it
+    enum PendingBalanceSyncStatus { Pending, Done }
+    struct PendingBalanceSync {
+        uint32 strategyId;
+        uint256 balance;
+        uint256 blockId; // block containing the balance sync L2 transition
+        PendingBalanceSyncStatus status;
+    }
+    mapping(uint256 => PendingBalanceSync) public pendingBalanceSyncs;
+    uint256 pendingBalanceSyncsExecuteHead; // moves up inside blockExecute() -- lowest
+    uint256 pendingBalanceSyncsCommitHead;  // moves up inside blockCommit() -- intermediate
+    uint256 pendingBalanceSyncsTail;        // moves up inside L1 Balance Sync -- highest
 
     bytes32 public constant ZERO_BYTES32 = 0x0000000000000000000000000000000000000000000000000000000000000000;
     // State tree height
@@ -39,9 +85,8 @@ contract RollupChain {
     address public validatorAddress;
 
     /* Events */
-    event RollupBlockPrepared(uint256 blockNumber, bytes[] transitions, bytes[] intents);
-    event RollupBlockExecuted(uint256 blockNumber);
-    event HarvestDone();
+    event RollupBlockCommitted(uint256 blockNumber, bytes[] transitions);
+    event L1ToL2BalanceSync(uint32 strategyId, uint256 assetBalance);
 
     /***************
      * Constructor *
@@ -49,13 +94,11 @@ contract RollupChain {
     constructor(
         address _transitionEvaluatorAddress,
         address _merkleUtilsAddress,
-        address _tokenRegistryAddress,
         address _validatorAddress,
         address _committerAddress
     ) public {
         transitionEvaluator = TransitionEvaluator(_transitionEvaluatorAddress);
         merkleUtils = MerkleUtils(_merkleUtilsAddress);
-        tokenRegistry = TokenRegistry(_tokenRegistryAddress);
         validatorAddress = _validatorAddress;
         committerAddress = _committerAddress;
     }
@@ -89,27 +132,38 @@ contract RollupChain {
     /**
      * Submit a prepared batch as a new rollup block.
      */
-    function prepareBatch(
-        bytes[] calldata _transitions,
-        bytes[] calldata _intents
+    function commitBlock(
+        bytes[] calldata _transitions
     ) external returns (bytes32) {
         require(
             msg.sender == committerAddress,
             "Only the committer may submit blocks"
         );
 
-        // TODO: root = hash(hash(transition) + hash(intents)).
         uint256 blockNumber = blocks.length;
         bytes32 root = merkleUtils.getMerkleRoot(_transitions);
-        dt.Block memory rollupBlock = dt.Block(root);
+
+        // TODO: compute intentHash and block deadline.
+        dt.Block memory rollupBlock = dt.Block({
+            rootHash: root,
+            intentHash: bytes32(0),
+            deadline: 0
+        });
         blocks.push(rollupBlock);
-        emit RollupBlockPrepared(blockNumber, _transitions, _intents);
+
+        emit RollupBlockCommitted(blockNumber, _transitions);
 
         return root;
     }
 
-    function executeBatch() external {
+    function executeBlock(
+        bytes[] calldata _intents
+    ) external {
+        // TODO: verify intents and call strategy APIs.
     }
+
+    // TODO: decide who does the L1-to-L2 balance sync (an external function or
+    // an internal side-effect of executeBlock()?
 
     /**********************
      * Proving Invalidity *
@@ -452,10 +506,11 @@ contract RollupChain {
     {
         // If it's an empty storage slot, return 32 bytes of zeros (empty value)
         if (
-            _accountInfo.account ==
-            0x0000000000000000000000000000000000000000 &&
-            _accountInfo.balances.length == 0 &&
-            _accountInfo.nonces.length == 0
+            _accountInfo.account == 0x0000000000000000000000000000000000000000 &&
+            _accountInfo.accountId == 0 &&
+            _accountInfo.idleAssets.length == 0 &&
+            _accountInfo.stTokens.length == 0 &&
+            _accountInfo.timestamp == 0
         ) {
             return abi.encodePacked(uint256(0));
         }
@@ -464,8 +519,10 @@ contract RollupChain {
         return
             abi.encode(
                 _accountInfo.account,
-                _accountInfo.balances,
-                _accountInfo.nonces
+                _accountInfo.accountId,
+                _accountInfo.idleAssets,
+                _accountInfo.stTokens,
+                _accountInfo.timestamp
             );
     }
 }
