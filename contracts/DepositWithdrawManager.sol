@@ -27,7 +27,7 @@ contract DepositWithdrawManager {
 
     function deposit(
         address _asset,
-        uint256 _amount,
+        uint256 _amount
     ) public {
         require(registry.assetAddressToIndex(_asset) != 0, "Unknown asset");
 
