@@ -5,13 +5,16 @@
 # BRANCH: ${{ github.head_ref }}
 # GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-SOLC_VER="v0.8.1+commit.df193b15"
+SOLC_VER="v0.7.6+commit.7338295f" # our .sol has < 0.8.0 due to openzepplin isn't up to date
 GETH_VER="geth-alltools-linux-amd64-1.9.25-e7872729" # for abigen
 GO_REPO=https://${GH_TOKEN}@github.com/celer-network/defi-rollup
 
-# xx.sol under contracts/mainchain/, no need for .sol suffix
+# xx.sol under contracts/, no need for .sol suffix
 solFiles=(
   DataType
+  DepositWithdrawManager
+  RollupChain
+  Registry
 )
 
 dld_solc() {
@@ -22,7 +25,7 @@ dld_solc() {
 run_solc() {
   mkdir -p genfiles
   for f in ${solFiles[@]}; do
-    solc --optimize --abi --bin -o genfiles contracts/mainchain/$f.sol
+    solc --optimize --abi --bin -o genfiles contracts/$f.sol
   done
 }
 
@@ -37,9 +40,11 @@ run_abigen() {
   pushd defi-rollup
   git fetch
   git checkout $BRANCH || git checkout -b $BRANCH
+
   for f in ${solFiles[@]}; do
     abigen_one $f
   done
+
   if [[ `git status --porcelain` ]]; then
     echo "Sync-ing go binding"
     git add .
