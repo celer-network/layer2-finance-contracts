@@ -75,18 +75,20 @@ contract RollupChain {
     uint256 pendingBalanceSyncsCommitHead;  // moves up inside blockCommit() -- intermediate
     uint256 pendingBalanceSyncsTail;        // moves up inside L1 Balance Sync -- highest
 
-    bytes32 public constant ZERO_BYTES32 = 0x0000000000000000000000000000000000000000000000000000000000000000;
     // State tree height
     uint256 constant STATE_TREE_HEIGHT = 32;
     // TODO: Set a reasonable wait period
     uint256 constant WITHDRAW_WAIT_PERIOD = 0;
 
+    // TODO: make this a variable modifiable by admin
+    uint256 constant BLOCK_CHALLENGE_PERIOD = 1000;  // in blocks, over 3 hours
+
     address public committerAddress;
     address public validatorAddress;
 
     /* Events */
-    event RollupBlockCommitted(uint256 blockNumber, bytes[] transitions);
-    event L1ToL2BalanceSync(uint32 strategyId, uint256 assetBalance);
+    event RollupBlockCommitted(uint256 blockNumber);
+    event BalanceSync(uint32 strategyId, uint256 assetBalance, uint256 syncId);
 
     /***************
      * Constructor *
@@ -143,15 +145,15 @@ contract RollupChain {
         uint256 blockNumber = blocks.length;
         bytes32 root = merkleUtils.getMerkleRoot(_transitions);
 
-        // TODO: compute intentHash and block deadline.
+        // TODO: compute intentHash.
         dt.Block memory rollupBlock = dt.Block({
             rootHash: root,
             intentHash: bytes32(0),
-            deadline: 0
+            blockTime: block.number
         });
         blocks.push(rollupBlock);
 
-        emit RollupBlockCommitted(blockNumber, _transitions);
+        emit RollupBlockCommitted(blockNumber);
 
         return root;
     }

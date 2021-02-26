@@ -13,7 +13,6 @@ import {Registry} from "./Registry.sol";
 contract TransitionEvaluator {
     using SafeMath for uint256;
 
-    bytes32 constant ZERO_BYTES32 = 0x0000000000000000000000000000000000000000000000000000000000000000;
     // Transition Types
     uint8 constant TRANSITION_TYPE_CREATE_AND_DEPOSIT = 0;
     uint8 constant TRANSITION_TYPE_DEPOSIT = 1;
@@ -271,12 +270,10 @@ contract TransitionEvaluator {
             address account,
             uint32 accountId,
             uint32 assetId,
-            uint256 amount,
-            uint64 timestamp,
-            bytes memory signature
+            uint256 amount
         ) = abi.decode(
             (_rawBytes),
-            (uint8, bytes32, address, uint32, uint32, uint256, uint64, bytes)
+            (uint8, bytes32, address, uint32, uint32, uint256)
         );
         DataTypes.DepositTransition memory transition = DataTypes
             .DepositTransition(
@@ -285,9 +282,7 @@ contract TransitionEvaluator {
             account,
             accountId,
             assetId,
-            amount,
-            timestamp,
-            signature
+            amount
         );
         return transition;
     }

@@ -26,38 +26,22 @@ contract DepositWithdrawManager {
     }
 
     function deposit(
-        address _account,
         address _asset,
         uint256 _amount,
-        uint64 _timestamp,
-        bytes memory _signature
     ) public {
         require(registry.assetAddressToIndex(_asset) != 0, "Unknown asset");
 
-        bytes32 depositHash = keccak256(
-            abi.encodePacked(
-                address(this),
-                "deposit",
-                _account,
-                _asset,
-                _amount,
-                _timestamp
-            )
-        );
-        bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(depositHash);
+        address account = msg.sender;
+
         require(
-            ECDSA.recover(prefixedHash, _signature) == _account,
-            "Deposit signature is invalid!"
-        );
-        require(
-            IERC20(_asset).transferFrom(_account, address(this), _amount),
+            IERC20(_asset).transferFrom(account, address(this), _amount),
             "Deposit failed"
         );
 
         // TODO: update pending deposits and send the depositId.
         uint256 depositId = 0;
 
-        emit AssetDeposited(_account, _asset, _amount, depositId);
+        emit AssetDeposited(account, _asset, _amount, depositId);
     }
 
     function withdraw(

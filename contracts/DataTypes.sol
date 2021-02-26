@@ -6,7 +6,7 @@ contract DataTypes {
     struct Block {
         bytes32 rootHash;
         bytes32 intentHash; // hash of L2-to-L1 commitment sync transitions
-        uint256 deadline;   // cannot executeBlock() before this onchain block number
+        uint256 blockTime;  // blockNum when this rollup block is committed
     }
 
     // array of Intents are hashed into "intentHash" and re-sent in executeBlock()
@@ -20,11 +20,9 @@ contract DataTypes {
         uint8 transitionType;
         bytes32 stateRoot;
         address account;  // must provide L1 address for "pending deposit" handling
-        uint32 accountId; // needed for transition evaluation (L1 doesn't have mapping)
+        uint32 accountId; // needed for transition evaluation in case of dispute
         uint32 assetId;
         uint256 amount;
-        uint64 timestamp;
-        bytes signature;
     }
 
     struct WithdrawTransition {
@@ -58,14 +56,14 @@ contract DataTypes {
         bytes signature;
     }
 
-    struct L1ToL2BalanceSyncTransition {
+    struct BalanceSyncTransition {
         uint8 transitionType;
         bytes32 stateRoot;
         uint32 strategyId;
         uint256 newAssetBalance;
     }
 
-    struct L2ToL1CommitmentSyncTransition {
+    struct CommitmentSyncTransition {
         uint8 transitionType;
         bytes32 stateRoot;
         uint32 strategyId;
