@@ -81,10 +81,9 @@ contract RollupChain {
     uint256 constant WITHDRAW_WAIT_PERIOD = 0;
 
     // TODO: make this a variable modifiable by admin
-    uint256 constant BLOCK_CHALLENGE_PERIOD = 1000;  // in blocks, over 3 hours
+    uint256 public blockChallengePeriod;
 
     address public committerAddress;
-    address public validatorAddress;
 
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
@@ -94,23 +93,15 @@ contract RollupChain {
      * Constructor *
      **************/
     constructor(
+        uint256 _blockChallengePeriod,
         address _transitionEvaluatorAddress,
         address _merkleUtilsAddress,
-        address _validatorAddress,
         address _committerAddress
     ) public {
+        blockChallengePeriod = _blockChallengePeriod;
         transitionEvaluator = TransitionEvaluator(_transitionEvaluatorAddress);
         merkleUtils = MerkleUtils(_merkleUtilsAddress);
-        validatorAddress = _validatorAddress;
         committerAddress = _committerAddress;
-    }
-
-    modifier onlyValidator() {
-        require(
-            msg.sender == validatorAddress,
-            "Only validator may perform action"
-        );
-        _;
     }
 
     /* Methods */
@@ -126,7 +117,6 @@ contract RollupChain {
 
     function setCommitterAddress(address _committerAddress)
         external
-        onlyValidator
     {
         committerAddress = _committerAddress;
     }
