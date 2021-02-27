@@ -20,5 +20,6 @@ jobs:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
         source script.sh
+        setup_git
         dld_solc && run_solc
         dld_abigen && run_abigen

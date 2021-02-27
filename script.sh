@@ -5,13 +5,14 @@
 # BRANCH: ${{ github.head_ref }}
 # GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-SOLC_VER="v0.7.6+commit.7338295f" # our .sol has < 0.8.0 due to openzepplin isn't up to date
+SOLC_VER="v0.7.6+commit.7338295f" # our .sol has < 0.8.0 due to OPENZEPPELIN isn't up to date
+OPENZEPPELIN="openzeppelin-contracts-3.4.0" # if change, also need to change the url in dld_solc
 GETH_VER="geth-alltools-linux-amd64-1.9.25-e7872729" # for abigen
 GO_REPO=https://${GH_TOKEN}@github.com/celer-network/defi-rollup
 
 # xx.sol under contracts/, no need for .sol suffix
 solFiles=(
-  DataType
+  DataTypes
   DepositWithdrawManager
   RollupChain
   Registry
@@ -20,17 +21,19 @@ solFiles=(
 dld_solc() {
   curl -L "https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-${SOLC_VER}" -o solc && chmod +x solc
   sudo mv solc /usr/local/bin/
+  # below will create $OPENZEPPELIN/contracts folder
+  curl -L "https://github.com/OpenZeppelin/openzeppelin-contracts/archive/v3.4.0.tar.gz" | tar -xz -C contracts $OPENZEPPELIN/contracts/
 }
 
 run_solc() {
   mkdir -p genfiles
   for f in ${solFiles[@]}; do
-    solc --optimize --abi --bin -o genfiles contracts/$f.sol
+    solc --overwrite --optimize --abi --bin -o genfiles openzeppelin-solidity/=contracts/$OPENZEPPELIN/ contracts/$f.sol
   done
 }
 
 dld_abigen() {
-  curl -sL https://gethstore.blob.core.windows.net/builds/$GETH_VER.tar.gz | sudo tar -xz -C /usr/local/bin --strip 1 $GETH_TOOL_VER/abigen
+  curl -sL https://gethstore.blob.core.windows.net/builds/$GETH_VER.tar.gz | sudo tar -xz -C /usr/local/bin --strip 1 $GETH_VER/abigen
   sudo chmod +x /usr/local/bin/abigen
 }
 
@@ -48,7 +51,7 @@ run_abigen() {
   if [[ `git status --porcelain` ]]; then
     echo "Sync-ing go binding"
     git add .
-    git commit -m "Sync go binding based on rollup contract PR $PRID" -m "cChannel-eth-dev commit: $PR_COMMIT_ID"
+    git commit -m "Sync go binding based on rollup contract PR $PRID" -m "defi-rollup-contract commit: $PR_COMMIT_ID"
     git push origin $BRANCH
   fi
   popd
