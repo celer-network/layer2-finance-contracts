@@ -22,13 +22,13 @@ dld_solc() {
   curl -L "https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-${SOLC_VER}" -o solc && chmod +x solc
   sudo mv solc /usr/local/bin/
   # below will create $OPENZEPPELIN/contracts folder
-  curl -L "https://github.com/OpenZeppelin/openzeppelin-contracts/archive/v3.4.0.tar.gz" | tar -xz $OPENZEPPELIN/contracts/
+  curl -L "https://github.com/OpenZeppelin/openzeppelin-contracts/archive/v3.4.0.tar.gz" | tar -xz -C contracts $OPENZEPPELIN/contracts/
 }
 
 run_solc() {
   mkdir -p genfiles
   for f in ${solFiles[@]}; do
-    solc --optimize --abi --bin -o genfiles openzeppelin-solidity/=./$OPENZEPPELIN/ contracts/$f.sol
+    solc --optimize --abi --bin -o genfiles openzeppelin-solidity/=contracts/$OPENZEPPELIN/ contracts/$f.sol
   done
 }
 
