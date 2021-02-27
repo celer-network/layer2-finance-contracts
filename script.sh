@@ -51,7 +51,7 @@ run_abigen() {
   if [[ `git status --porcelain` ]]; then
     echo "Sync-ing go binding"
     git add .
-    git commit -m "Sync go binding based on rollup contract PR $PRID" -m "cChannel-eth-dev commit: $PR_COMMIT_ID"
+    git commit -m "Sync go binding based on rollup contract PR $PRID" -m "defi-rollup-contract commit: $PR_COMMIT_ID"
     git push origin $BRANCH
   fi
   popd
