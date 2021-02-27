@@ -22,7 +22,7 @@ dld_solc() {
   curl -L "https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-${SOLC_VER}" -o solc && chmod +x solc
   sudo mv solc /usr/local/bin/
   # below will create $OPENZEPPELIN/contracts folder
-  curl -L "https://github.com/OpenZeppelin/openzeppelin-contracts/archive/v3.4.0.tar.gz" | tar -xz $OPENZEPPELIN/contracts/*
+  curl -L "https://github.com/OpenZeppelin/openzeppelin-contracts/archive/v3.4.0.tar.gz" | tar -xz $OPENZEPPELIN/contracts/
 }
 
 run_solc() {
@@ -33,7 +33,7 @@ run_solc() {
 }
 
 dld_abigen() {
-  curl -sL https://gethstore.blob.core.windows.net/builds/$GETH_VER.tar.gz | sudo tar -xz -C /usr/local/bin --strip 1 $GETH_TOOL_VER/abigen
+  curl -sL https://gethstore.blob.core.windows.net/builds/$GETH_VER.tar.gz | sudo tar -xz -C /usr/local/bin --strip 1 $GETH_VER/abigen
   sudo chmod +x /usr/local/bin/abigen
 }
 
