@@ -17,7 +17,7 @@ import "../interfaces/uniswap/IUniswapV2.sol";
 /**
  * Deposits DAI into Curve 3Pool and issues stCrv3PoolDAI in L2. Holds 3CRV (Curve 3Pool LP tokens).
  */
-contract StrategyCurve3PoolDAI {
+contract StrategyCurve3PoolDAI is IStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -36,9 +36,6 @@ contract StrategyCurve3PoolDAI {
     address public uniswap;
 
     address public controller;
-
-    event Committed(uint256 commitAmount);
-    event UnCommitted(uint256 uncommitAmount);
 
     constructor(
         address _controller,
@@ -64,7 +61,7 @@ contract StrategyCurve3PoolDAI {
         slippage = _slippage;
     }
 
-    function syncCommitment(uint256 commitAmount, uint256 uncommitAmount) external {
+    function syncCommitment(uint256 commitAmount, uint256 uncommitAmount) external override {
         require(msg.sender == controller, "Not controller");
 
         if (commitAmount > 0) {
@@ -75,7 +72,7 @@ contract StrategyCurve3PoolDAI {
         }
     }
 
-    function syncBalance() external returns (uint256) {
+    function syncBalance() external override returns (uint256) {
         require(msg.sender == controller, "Not controller");
 
         // Harvest CRV
