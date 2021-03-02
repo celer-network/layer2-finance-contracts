@@ -27,7 +27,7 @@ dld_solc() {
 run_solc() {
   mkdir -p genfiles
   for f in ${solFiles[@]}; do
-    solc --overwrite --optimize --abi --bin -o genfiles openzeppelin-solidity/=contracts/$OPENZEPPELIN/ contracts/$f.sol
+    solc --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/$OPENZEPPELIN/ contracts/$f.sol
   done
 }
 
