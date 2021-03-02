@@ -303,22 +303,22 @@ contract TransitionEvaluator {
         (
             uint8 transitionType,
             bytes32 stateRoot,
+            address account,
             uint32 accountId,
-            address targetAccount,
             uint32 assetId,
             uint256 amount,
             uint64 timestamp,
             bytes memory signature
         ) = abi.decode(
             (_rawBytes),
-            (uint8, bytes32, uint32, address, uint32, uint256, uint64, bytes)
+            (uint8, bytes32, address, uint32, uint32, uint256, uint64, bytes)
         );
         DataTypes.WithdrawTransition memory transition = DataTypes
             .WithdrawTransition(
             transitionType,
             stateRoot,
+            account,
             accountId,
-            targetAccount,
             assetId,
             amount,
             timestamp,

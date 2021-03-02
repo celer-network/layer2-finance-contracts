@@ -38,7 +38,8 @@ contract RollupChain {
         address account;
         uint32 assetId;
         uint256 amount;
-        uint256 blockId; // block containing the deposit L2 transition
+        uint256 blockId; // rollup block containing the L2 transition (rollback on fraud)
+        uint256 deadlineBlockId; // rollup block deadline for the L2 transition (anti-censorship)
         PendingDepositStatus status;
     }
     mapping(uint256 => PendingDeposit) public pendingDeposits;
@@ -55,8 +56,8 @@ contract RollupChain {
     struct PendingWithdraw {
         uint32 assetIndex;
         uint256 amount;
-        uint256 blockId;  // block containing the withdraw L2 transition
-        uint256 deadline; // cannot L1-withdraw before this deadline
+        uint256 blockId;  // rollup block containing the L2 transition (rollback on fraud)
+        uint256 deadline; // cannot L1-withdraw before this deadline (onchain block number)
         PendingWithdrawStatus status;
     }
     mapping(address => PendingWithdraw[]) public pendingWithdraws;
@@ -71,7 +72,8 @@ contract RollupChain {
     struct PendingBalanceSync {
         uint32 strategyId;
         uint256 balance;
-        uint256 blockId; // block containing the balance sync L2 transition
+        uint256 blockId; // rollup block containing the L2 transition (rollback on fraud)
+        uint256 deadlineBlockId; // rollup block deadline for the L2 transition (anti-censorship)
         PendingBalanceSyncStatus status;
     }
     mapping(uint256 => PendingBalanceSync) public pendingBalanceSyncs;
@@ -84,8 +86,9 @@ contract RollupChain {
     // TODO: Set a reasonable wait period
     uint256 constant WITHDRAW_WAIT_PERIOD = 0;
 
-    // TODO: make this a variable modifiable by admin
-    uint256 public blockChallengePeriod;
+    // TODO: make these modifiable by admin
+    uint256 public blockChallengePeriod; // count of onchain block numbers to challenge a rollup block
+    uint256 public blockIdCensorshipPeriod; // count of rollup blocks before L2 transition arrives
 
     address public committerAddress;
 
@@ -100,12 +103,14 @@ contract RollupChain {
      **************/
     constructor(
         uint256 _blockChallengePeriod,
+        uint256 _blockIdCensorshipPeriod,
         address _transitionEvaluatorAddress,
         address _merkleUtilsAddress,
         address _registryAddress,
         address _committerAddress
     ) public {
         blockChallengePeriod = _blockChallengePeriod;
+        blockIdCensorshipPeriod = _blockIdCensorshipPeriod;
         transitionEvaluator = TransitionEvaluator(_transitionEvaluatorAddress);
         merkleUtils = MerkleUtils(_merkleUtilsAddress);
         registry = Registry(_registryAddress);
@@ -145,7 +150,15 @@ contract RollupChain {
         );
 
         // Add a pending deposit record.
-        uint256 depositId = addPendingDeposit(account, assetId, _amount);
+        uint256 depositId = pendingDepositsTail++;
+        pendingDeposits[depositId] = PendingDeposit({
+            account: account,
+            assetId: assetId,
+            amount: _amount,
+            blockId: 0, // not yet known, will set at commitBlock() time
+            deadlineBlockId: blocks.length + blockIdCensorshipPeriod, // checked by watch-tower
+            status: PendingDepositStatus.Pending
+        });
 
         emit AssetDeposited(account, _asset, _amount, depositId);
     }
@@ -209,8 +222,18 @@ contract RollupChain {
         for (uint256 i = 0; i < _transitions.length; i++) {
             uint8 transitionType = transitionEvaluator.getTransitionType(_transitions[i]);
             if (transitionType == transitionEvaluator.TRANSITION_TYPE_DEPOSIT()) {
+                // Update the pending deposit record.
                 dt.DepositTransition memory dp = transitionEvaluator.decodeDepositTransition(_transitions[i]);
-                updatePendingDeposit(dp.account, dp.assetId, dp.amount, blockNumber);
+                uint256 depositId = pendingDepositsCommitHead;
+                require(depositId < pendingDepositsTail, "invalid deposit transition, no pending deposits");
+
+                PendingDeposit memory pend = pendingDeposits[depositId];
+                require(pend.account == dp.account && pend.assetId == dp.assetId && pend.amount == dp.amount,
+                    "invalid deposit transition, mismatch or wrong ordering");
+
+                pendingDeposits[depositId].status = PendingDepositStatus.Done;
+                pendingDeposits[depositId].blockId = blockNumber;
+                pendingDepositsCommitHead++;
             } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_WITHDRAW()) {
                 dt.WithdrawTransition memory wd = transitionEvaluator.decodeWithdrawTransition(_transitions[i]);
                 // TODO: handle pending withdraw
@@ -611,40 +634,5 @@ contract RollupChain {
                 _accountInfo.stTokens,
                 _accountInfo.timestamp
             );
-    }
-
-    function addPendingDeposit(
-        address _account,
-        uint32 _assetId,
-        uint256 _amount
-    ) private returns (uint256) {
-        uint256 depositId = pendingDepositsTail++;
-        pendingDeposits[depositId] = PendingDeposit({
-            account: _account,
-            assetId: _assetId,
-            amount: _amount,
-            blockId: 0, // not yet known, set at commitBlock() time by updatePendingDeposit()
-            status: PendingDepositStatus.Pending
-        });
-        return depositId;
-    }
-
-    // Note: only called by commitBlock(), uses "require"
-    function updatePendingDeposit(
-        address _account,
-        uint32 _assetId,
-        uint256 _amount,
-        uint256 _blockId
-    ) private {
-        uint256 depositId = pendingDepositsCommitHead;
-        require(depositId < pendingDepositsTail, "invalid deposit transition, no pending deposits");
-
-        PendingDeposit memory pd = pendingDeposits[depositId];
-        require(pd.account == _account && pd.assetId == _assetId && pd.amount == _amount,
-            "invalid deposit transition, mismatch or wrong ordering");
-
-        pendingDeposits[depositId].status = PendingDepositStatus.Done;
-        pendingDeposits[depositId].blockId = _blockId;
-        pendingDepositsCommitHead++;
     }
 }
