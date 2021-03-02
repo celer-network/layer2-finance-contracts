@@ -12,9 +12,10 @@ GO_REPO=https://${GH_TOKEN}@github.com/celer-network/defi-rollup
 
 # xx.sol under contracts/, no need for .sol suffix
 solFiles=(
-  DataTypes
-  RollupChain
+  MerkleUtils
   Registry
+  RollupChain
+  StrategyDummy
 )
 
 dld_solc() {
@@ -56,14 +57,15 @@ run_abigen() {
   popd
 }
 
+# all contracts go binding are under defi-rollup/contracts/ folder and has `package contracts`
+abigen_one() {
+  gofile=`echo $1|tr '[:upper:]' '[:lower:]'`
+  mkdir -p contracts
+  abigen -abi ../genfiles/$1.abi -bin ../genfiles/$1.bin -pkg contracts -type $1 -out contracts/$gofile.go
+}
+
 setup_git() {
   git config --global user.email "build@celer.network"
   git config --global user.name "Build Bot"
   git config --global push.default "current"
-}
-
-abigen_one() {
-  gopkg=`echo $1|tr '[:upper:]' '[:lower:]'`
-  mkdir -p $gopkg
-  abigen -abi ../genfiles/$1.abi -bin ../genfiles/$1.bin -pkg $gopkg -type $1 -out $gopkg/$gopkg.go
 }
