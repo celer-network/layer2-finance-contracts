@@ -137,6 +137,8 @@ contract RollupChain {
         uint32 assetId = registry.assetAddressToIndex(_asset);
 
         require(assetId != 0, "Unknown asset");
+
+        // TODO: native ETH not yet supported; need if/else on asset address.
         require(
             IERC20(_asset).transferFrom(account, address(this), _amount),
             "Deposit failed"
@@ -208,8 +210,7 @@ contract RollupChain {
             uint8 transitionType = transitionEvaluator.getTransitionType(_transitions[i]);
             if (transitionType == transitionEvaluator.TRANSITION_TYPE_DEPOSIT()) {
                 dt.DepositTransition memory dp = transitionEvaluator.decodeDepositTransition(_transitions[i]);
-                bool updated = updatePendingDeposit(dp.account, dp.assetId, dp.amount, blockNumber);
-                require(updated, "Invalid deposit transition, no matching pending deposit");
+                updatePendingDeposit(dp.account, dp.assetId, dp.amount, blockNumber);
             } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_WITHDRAW()) {
                 dt.WithdrawTransition memory wd = transitionEvaluator.decodeWithdrawTransition(_transitions[i]);
                 // TODO: handle pending withdraw
@@ -622,31 +623,28 @@ contract RollupChain {
             account: _account,
             assetId: _assetId,
             amount: _amount,
-            blockId: 0,
+            blockId: 0, // not yet known, set at commitBlock() time by updatePendingDeposit()
             status: PendingDepositStatus.Pending
         });
         return depositId;
     }
 
+    // Note: only called by commitBlock(), uses "require"
     function updatePendingDeposit(
         address _account,
         uint32 _assetId,
         uint256 _amount,
         uint256 _blockId
-    ) private returns (bool) {
+    ) private {
         uint256 depositId = pendingDepositsCommitHead;
-        if (depositId >= pendingDepositsTail) {
-            return false; // there are no pending deposits
-        }
+        require(depositId < pendingDepositsTail, "invalid deposit transition, no pending deposits");
 
         PendingDeposit memory pd = pendingDeposits[depositId];
-        if (pd.account == _account && pd.assetId == _assetId && pd.amount == _amount) {
-            pendingDeposits[depositId].status = PendingDepositStatus.Done;
-            pendingDeposits[depositId].blockId = _blockId;
-            pendingDepositsCommitHead++;
-            return true;
-        }
+        require(pd.account == _account && pd.assetId == _assetId && pd.amount == _amount,
+            "invalid deposit transition, mismatch or wrong ordering");
 
-        return false; // mismatch in pending deposit (e.g. wrong ordering)
+        pendingDeposits[depositId].status = PendingDepositStatus.Done;
+        pendingDeposits[depositId].blockId = _blockId;
+        pendingDepositsCommitHead++;
     }
 }
