@@ -8,11 +8,11 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import "../interfaces/curve/ICurveFi.sol";
-import "../interfaces/curve/IGauge.sol";
-import "../interfaces/curve/IMintr.sol";
-import "../interfaces/IStrategy.sol";
-import "../interfaces/uniswap/IUniswapV2.sol";
+import "./interfaces/curve/ICurveFi.sol";
+import "./interfaces/curve/IGauge.sol";
+import "./interfaces/curve/IMintr.sol";
+import "./interfaces/IStrategy.sol";
+import "./interfaces/uniswap/IUniswapV2.sol";
 
 /**
  * Deposits DAI into Curve 3Pool and issues stCrv3PoolDAI in L2. Holds 3CRV (Curve 3Pool LP tokens).
