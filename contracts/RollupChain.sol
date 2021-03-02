@@ -224,13 +224,12 @@ contract RollupChain {
         // Compute the intent hash.
         bytes32 intentHash = bytes32(0);
         if (numIntents > 0) {
-            bytes[] memory intents = new bytes[](numIntents);
+            bytes32[] memory intents = new bytes32[](numIntents);
             for (uint256 i = 0; i < numIntents; i++) {
-                dt.CommitmentSyncTransition memory cs = transitionEvaluator.decodeCommitmentSyncTransition(_transitions[intentIndexes[i]]);
-                intents[i] = abi.encodePacked(cs.strategyId, cs.pendingCommitAmount, cs.pendingUncommitAmount);
+                intents[i] = keccak256(_transitions[intentIndexes[i]]);
             }
 
-            intentHash = merkleUtils.getMerkleRoot(intents);
+            intentHash = keccak256(abi.encodePacked(intents));
         }
 
         dt.Block memory rollupBlock = dt.Block({
