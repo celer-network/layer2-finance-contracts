@@ -5,7 +5,6 @@ pragma experimental ABIEncoderV2;
 /* Internal Imports */
 import {DataTypes as dt} from "./DataTypes.sol";
 
-
 /*
  * Merkle Tree Utilities for Rollup
  */
@@ -41,9 +40,7 @@ contract MerkleUtils {
         // Set the initial default hash.
         defaultHashes[0] = keccak256(abi.encodePacked(uint256(0)));
         for (uint256 i = 1; i < defaultHashes.length; i++) {
-            defaultHashes[i] = keccak256(
-                abi.encodePacked(defaultHashes[i - 1], defaultHashes[i - 1])
-            );
+            defaultHashes[i] = keccak256(abi.encodePacked(defaultHashes[i - 1], defaultHashes[i - 1]));
         }
     }
 
@@ -52,11 +49,7 @@ contract MerkleUtils {
      * @param _dataBlocks The data being used to generate the tree.
      * @return the sparse merkle tree root
      */
-    function getMerkleRoot(bytes[] calldata _dataBlocks)
-        external
-        view
-        returns (bytes32)
-    {
+    function getMerkleRoot(bytes[] calldata _dataBlocks) external view returns (bytes32) {
         uint256 nextLevelLength = _dataBlocks.length;
         uint256 currentLevel = 0;
         bytes32[] memory nodes = new bytes32[](nextLevelLength + 1); // Add one in case we have an odd number of leaves
@@ -274,11 +267,7 @@ contract MerkleUtils {
      * @param _right The right child
      * @return The parent node
      */
-    function getParent(bytes32 _left, bytes32 _right)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function getParent(bytes32 _left, bytes32 _right) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(_left, _right));
     }
 
@@ -289,11 +278,7 @@ contract MerkleUtils {
      * @param _index The index of the bit we want to extract
      * @return The bit (1 or 0) in a uint8
      */
-    function getNthBitFromRight(uint256 _intVal, uint256 _index)
-        public
-        pure
-        returns (uint8)
-    {
+    function getNthBitFromRight(uint256 _intVal, uint256 _index) public pure returns (uint8) {
         return uint8((_intVal >> _index) & 1);
     }
 
@@ -302,15 +287,8 @@ contract MerkleUtils {
      * @param _parent The parent node
      * @return (rightChild, leftChild) -- the two children of the parent
      */
-    function getChildren(bytes32 _parent)
-        public
-        view
-        returns (bytes32, bytes32)
-    {
-        return (
-            tree.nodes[getLeftSiblingKey(_parent)],
-            tree.nodes[getRightSiblingKey(_parent)]
-        );
+    function getChildren(bytes32 _parent) public view returns (bytes32, bytes32) {
+        return (tree.nodes[getLeftSiblingKey(_parent)], tree.nodes[getRightSiblingKey(_parent)]);
     }
 
     /**
@@ -320,9 +298,7 @@ contract MerkleUtils {
      * @return the key for the left sibling (0 as the first bit)
      */
     function getLeftSiblingKey(bytes32 _parent) public pure returns (bytes32) {
-        return
-            _parent &
-            0x0111111111111111111111111111111111111111111111111111111111111111;
+        return _parent & 0x0111111111111111111111111111111111111111111111111111111111111111;
     }
 
     /**
@@ -332,8 +308,6 @@ contract MerkleUtils {
      * @return the key for the right sibling (1 as the first bit)
      */
     function getRightSiblingKey(bytes32 _parent) public pure returns (bytes32) {
-        return
-            _parent |
-            0x1000000000000000000000000000000000000000000000000000000000000000;
+        return _parent | 0x1000000000000000000000000000000000000000000000000000000000000000;
     }
 }
