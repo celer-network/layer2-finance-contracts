@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import {DataTypes} from "./DataTypes.sol";
 import {Registry} from "./Registry.sol";
 
-
 contract TransitionEvaluator {
     using SafeMath for uint256;
 
@@ -24,21 +23,19 @@ contract TransitionEvaluator {
 
     Registry registry;
 
-    constructor(address _registryAddress)
-        public
-    {
+    constructor(address _registryAddress) public {
         registry = Registry(_registryAddress);
     }
 
-    function evaluateTransition(
-        bytes calldata _transition,
-        DataTypes.StorageSlot[] calldata _storageSlots
-    ) external view returns (bytes32[] memory) {
+    function evaluateTransition(bytes calldata _transition, DataTypes.StorageSlot[] calldata _storageSlots)
+        external
+        view
+        returns (bytes32[] memory)
+    {
         // Convert our inputs to memory
         bytes memory transition = _transition;
 
-        DataTypes.StorageSlot[] memory storageSlots
-         = new DataTypes.StorageSlot[](_storageSlots.length);
+        DataTypes.StorageSlot[] memory storageSlots = new DataTypes.StorageSlot[](_storageSlots.length);
         // Direct copy not supported by Solidity yet
         /*
         for (uint256 i = 0; i < _storageSlots.length; i++) {
@@ -64,23 +61,15 @@ contract TransitionEvaluator {
         bytes32[] memory outputs;
         // Apply the transition and record the resulting storage slots
         if (transitionType == TRANSITION_TYPE_DEPOSIT) {
+            DataTypes.DepositTransition memory deposit = decodeDepositTransition(transition);
 
-                DataTypes.DepositTransition memory deposit
-             = decodeDepositTransition(transition);
-
-
-                DataTypes.AccountInfo memory updatedAccountInfo
-             = applyDepositTransition(deposit, storageSlots[0]);
+            DataTypes.AccountInfo memory updatedAccountInfo = applyDepositTransition(deposit, storageSlots[0]);
             outputs = new bytes32[](1);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
         } else if (transitionType == TRANSITION_TYPE_WITHDRAW) {
+            DataTypes.WithdrawTransition memory withdraw = decodeWithdrawTransition(transition);
 
-                DataTypes.WithdrawTransition memory withdraw
-             = decodeWithdrawTransition(transition);
-
-
-                DataTypes.AccountInfo memory updatedAccountInfo
-             = applyWithdrawTransition(withdraw, storageSlots[0]);
+            DataTypes.AccountInfo memory updatedAccountInfo = applyWithdrawTransition(withdraw, storageSlots[0]);
             outputs = new bytes32[](1);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
         } else {
@@ -89,11 +78,7 @@ contract TransitionEvaluator {
         return outputs;
     }
 
-    function extractTransitionType(bytes memory _bytes)
-        internal
-        pure
-        returns (uint8)
-    {
+    function extractTransitionType(bytes memory _bytes) internal pure returns (uint8) {
         uint8 transitionType;
 
         assembly {
@@ -103,9 +88,7 @@ contract TransitionEvaluator {
         return transitionType;
     }
 
-    function getTransitionType(bytes memory _bytes)
-        external pure returns (uint8)
-    {
+    function getTransitionType(bytes memory _bytes) external pure returns (uint8) {
         return extractTransitionType(_bytes);
     }
 
@@ -124,16 +107,12 @@ contract TransitionEvaluator {
         uint256[] memory storageSlots;
         uint8 transitionType = extractTransitionType(rawTransition);
         if (transitionType == TRANSITION_TYPE_DEPOSIT) {
-
-                DataTypes.DepositTransition memory transition
-             = decodeDepositTransition(rawTransition);
+            DataTypes.DepositTransition memory transition = decodeDepositTransition(rawTransition);
             stateRoot = transition.stateRoot;
             storageSlots = new uint256[](1);
             storageSlots[0] = transition.accountId;
         } else if (transitionType == TRANSITION_TYPE_WITHDRAW) {
-
-                DataTypes.WithdrawTransition memory transition
-             = decodeWithdrawTransition(rawTransition);
+            DataTypes.WithdrawTransition memory transition = decodeWithdrawTransition(rawTransition);
             stateRoot = transition.stateRoot;
             storageSlots = new uint256[](1);
             storageSlots[0] = transition.accountId;
@@ -244,11 +223,7 @@ contract TransitionEvaluator {
     /**
      * Get the hash of the AccountInfo.
      */
-    function getAccountInfoHash(DataTypes.AccountInfo memory _accountInfo)
-        public
-        pure
-        returns (bytes32)
-    {
+    function getAccountInfoHash(DataTypes.AccountInfo memory _accountInfo) public pure returns (bytes32) {
         // Here we don't use `abi.encode([struct])` because it's not clear
         // how to generate that encoding client-side.
         return
@@ -267,31 +242,11 @@ contract TransitionEvaluator {
      * Decoding *
      ***********/
 
-    function decodeDepositTransition(bytes memory _rawBytes)
-        public
-        pure
-        returns (DataTypes.DepositTransition memory)
-    {
-        (
-            uint8 transitionType,
-            bytes32 stateRoot,
-            address account,
-            uint32 accountId,
-            uint32 assetId,
-            uint256 amount
-        ) = abi.decode(
-            (_rawBytes),
-            (uint8, bytes32, address, uint32, uint32, uint256)
-        );
-        DataTypes.DepositTransition memory transition = DataTypes
-            .DepositTransition(
-            transitionType,
-            stateRoot,
-            account,
-            accountId,
-            assetId,
-            amount
-        );
+    function decodeDepositTransition(bytes memory _rawBytes) public pure returns (DataTypes.DepositTransition memory) {
+        (uint8 transitionType, bytes32 stateRoot, address account, uint32 accountId, uint32 assetId, uint256 amount) =
+            abi.decode((_rawBytes), (uint8, bytes32, address, uint32, uint32, uint256));
+        DataTypes.DepositTransition memory transition =
+            DataTypes.DepositTransition(transitionType, stateRoot, account, accountId, assetId, amount);
         return transition;
     }
 
@@ -309,29 +264,22 @@ contract TransitionEvaluator {
             uint256 amount,
             uint64 timestamp,
             bytes memory signature
-        ) = abi.decode(
-            (_rawBytes),
-            (uint8, bytes32, address, uint32, uint32, uint256, uint64, bytes)
-        );
-        DataTypes.WithdrawTransition memory transition = DataTypes
-            .WithdrawTransition(
-            transitionType,
-            stateRoot,
-            account,
-            accountId,
-            assetId,
-            amount,
-            timestamp,
-            signature
-        );
+        ) = abi.decode((_rawBytes), (uint8, bytes32, address, uint32, uint32, uint256, uint64, bytes));
+        DataTypes.WithdrawTransition memory transition =
+            DataTypes.WithdrawTransition(
+                transitionType,
+                stateRoot,
+                account,
+                accountId,
+                assetId,
+                amount,
+                timestamp,
+                signature
+            );
         return transition;
     }
 
-    function decodeCommitTransition(bytes memory _rawBytes)
-        public
-        pure
-        returns (DataTypes.CommitTransition memory)
-    {
+    function decodeCommitTransition(bytes memory _rawBytes) public pure returns (DataTypes.CommitTransition memory) {
         (
             uint8 transitionType,
             bytes32 stateRoot,
@@ -340,20 +288,17 @@ contract TransitionEvaluator {
             uint256 assetAmount,
             uint64 timestamp,
             bytes memory signature
-        ) = abi.decode(
-            (_rawBytes),
-            (uint8, bytes32, uint32, uint32, uint256, uint64, bytes)
-        );
-        DataTypes.CommitTransition memory transition = DataTypes
-            .CommitTransition(
-            transitionType,
-            stateRoot,
-            accountId,
-            strategyId,
-            assetAmount,
-            timestamp,
-            signature
-        );
+        ) = abi.decode((_rawBytes), (uint8, bytes32, uint32, uint32, uint256, uint64, bytes));
+        DataTypes.CommitTransition memory transition =
+            DataTypes.CommitTransition(
+                transitionType,
+                stateRoot,
+                accountId,
+                strategyId,
+                assetAmount,
+                timestamp,
+                signature
+            );
         return transition;
     }
 
@@ -370,20 +315,17 @@ contract TransitionEvaluator {
             uint256 stTokenAmount,
             uint64 timestamp,
             bytes memory signature
-        ) = abi.decode(
-            (_rawBytes),
-            (uint8, bytes32, uint32, uint32, uint256, uint64, bytes)
-        );
-        DataTypes.UncommitTransition memory transition = DataTypes
-            .UncommitTransition(
-            transitionType,
-            stateRoot,
-            accountId,
-            strategyId,
-            stTokenAmount,
-            timestamp,
-            signature
-        );
+        ) = abi.decode((_rawBytes), (uint8, bytes32, uint32, uint32, uint256, uint64, bytes));
+        DataTypes.UncommitTransition memory transition =
+            DataTypes.UncommitTransition(
+                transitionType,
+                stateRoot,
+                accountId,
+                strategyId,
+                stTokenAmount,
+                timestamp,
+                signature
+            );
         return transition;
     }
 
@@ -392,22 +334,10 @@ contract TransitionEvaluator {
         pure
         returns (DataTypes.BalanceSyncTransition memory)
     {
-        (
-            uint8 transitionType,
-            bytes32 stateRoot,
-            uint32 strategyId,
-            uint256 newAssetBalance
-        ) = abi.decode(
-            (_rawBytes),
-            (uint8, bytes32, uint32, uint256)
-        );
-        DataTypes.BalanceSyncTransition memory transition = DataTypes
-            .BalanceSyncTransition(
-            transitionType,
-            stateRoot,
-            strategyId,
-            newAssetBalance
-        );
+        (uint8 transitionType, bytes32 stateRoot, uint32 strategyId, uint256 newAssetBalance) =
+            abi.decode((_rawBytes), (uint8, bytes32, uint32, uint256));
+        DataTypes.BalanceSyncTransition memory transition =
+            DataTypes.BalanceSyncTransition(transitionType, stateRoot, strategyId, newAssetBalance);
         return transition;
     }
 
@@ -422,29 +352,22 @@ contract TransitionEvaluator {
             uint32 strategyId,
             uint256 pendingCommitAmount,
             uint256 pendingUncommitAmount
-        ) = abi.decode(
-            (_rawBytes),
-            (uint8, bytes32, uint32, uint256, uint256)
-        );
-        DataTypes.CommitmentSyncTransition memory transition = DataTypes
-            .CommitmentSyncTransition(
-            transitionType,
-            stateRoot,
-            strategyId,
-            pendingCommitAmount,
-            pendingUncommitAmount
-        );
+        ) = abi.decode((_rawBytes), (uint8, bytes32, uint32, uint256, uint256));
+        DataTypes.CommitmentSyncTransition memory transition =
+            DataTypes.CommitmentSyncTransition(
+                transitionType,
+                stateRoot,
+                strategyId,
+                pendingCommitAmount,
+                pendingUncommitAmount
+            );
         return transition;
     }
 
     /**
      * Verify a WithdrawTransition signature.
      */
-    function verifyWithdrawTransition(
-        address _account,
-        bytes memory _rawTransition
-    ) public view returns (bool) {
-
+    function verifyWithdrawTransition(address _account, bytes memory _rawTransition) public view returns (bool) {
         /*
             DataTypes.WithdrawTransition memory transition
          = decodeWithdrawTransition(_rawTransition);

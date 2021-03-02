@@ -3,7 +3,6 @@ pragma solidity >=0.6.0 <0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-
 contract Registry is Ownable {
     // Map asset addresses to indexes.
     mapping(address => uint32) public assetAddressToIndex;
@@ -17,7 +16,6 @@ contract Registry is Ownable {
 
     event AssetRegistered(address asset, uint32 assetId);
     event StrategyRegistered(address strategy, uint32 strategyId);
-
 
     function registerAsset(address _asset) external onlyOwner {
         require(assetAddressToIndex[_asset] == 0, "Asset already registered");

@@ -11,7 +11,6 @@ import {MerkleUtils} from "./MerkleUtils.sol";
 import {TransitionEvaluator} from "./TransitionEvaluator.sol";
 import {Registry} from "./Registry.sol";
 
-
 contract RollupChain {
     using SafeMath for uint256;
 
@@ -33,7 +32,7 @@ contract RollupChain {
     // - commitBlock() moves it to "done" status
     // - fraudulent block moves it back to "pending" status
     // - executeBlock() deletes it
-    enum PendingDepositStatus { Pending, Done }
+    enum PendingDepositStatus {Pending, Done}
     struct PendingDeposit {
         address account;
         uint32 assetId;
@@ -43,19 +42,19 @@ contract RollupChain {
     }
     mapping(uint256 => PendingDeposit) public pendingDeposits;
     uint256 pendingDepositsExecuteHead; // moves up inside blockExecute() -- lowest
-    uint256 pendingDepositsCommitHead;  // moves up inside blockCommit() -- intermediate
-    uint256 pendingDepositsTail;        // moves up inside L1 deposit() -- highest
+    uint256 pendingDepositsCommitHead; // moves up inside blockCommit() -- intermediate
+    uint256 pendingDepositsTail; // moves up inside L1 deposit() -- highest
 
     // Track pending withdraws arriving from L2 then done on L1, per target address.
     // - commitBlock() creates it in "pending" status
     // - executeBlock() moves it to "ready" status
     // - fraudulent block moves it back to "pending" status
     // - L1 withdraw(), after deadline passes, gives the funds and deletes it
-    enum PendingWithdrawStatus { Pending, Ready }
+    enum PendingWithdrawStatus {Pending, Ready}
     struct PendingWithdraw {
         uint32 assetIndex;
         uint256 amount;
-        uint256 blockId;  // rollup block containing the L2 transition (rollback on fraud)
+        uint256 blockId; // rollup block containing the L2 transition (rollback on fraud)
         uint256 deadline; // cannot L1-withdraw before this deadline (onchain block number)
         PendingWithdrawStatus status;
     }
@@ -67,7 +66,7 @@ contract RollupChain {
     // - commitBlock() moves it to "done" status
     // - fraudulent block moves it back to "pending" status
     // - executeBlock() deletes it
-    enum PendingBalanceSyncStatus { Pending, Done }
+    enum PendingBalanceSyncStatus {Pending, Done}
     struct PendingBalanceSync {
         uint32 strategyId;
         uint256 balance;
@@ -76,8 +75,8 @@ contract RollupChain {
     }
     mapping(uint256 => PendingBalanceSync) public pendingBalanceSyncs;
     uint256 pendingBalanceSyncsExecuteHead; // moves up inside blockExecute() -- lowest
-    uint256 pendingBalanceSyncsCommitHead;  // moves up inside blockCommit() -- intermediate
-    uint256 pendingBalanceSyncsTail;        // moves up inside L1 Balance Sync -- highest
+    uint256 pendingBalanceSyncsCommitHead; // moves up inside blockCommit() -- intermediate
+    uint256 pendingBalanceSyncsTail; // moves up inside L1 Balance Sync -- highest
 
     // State tree height
     uint256 constant STATE_TREE_HEIGHT = 32;
@@ -126,26 +125,18 @@ contract RollupChain {
         return blocks.length - 1;
     }
 
-    function setCommitterAddress(address _committerAddress)
-        external
-    {
+    function setCommitterAddress(address _committerAddress) external {
         committerAddress = _committerAddress;
     }
 
-    function deposit(
-        address _asset,
-        uint256 _amount
-    ) public {
+    function deposit(address _asset, uint256 _amount) public {
         address account = msg.sender;
         uint32 assetId = registry.assetAddressToIndex(_asset);
 
         require(assetId != 0, "Unknown asset");
 
         // TODO: native ETH not yet supported; need if/else on asset address.
-        require(
-            IERC20(_asset).transferFrom(account, address(this), _amount),
-            "Deposit failed"
-        );
+        require(IERC20(_asset).transferFrom(account, address(this), _amount), "Deposit failed");
 
         // Add a pending deposit record.
         uint256 depositId = pendingDepositsTail++;
@@ -163,7 +154,7 @@ contract RollupChain {
     function withdraw(
         address _account,
         address _asset,
-        uint256 _amount,    // TODO: remove and determine amount from pending withdraws.
+        uint256 _amount, // TODO: remove and determine amount from pending withdraws.
         bytes memory _signature
     ) public {
         require(registry.assetAddressToIndex(_asset) != 0, "Unknown asset");
@@ -196,13 +187,8 @@ contract RollupChain {
     /**
      * Submit a prepared batch as a new rollup block.
      */
-    function commitBlock(
-        bytes[] calldata _transitions
-    ) external {
-        require(
-            msg.sender == committerAddress,
-            "Only the committer may submit blocks"
-        );
+    function commitBlock(bytes[] calldata _transitions) external {
+        require(msg.sender == committerAddress, "Only the committer may submit blocks");
 
         uint256 blockNumber = blocks.length;
         bytes32 root = merkleUtils.getMerkleRoot(_transitions);
@@ -225,8 +211,10 @@ contract RollupChain {
                 require(depositId < pendingDepositsTail, "invalid deposit transition, no pending deposits");
 
                 PendingDeposit memory pend = pendingDeposits[depositId];
-                require(pend.account == dp.account && pend.assetId == dp.assetId && pend.amount == dp.amount,
-                    "invalid deposit transition, mismatch or wrong ordering");
+                require(
+                    pend.account == dp.account && pend.assetId == dp.assetId && pend.amount == dp.amount,
+                    "invalid deposit transition, mismatch or wrong ordering"
+                );
 
                 pendingDeposits[depositId].status = PendingDepositStatus.Done;
                 pendingDeposits[depositId].blockId = blockNumber; // "done": block holding the transition
@@ -253,19 +241,13 @@ contract RollupChain {
             intentHash = keccak256(abi.encodePacked(intents));
         }
 
-        dt.Block memory rollupBlock = dt.Block({
-            rootHash: root,
-            intentHash: intentHash,
-            blockTime: block.number
-        });
+        dt.Block memory rollupBlock = dt.Block({rootHash: root, intentHash: intentHash, blockTime: block.number});
         blocks.push(rollupBlock);
 
         emit RollupBlockCommitted(blockNumber);
     }
 
-    function executeBlock(
-        bytes[] calldata _intents
-    ) external {
+    function executeBlock(bytes[] calldata _intents) external {
         // TODO: verify intents and call strategy APIs.
     }
 
@@ -281,12 +263,8 @@ contract RollupChain {
      * Note the complexity here is we need to store an empty storage slot as being 32 bytes of zeros
      * to be what the sparse merkle tree expects.
      */
-    function verifyAndStoreStorageSlotInclusionProof(
-        dt.IncludedStorageSlot memory _includedStorageSlot
-    ) private {
-        bytes memory accountInfoBytes = getAccountInfoBytes(
-            _includedStorageSlot.storageSlot.value
-        );
+    function verifyAndStoreStorageSlotInclusionProof(dt.IncludedStorageSlot memory _includedStorageSlot) private {
+        bytes memory accountInfoBytes = getAccountInfoBytes(_includedStorageSlot.storageSlot.value);
         merkleUtils.verifyAndStore(
             accountInfoBytes,
             uint256(_includedStorageSlot.storageSlot.slotIndex),
@@ -307,28 +285,17 @@ contract RollupChain {
         bytes32 stateRoot;
         uint256[] memory storageSlots;
         (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(
-                transitionEvaluator
-                    .getTransitionStateRootAndAccessList
-                    .selector,
-                _transition
-            )
+            abi.encodeWithSelector(transitionEvaluator.getTransitionStateRootAndAccessList.selector, _transition)
         );
 
         // If the call was successful let's decode!
         if (success) {
-            (stateRoot, storageSlots) = abi.decode(
-                (returnData),
-                (bytes32, uint256[])
-            );
+            (stateRoot, storageSlots) = abi.decode((returnData), (bytes32, uint256[]));
         }
         return (success, stateRoot, storageSlots);
     }
 
-    function getStateRootsAndStorageSlots(
-        bytes memory _preStateTransition,
-        bytes memory _invalidTransition
-    )
+    function getStateRootsAndStorageSlots(bytes memory _preStateTransition, bytes memory _invalidTransition)
         public
         returns (
             bool,
@@ -346,62 +313,39 @@ contract RollupChain {
         // First decode the prestate root
         (success, returnData) = address(transitionEvaluator).call(
             abi.encodeWithSelector(
-                transitionEvaluator
-                    .getTransitionStateRootAndAccessList
-                    .selector,
+                transitionEvaluator.getTransitionStateRootAndAccessList.selector,
                 _preStateTransition
             )
         );
 
         // Make sure the call was successful
-        require(
-            success,
-            "If the preStateRoot is invalid, then prove that invalid instead!"
-        );
-        (preStateRoot, preStateStorageSlots) = abi.decode(
-            (returnData),
-            (bytes32, uint256[])
-        );
+        require(success, "If the preStateRoot is invalid, then prove that invalid instead!");
+        (preStateRoot, preStateStorageSlots) = abi.decode((returnData), (bytes32, uint256[]));
         // Now that we have the prestateRoot, let's decode the postState
         (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(
-                transitionEvaluator
-                    .getTransitionStateRootAndAccessList
-                    .selector,
-                _invalidTransition
-            )
+            abi.encodeWithSelector(transitionEvaluator.getTransitionStateRootAndAccessList.selector, _invalidTransition)
         );
 
         // If the call was successful let's decode!
         if (success) {
-            (postStateRoot, storageSlots) = abi.decode(
-                (returnData),
-                (bytes32, uint256[])
-            );
+            (postStateRoot, storageSlots) = abi.decode((returnData), (bytes32, uint256[]));
         }
         return (success, preStateRoot, postStateRoot, storageSlots);
     }
 
-    function verifyWithdrawTransition(
-        address _account,
-        dt.IncludedTransition memory _includedTransition
-    ) public view returns (bool) {
+    function verifyWithdrawTransition(address _account, dt.IncludedTransition memory _includedTransition)
+        public
+        view
+        returns (bool)
+    {
+        require(checkTransitionInclusion(_includedTransition), "Withdraw transition must be included");
         require(
-            checkTransitionInclusion(_includedTransition),
-            "Withdraw transition must be included"
-        );
-        require(
-            transitionEvaluator.verifyWithdrawTransition(
-                _account,
-                _includedTransition.transition
-            ),
+            transitionEvaluator.verifyWithdrawTransition(_account, _includedTransition.transition),
             "Withdraw signature is invalid"
         );
 
         require(
-            getCurrentBlockNumber() -
-                _includedTransition.inclusionProof.blockNumber >=
-                WITHDRAW_WAIT_PERIOD,
+            getCurrentBlockNumber() - _includedTransition.inclusionProof.blockNumber >= WITHDRAW_WAIT_PERIOD,
             "Withdraw wait period not passed"
         );
         return true;
@@ -416,31 +360,21 @@ contract RollupChain {
         dt.IncludedStorageSlot[] memory _transitionStorageSlots
     ) public {
         // For convenience store the transitions
-        bytes memory preStateTransition = _preStateIncludedTransition
-            .transition;
+        bytes memory preStateTransition = _preStateIncludedTransition.transition;
         bytes memory invalidTransition = _invalidIncludedTransition.transition;
 
         /********* #1: CHECK_SEQUENTIAL_TRANSITIONS *********/
         // First verify that the transitions are sequential
-        verifySequentialTransitions(
-            _preStateIncludedTransition,
-            _invalidIncludedTransition
-        );
+        verifySequentialTransitions(_preStateIncludedTransition, _invalidIncludedTransition);
 
         /********* #2: DECODE_TRANSITIONS *********/
         // Decode our transitions and determine which storage slots we'll need in order to validate the transition
-        (
-            bool success,
-            bytes32 preStateRoot,
-            bytes32 postStateRoot,
-            uint256[] memory storageSlotIndexes
-        ) = getStateRootsAndStorageSlots(preStateTransition, invalidTransition);
+        (bool success, bytes32 preStateRoot, bytes32 postStateRoot, uint256[] memory storageSlotIndexes) =
+            getStateRootsAndStorageSlots(preStateTransition, invalidTransition);
         // If not success something went wrong with the decoding...
         if (!success) {
             // Prune the block if it has an incorrectly encoded transition!
-            pruneBlocksAfter(
-                _invalidIncludedTransition.inclusionProof.blockNumber
-            );
+            pruneBlocksAfter(_invalidIncludedTransition.inclusionProof.blockNumber);
             return;
         }
 
@@ -448,8 +382,7 @@ contract RollupChain {
         // Make sure the storage slots we were given are correct
         for (uint256 i = 0; i < _transitionStorageSlots.length; i++) {
             require(
-                _transitionStorageSlots[i].storageSlot.slotIndex ==
-                    storageSlotIndexes[i],
+                _transitionStorageSlots[i].storageSlot.slotIndex == storageSlotIndexes[i],
                 "Supplied storage slot index is incorrect!"
             );
         }
@@ -464,9 +397,7 @@ contract RollupChain {
         /********* #5: EVALUATE_TRANSITION *********/
         // Now that we've verified and stored our storage in the state tree, lets apply the transaction
         // To do this first let's pull out the storage slots we care about
-        dt.StorageSlot[] memory storageSlots = new dt.StorageSlot[](
-            _transitionStorageSlots.length
-        );
+        dt.StorageSlot[] memory storageSlots = new dt.StorageSlot[](_transitionStorageSlots.length);
         for (uint256 i = 0; i < _transitionStorageSlots.length; i++) {
             storageSlots[i] = _transitionStorageSlots[i].storageSlot;
         }
@@ -474,18 +405,12 @@ contract RollupChain {
         bytes memory returnData;
         // Make the external call
         (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(
-                transitionEvaluator.evaluateTransition.selector,
-                invalidTransition,
-                storageSlots
-            )
+            abi.encodeWithSelector(transitionEvaluator.evaluateTransition.selector, invalidTransition, storageSlots)
         );
 
         // Check if it was successful. If not, we've got to prune.
         if (!success) {
-            pruneBlocksAfter(
-                _invalidIncludedTransition.inclusionProof.blockNumber
-            );
+            pruneBlocksAfter(_invalidIncludedTransition.inclusionProof.blockNumber);
             return;
         }
         // It was successful so let's decode the outputs to get the new leaf nodes we'll have to insert
@@ -494,19 +419,14 @@ contract RollupChain {
         /********* #6: UPDATE_STATE_ROOT *********/
         // Now we need to check if the state root is incorrect, to do this we first insert the new leaf values
         for (uint256 i = 0; i < _transitionStorageSlots.length; i++) {
-            merkleUtils.updateLeaf(
-                outputs[i],
-                _transitionStorageSlots[i].storageSlot.slotIndex
-            );
+            merkleUtils.updateLeaf(outputs[i], _transitionStorageSlots[i].storageSlot.slotIndex);
         }
 
         /********* #7: COMPARE_STATE_ROOTS *********/
         // Check if the calculated state root equals what we expect
         if (postStateRoot != merkleUtils.getRoot()) {
             // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
-            pruneBlocksAfter(
-                _invalidIncludedTransition.inclusionProof.blockNumber
-            );
+            pruneBlocksAfter(_invalidIncludedTransition.inclusionProof.blockNumber);
             return;
         }
 
@@ -524,26 +444,16 @@ contract RollupChain {
         dt.IncludedTransition memory _transition1
     ) public view returns (bool) {
         // Verify inclusion
-        require(
-            checkTransitionInclusion(_transition0),
-            "The first transition must be included!"
-        );
-        require(
-            checkTransitionInclusion(_transition1),
-            "The second transition must be included!"
-        );
+        require(checkTransitionInclusion(_transition0), "The first transition must be included!");
+        require(checkTransitionInclusion(_transition1), "The second transition must be included!");
 
         // Verify that the two transitions are one after another
 
         // Start by checking if they are in the same block
-        if (
-            _transition0.inclusionProof.blockNumber ==
-            _transition1.inclusionProof.blockNumber
-        ) {
+        if (_transition0.inclusionProof.blockNumber == _transition1.inclusionProof.blockNumber) {
             // If the blocknumber is the same, simply check that transition0 preceeds transition1
             require(
-                _transition0.inclusionProof.transitionIndex ==
-                    _transition1.inclusionProof.transitionIndex - 1,
+                _transition0.inclusionProof.transitionIndex == _transition1.inclusionProof.transitionIndex - 1,
                 "Transitions must be sequential!"
             );
             // Hurray! The transition is valid!
@@ -553,8 +463,7 @@ contract RollupChain {
         // If not in the same block, we check that:
         // 0) the blocks are one after another
         require(
-            _transition0.inclusionProof.blockNumber ==
-                _transition1.inclusionProof.blockNumber - 1,
+            _transition0.inclusionProof.blockNumber == _transition1.inclusionProof.blockNumber - 1,
             "Blocks must be one after another or equal."
         );
         // 1) the transitionIndex of transition0 is the last in the block; and
@@ -564,10 +473,7 @@ contract RollupChain {
         //    "_transition0 must be last in its block."
         //);
         // 2) the transitionIndex of transition1 is the first in the block
-        require(
-            _transition1.inclusionProof.transitionIndex == 0,
-            "_transition0 must be first in its block."
-        );
+        require(_transition1.inclusionProof.transitionIndex == 0, "_transition0 must be first in its block.");
 
         // Success!
         return true;
@@ -576,41 +482,29 @@ contract RollupChain {
     /**
      * Check to see if a transition was indeed included.
      */
-    function checkTransitionInclusion(
-        dt.IncludedTransition memory _includedTransition
-    ) public view returns (bool) {
-        bytes32 rootHash = blocks[_includedTransition
-            .inclusionProof
-            .blockNumber]
-            .rootHash;
-        bool isIncluded = merkleUtils.verify(
-            rootHash,
-            _includedTransition.transition,
-            _includedTransition.inclusionProof.transitionIndex,
-            _includedTransition.inclusionProof.siblings
-        );
+    function checkTransitionInclusion(dt.IncludedTransition memory _includedTransition) public view returns (bool) {
+        bytes32 rootHash = blocks[_includedTransition.inclusionProof.blockNumber].rootHash;
+        bool isIncluded =
+            merkleUtils.verify(
+                rootHash,
+                _includedTransition.transition,
+                _includedTransition.inclusionProof.transitionIndex,
+                _includedTransition.inclusionProof.siblings
+            );
         return isIncluded;
     }
 
     /**
      * Get the hash of the transition.
      */
-    function getTransitionHash(bytes memory _transition)
-        public
-        pure
-        returns (bytes32)
-    {
+    function getTransitionHash(bytes memory _transition) public pure returns (bytes32) {
         return keccak256(_transition);
     }
 
     /**
      * Get the bytes value for this storage.
      */
-    function getAccountInfoBytes(dt.AccountInfo memory _accountInfo)
-        public
-        pure
-        returns (bytes memory)
-    {
+    function getAccountInfoBytes(dt.AccountInfo memory _accountInfo) public pure returns (bytes memory) {
         // If it's an empty storage slot, return 32 bytes of zeros (empty value)
         if (
             _accountInfo.account == 0x0000000000000000000000000000000000000000 &&

@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.0 <0.8.0;
 
-
 contract DataTypes {
     struct Block {
         bytes32 rootHash;
         bytes32 intentHash; // hash of L2-to-L1 commitment sync transitions
-        uint256 blockTime;  // blockNum when this rollup block is committed
+        uint256 blockTime; // blockNum when this rollup block is committed
     }
 
     struct DepositTransition {
         uint8 transitionType;
         bytes32 stateRoot;
-        address account;  // must provide L1 address for "pending deposit" handling
+        address account; // must provide L1 address for "pending deposit" handling
         uint32 accountId; // needed for transition evaluation in case of dispute
         uint32 assetId;
         uint256 amount;
@@ -77,10 +76,10 @@ contract DataTypes {
 
     struct AccountInfo {
         address account;
-        uint32 accountId;     // mapping only on L2 must be part of stateRoot
+        uint32 accountId; // mapping only on L2 must be part of stateRoot
         uint256[] idleAssets; // indexed by assetId
-        uint256[] stTokens;   // indexed by strategyId
-        uint64 timestamp;     // Unix epoch (msec, UTC)
+        uint256[] stTokens; // indexed by strategyId
+        uint64 timestamp; // Unix epoch (msec, UTC)
     }
 
     struct StrategyInfo {
