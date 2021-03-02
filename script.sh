@@ -16,6 +16,7 @@ solFiles=(
   Registry
   RollupChain
   StrategyDummy
+  StrategyCurve3PoolDAI
 )
 
 dld_solc() {

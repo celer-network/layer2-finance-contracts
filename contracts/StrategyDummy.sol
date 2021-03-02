@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import "../interfaces/IStrategy.sol";
+import "./interfaces/IStrategy.sol";
 
 /**
  * A dummy sample strategy.
