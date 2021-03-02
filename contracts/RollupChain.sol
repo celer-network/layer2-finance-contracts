@@ -38,8 +38,7 @@ contract RollupChain {
         address account;
         uint32 assetId;
         uint256 amount;
-        uint256 blockId; // rollup block containing the L2 transition (rollback on fraud)
-        uint256 deadlineBlockId; // rollup block deadline for the L2 transition (anti-censorship)
+        uint256 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
         PendingDepositStatus status;
     }
     mapping(uint256 => PendingDeposit) public pendingDeposits;
@@ -72,8 +71,7 @@ contract RollupChain {
     struct PendingBalanceSync {
         uint32 strategyId;
         uint256 balance;
-        uint256 blockId; // rollup block containing the L2 transition (rollback on fraud)
-        uint256 deadlineBlockId; // rollup block deadline for the L2 transition (anti-censorship)
+        uint256 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
         PendingBalanceSyncStatus status;
     }
     mapping(uint256 => PendingBalanceSync) public pendingBalanceSyncs;
@@ -155,8 +153,7 @@ contract RollupChain {
             account: account,
             assetId: assetId,
             amount: _amount,
-            blockId: 0, // not yet known, will set at commitBlock() time
-            deadlineBlockId: blocks.length + blockIdCensorshipPeriod, // checked by watch-tower
+            blockId: blocks.length, // "pending": baseline of censorship delay
             status: PendingDepositStatus.Pending
         });
 
@@ -232,7 +229,7 @@ contract RollupChain {
                     "invalid deposit transition, mismatch or wrong ordering");
 
                 pendingDeposits[depositId].status = PendingDepositStatus.Done;
-                pendingDeposits[depositId].blockId = blockNumber;
+                pendingDeposits[depositId].blockId = blockNumber; // "done": block holding the transition
                 pendingDepositsCommitHead++;
             } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_WITHDRAW()) {
                 dt.WithdrawTransition memory wd = transitionEvaluator.decodeWithdrawTransition(_transitions[i]);
