@@ -3,11 +3,9 @@
   "version": "0.0.1",
   "description": "Layer 2 Finance Contracts",
   "scripts": {
-    "build": "npm run compile && npm run typechain",
-    "compile": "npx buidler compile",
-    "typechain": "npx buidler compile && typechain --outDir typechain --target ethers 'build/*.json'",
-    "bind:go": "npx buidler compile && scripts/bind_go.sh",
-    "test": "npx buidler test"
+    "compile": "hardhat compile",
+    "typechain": "hardhat typechain",
+    "test": "([ -d typechain ] || hardhat compile) && hardhat test"
   },
   "repository": {
     "type": "git",
