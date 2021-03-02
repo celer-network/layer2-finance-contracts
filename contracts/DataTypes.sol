@@ -9,13 +9,6 @@ contract DataTypes {
         uint256 blockTime;  // blockNum when this rollup block is committed
     }
 
-    // array of Intents are hashed into "intentHash" and re-sent in executeBlock()
-    struct Intent {
-        uint32 strategyId;
-        uint256 commitAmount;
-        uint256 uncommitAmount;
-    }
-
     struct DepositTransition {
         uint8 transitionType;
         bytes32 stateRoot;
@@ -28,11 +21,11 @@ contract DataTypes {
     struct WithdrawTransition {
         uint8 transitionType;
         bytes32 stateRoot;
+        address account; // must provide L1 target address for "pending withdraw" handling
         uint32 accountId;
-        address targetAccount; // must provide L1 address for "pending withdraw" handling
         uint32 assetId;
         uint256 amount;
-        uint64 timestamp;
+        uint64 timestamp; // Unix epoch (msec, UTC)
         bytes signature;
     }
 
@@ -42,7 +35,7 @@ contract DataTypes {
         uint32 accountId;
         uint32 strategyId;
         uint256 assetAmount;
-        uint64 timestamp;
+        uint64 timestamp; // Unix epoch (msec, UTC)
         bytes signature;
     }
 
@@ -52,7 +45,7 @@ contract DataTypes {
         uint32 accountId;
         uint32 strategyId;
         uint256 stTokenAmount;
-        uint64 timestamp;
+        uint64 timestamp; // Unix epoch (msec, UTC)
         bytes signature;
     }
 

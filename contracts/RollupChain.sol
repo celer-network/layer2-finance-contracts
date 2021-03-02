@@ -2,12 +2,14 @@
 pragma solidity >=0.6.0 <0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /* Internal Imports */
 import {DataTypes as dt} from "./DataTypes.sol";
 import {MerkleUtils} from "./MerkleUtils.sol";
 import {TransitionEvaluator} from "./TransitionEvaluator.sol";
+import {Registry} from "./Registry.sol";
 
 
 contract RollupChain {
@@ -18,6 +20,8 @@ contract RollupChain {
     TransitionEvaluator transitionEvaluator;
     // The Merkle Tree library (currently a contract for ease of testing)
     MerkleUtils merkleUtils;
+    // Asset and strategy registry
+    Registry registry;
 
     // All the blocks (prepared and/or executed).
     dt.Block[] public blocks;
@@ -34,7 +38,7 @@ contract RollupChain {
         address account;
         uint32 assetId;
         uint256 amount;
-        uint256 blockId; // block containing the deposit L2 transition
+        uint256 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
         PendingDepositStatus status;
     }
     mapping(uint256 => PendingDeposit) public pendingDeposits;
@@ -51,8 +55,8 @@ contract RollupChain {
     struct PendingWithdraw {
         uint32 assetIndex;
         uint256 amount;
-        uint256 blockId;  // block containing the withdraw L2 transition
-        uint256 deadline; // cannot L1-withdraw before this deadline
+        uint256 blockId;  // rollup block containing the L2 transition (rollback on fraud)
+        uint256 deadline; // cannot L1-withdraw before this deadline (onchain block number)
         PendingWithdrawStatus status;
     }
     mapping(address => PendingWithdraw[]) public pendingWithdraws;
@@ -67,7 +71,7 @@ contract RollupChain {
     struct PendingBalanceSync {
         uint32 strategyId;
         uint256 balance;
-        uint256 blockId; // block containing the balance sync L2 transition
+        uint256 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
         PendingBalanceSyncStatus status;
     }
     mapping(uint256 => PendingBalanceSync) public pendingBalanceSyncs;
@@ -80,27 +84,34 @@ contract RollupChain {
     // TODO: Set a reasonable wait period
     uint256 constant WITHDRAW_WAIT_PERIOD = 0;
 
-    // TODO: make this a variable modifiable by admin
-    uint256 public blockChallengePeriod;
+    // TODO: make these modifiable by admin
+    uint256 public blockChallengePeriod; // count of onchain block numbers to challenge a rollup block
+    uint256 public blockIdCensorshipPeriod; // count of rollup blocks before L2 transition arrives
 
     address public committerAddress;
 
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
     event BalanceSync(uint32 strategyId, uint256 assetBalance, uint256 syncId);
+    event AssetDeposited(address account, address asset, uint256 amount, uint256 depositId);
+    event AssetWithdrawn(address account, address asset, uint256 amount);
 
     /***************
      * Constructor *
      **************/
     constructor(
         uint256 _blockChallengePeriod,
+        uint256 _blockIdCensorshipPeriod,
         address _transitionEvaluatorAddress,
         address _merkleUtilsAddress,
+        address _registryAddress,
         address _committerAddress
     ) public {
         blockChallengePeriod = _blockChallengePeriod;
+        blockIdCensorshipPeriod = _blockIdCensorshipPeriod;
         transitionEvaluator = TransitionEvaluator(_transitionEvaluatorAddress);
         merkleUtils = MerkleUtils(_merkleUtilsAddress);
+        registry = Registry(_registryAddress);
         committerAddress = _committerAddress;
     }
 
@@ -121,12 +132,73 @@ contract RollupChain {
         committerAddress = _committerAddress;
     }
 
+    function deposit(
+        address _asset,
+        uint256 _amount
+    ) public {
+        address account = msg.sender;
+        uint32 assetId = registry.assetAddressToIndex(_asset);
+
+        require(assetId != 0, "Unknown asset");
+
+        // TODO: native ETH not yet supported; need if/else on asset address.
+        require(
+            IERC20(_asset).transferFrom(account, address(this), _amount),
+            "Deposit failed"
+        );
+
+        // Add a pending deposit record.
+        uint256 depositId = pendingDepositsTail++;
+        pendingDeposits[depositId] = PendingDeposit({
+            account: account,
+            assetId: assetId,
+            amount: _amount,
+            blockId: blocks.length, // "pending": baseline of censorship delay
+            status: PendingDepositStatus.Pending
+        });
+
+        emit AssetDeposited(account, _asset, _amount, depositId);
+    }
+
+    function withdraw(
+        address _account,
+        address _asset,
+        uint256 _amount,    // TODO: remove and determine amount from pending withdraws.
+        bytes memory _signature
+    ) public {
+        require(registry.assetAddressToIndex(_asset) != 0, "Unknown asset");
+
+        // TODO: verify and aggregate based on "ready" status of many pending withdraws.
+        // TODO: discuss "signature" content vs reality of amounts in ready withdraws
+        // TODO: delete the consumed pending withdraw entries.
+
+        //bytes32 withdrawHash = keccak256(
+        //    abi.encodePacked(
+        //        address(this),
+        //        "withdraw",
+        //        _account,
+        //        _asset,
+        //        _amount,
+        //        nonce
+        //    )
+        //);
+        //bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(withdrawHash);
+        //require(
+        //    ECDSA.recover(prefixedHash, _signature) == _account,
+        //    "Withdraw signature is invalid!"
+        //);
+
+        require(IERC20(_asset).transfer(_account, _amount), "Withdraw failed");
+
+        emit AssetWithdrawn(_account, _asset, _amount);
+    }
+
     /**
      * Submit a prepared batch as a new rollup block.
      */
     function commitBlock(
         bytes[] calldata _transitions
-    ) external returns (bytes32) {
+    ) external {
         require(
             msg.sender == committerAddress,
             "Only the committer may submit blocks"
@@ -135,17 +207,60 @@ contract RollupChain {
         uint256 blockNumber = blocks.length;
         bytes32 root = merkleUtils.getMerkleRoot(_transitions);
 
-        // TODO: compute intentHash.
+        // Loop over transition and handle these cases:
+        // 1- deposit: update the pending deposit record
+        // 2- withdraw: create a pending withdraw record
+        // 3- commitment sync: fill the "intents" array for future executeBlock()
+        // 4- balance sync: update the pending balance sync record
+
+        uint256[] memory intentIndexes = new uint256[](_transitions.length);
+        uint32 numIntents = 0;
+
+        for (uint256 i = 0; i < _transitions.length; i++) {
+            uint8 transitionType = transitionEvaluator.getTransitionType(_transitions[i]);
+            if (transitionType == transitionEvaluator.TRANSITION_TYPE_DEPOSIT()) {
+                // Update the pending deposit record.
+                dt.DepositTransition memory dp = transitionEvaluator.decodeDepositTransition(_transitions[i]);
+                uint256 depositId = pendingDepositsCommitHead;
+                require(depositId < pendingDepositsTail, "invalid deposit transition, no pending deposits");
+
+                PendingDeposit memory pend = pendingDeposits[depositId];
+                require(pend.account == dp.account && pend.assetId == dp.assetId && pend.amount == dp.amount,
+                    "invalid deposit transition, mismatch or wrong ordering");
+
+                pendingDeposits[depositId].status = PendingDepositStatus.Done;
+                pendingDeposits[depositId].blockId = blockNumber; // "done": block holding the transition
+                pendingDepositsCommitHead++;
+            } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_WITHDRAW()) {
+                dt.WithdrawTransition memory wd = transitionEvaluator.decodeWithdrawTransition(_transitions[i]);
+                // TODO: handle pending withdraw
+            } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_SYNC_COMMITMENT()) {
+                intentIndexes[numIntents++] = i;
+            } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_SYNC_BALANCE()) {
+                dt.BalanceSyncTransition memory bs = transitionEvaluator.decodeBalanceSyncTransition(_transitions[i]);
+                // TODO: handle pending balance sync
+            }
+        }
+
+        // Compute the intent hash.
+        bytes32 intentHash = bytes32(0);
+        if (numIntents > 0) {
+            bytes32[] memory intents = new bytes32[](numIntents);
+            for (uint256 i = 0; i < numIntents; i++) {
+                intents[i] = keccak256(_transitions[intentIndexes[i]]);
+            }
+
+            intentHash = keccak256(abi.encodePacked(intents));
+        }
+
         dt.Block memory rollupBlock = dt.Block({
             rootHash: root,
-            intentHash: bytes32(0),
+            intentHash: intentHash,
             blockTime: block.number
         });
         blocks.push(rollupBlock);
 
         emit RollupBlockCommitted(blockNumber);
-
-        return root;
     }
 
     function executeBlock(
