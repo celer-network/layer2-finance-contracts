@@ -2,8 +2,8 @@
 pragma solidity >=0.6.0 <0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
 /* Internal Imports */
 import {DataTypes} from "./DataTypes.sol";
@@ -14,11 +14,13 @@ contract TransitionEvaluator {
     using SafeMath for uint256;
 
     // Transition Types
-    uint8 constant TRANSITION_TYPE_CREATE_AND_DEPOSIT = 0;
-    uint8 constant TRANSITION_TYPE_DEPOSIT = 1;
-    uint8 constant TRANSITION_TYPE_WITHDRAW = 2;
-    uint8 constant TRANSITION_TYPE_CREATE_AND_TRANSFER = 3;
-    uint8 constant TRANSITION_TYPE_TRANSFER = 4;
+    uint8 public constant TRANSITION_TYPE_INVALID = 0;
+    uint8 public constant TRANSITION_TYPE_DEPOSIT = 1;
+    uint8 public constant TRANSITION_TYPE_WITHDRAW = 2;
+    uint8 public constant TRANSITION_TYPE_COMMIT = 3;
+    uint8 public constant TRANSITION_TYPE_UNCOMMIT = 4;
+    uint8 public constant TRANSITION_TYPE_SYNC_COMMITMENT = 5;
+    uint8 public constant TRANSITION_TYPE_SYNC_BALANCE = 6;
 
     Registry registry;
 
@@ -99,6 +101,12 @@ contract TransitionEvaluator {
         }
 
         return transitionType;
+    }
+
+    function getTransitionType(bytes memory _bytes)
+        external pure returns (uint8)
+    {
+        return extractTransitionType(_bytes);
     }
 
     /**
@@ -260,7 +268,7 @@ contract TransitionEvaluator {
      ***********/
 
     function decodeDepositTransition(bytes memory _rawBytes)
-        internal
+        public
         pure
         returns (DataTypes.DepositTransition memory)
     {
@@ -315,6 +323,116 @@ contract TransitionEvaluator {
             amount,
             timestamp,
             signature
+        );
+        return transition;
+    }
+
+    function decodeCommitTransition(bytes memory _rawBytes)
+        public
+        pure
+        returns (DataTypes.CommitTransition memory)
+    {
+        (
+            uint8 transitionType,
+            bytes32 stateRoot,
+            uint32 accountId,
+            uint32 strategyId,
+            uint256 assetAmount,
+            uint64 timestamp,
+            bytes memory signature
+        ) = abi.decode(
+            (_rawBytes),
+            (uint8, bytes32, uint32, uint32, uint256, uint64, bytes)
+        );
+        DataTypes.CommitTransition memory transition = DataTypes
+            .CommitTransition(
+            transitionType,
+            stateRoot,
+            accountId,
+            strategyId,
+            assetAmount,
+            timestamp,
+            signature
+        );
+        return transition;
+    }
+
+    function decodeUncommitTransition(bytes memory _rawBytes)
+        public
+        pure
+        returns (DataTypes.UncommitTransition memory)
+    {
+        (
+            uint8 transitionType,
+            bytes32 stateRoot,
+            uint32 accountId,
+            uint32 strategyId,
+            uint256 stTokenAmount,
+            uint64 timestamp,
+            bytes memory signature
+        ) = abi.decode(
+            (_rawBytes),
+            (uint8, bytes32, uint32, uint32, uint256, uint64, bytes)
+        );
+        DataTypes.UncommitTransition memory transition = DataTypes
+            .UncommitTransition(
+            transitionType,
+            stateRoot,
+            accountId,
+            strategyId,
+            stTokenAmount,
+            timestamp,
+            signature
+        );
+        return transition;
+    }
+
+    function decodeBalanceSyncTransition(bytes memory _rawBytes)
+        public
+        pure
+        returns (DataTypes.BalanceSyncTransition memory)
+    {
+        (
+            uint8 transitionType,
+            bytes32 stateRoot,
+            uint32 strategyId,
+            uint256 newAssetBalance
+        ) = abi.decode(
+            (_rawBytes),
+            (uint8, bytes32, uint32, uint256)
+        );
+        DataTypes.BalanceSyncTransition memory transition = DataTypes
+            .BalanceSyncTransition(
+            transitionType,
+            stateRoot,
+            strategyId,
+            newAssetBalance
+        );
+        return transition;
+    }
+
+    function decodeCommitmentSyncTransition(bytes memory _rawBytes)
+        public
+        pure
+        returns (DataTypes.CommitmentSyncTransition memory)
+    {
+        (
+            uint8 transitionType,
+            bytes32 stateRoot,
+            uint32 strategyId,
+            uint256 pendingCommitAmount,
+            uint256 pendingUncommitAmount
+        ) = abi.decode(
+            (_rawBytes),
+            (uint8, bytes32, uint32, uint256, uint256)
+        );
+        DataTypes.CommitmentSyncTransition memory transition = DataTypes
+            .CommitmentSyncTransition(
+            transitionType,
+            stateRoot,
+            strategyId,
+            pendingCommitAmount,
+            pendingUncommitAmount
         );
         return transition;
     }

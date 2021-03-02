@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.0 <0.8.0;
 
-import "openzeppelin-solidity/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 
 contract Registry is Ownable {
@@ -11,13 +11,15 @@ contract Registry is Ownable {
     uint32 numAssets = 0;
 
     // Valid strategies.
-    mapping(uint32 => bool) public registeredStrategies;
+    mapping(address => uint32) public strategyAddressToIndex;
+    mapping(uint32 => address) public strategyIndexToAddress;
+    uint32 numStrategies = 0;
 
     event AssetRegistered(address asset, uint32 assetId);
-    event StrategyRegistered(uint32 strategyId);
+    event StrategyRegistered(address strategy, uint32 strategyId);
+
 
     function registerAsset(address _asset) external onlyOwner {
-        require(_asset != address(0), "Invalid asset address");
         require(assetAddressToIndex[_asset] == 0, "Asset already registered");
 
         // Register asset with an index >= 1 (zero is reserved).
@@ -28,11 +30,14 @@ contract Registry is Ownable {
         emit AssetRegistered(_asset, numAssets);
     }
 
-    function registerStrategy(uint32 _strategyId) external onlyOwner {
-        require(!registeredStrategies[_strategyId], "Strategy already registered");
+    function registerStrategy(address _strategy) external onlyOwner {
+        require(strategyAddressToIndex[_strategy] == 0, "Strategy already registered");
 
-        registeredStrategies[_strategyId] = true;
+        // Register strategy with an index >= 1 (zero is reserved).
+        numStrategies++;
+        strategyAddressToIndex[_strategy] = numStrategies;
+        strategyIndexToAddress[numStrategies] = _strategy;
 
-        emit StrategyRegistered(_strategyId);
+        emit StrategyRegistered(_strategy, numStrategies);
     }
 }

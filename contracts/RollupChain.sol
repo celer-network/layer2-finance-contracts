@@ -2,12 +2,14 @@
 pragma solidity >=0.6.0 <0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /* Internal Imports */
 import {DataTypes as dt} from "./DataTypes.sol";
 import {MerkleUtils} from "./MerkleUtils.sol";
 import {TransitionEvaluator} from "./TransitionEvaluator.sol";
+import {Registry} from "./Registry.sol";
 
 
 contract RollupChain {
@@ -18,6 +20,8 @@ contract RollupChain {
     TransitionEvaluator transitionEvaluator;
     // The Merkle Tree library (currently a contract for ease of testing)
     MerkleUtils merkleUtils;
+    // Asset and strategy registry
+    Registry registry;
 
     // All the blocks (prepared and/or executed).
     dt.Block[] public blocks;
@@ -88,6 +92,8 @@ contract RollupChain {
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
     event BalanceSync(uint32 strategyId, uint256 assetBalance, uint256 syncId);
+    event AssetDeposited(address account, address asset, uint256 amount, uint256 depositId);
+    event AssetWithdrawn(address account, address asset, uint256 amount);
 
     /***************
      * Constructor *
@@ -96,11 +102,13 @@ contract RollupChain {
         uint256 _blockChallengePeriod,
         address _transitionEvaluatorAddress,
         address _merkleUtilsAddress,
+        address _registryAddress,
         address _committerAddress
     ) public {
         blockChallengePeriod = _blockChallengePeriod;
         transitionEvaluator = TransitionEvaluator(_transitionEvaluatorAddress);
         merkleUtils = MerkleUtils(_merkleUtilsAddress);
+        registry = Registry(_registryAddress);
         committerAddress = _committerAddress;
     }
 
@@ -121,12 +129,64 @@ contract RollupChain {
         committerAddress = _committerAddress;
     }
 
+    function deposit(
+        address _asset,
+        uint256 _amount
+    ) public {
+        address account = msg.sender;
+        uint32 assetId = registry.assetAddressToIndex(_asset);
+
+        require(assetId != 0, "Unknown asset");
+        require(
+            IERC20(_asset).transferFrom(account, address(this), _amount),
+            "Deposit failed"
+        );
+
+        // Add a pending deposit record.
+        uint256 depositId = addPendingDeposit(account, assetId, _amount);
+
+        emit AssetDeposited(account, _asset, _amount, depositId);
+    }
+
+    function withdraw(
+        address _account,
+        address _asset,
+        uint256 _amount,    // TODO: remove and determine amount from pending withdraws.
+        bytes memory _signature
+    ) public {
+        require(registry.assetAddressToIndex(_asset) != 0, "Unknown asset");
+
+        // TODO: verify and aggregate based on "ready" status of many pending withdraws.
+        // TODO: discuss "signature" content vs reality of amounts in ready withdraws
+        // TODO: delete the consumed pending withdraw entries.
+
+        //bytes32 withdrawHash = keccak256(
+        //    abi.encodePacked(
+        //        address(this),
+        //        "withdraw",
+        //        _account,
+        //        _asset,
+        //        _amount,
+        //        nonce
+        //    )
+        //);
+        //bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(withdrawHash);
+        //require(
+        //    ECDSA.recover(prefixedHash, _signature) == _account,
+        //    "Withdraw signature is invalid!"
+        //);
+
+        require(IERC20(_asset).transfer(_account, _amount), "Withdraw failed");
+
+        emit AssetWithdrawn(_account, _asset, _amount);
+    }
+
     /**
      * Submit a prepared batch as a new rollup block.
      */
     function commitBlock(
         bytes[] calldata _transitions
-    ) external returns (bytes32) {
+    ) external {
         require(
             msg.sender == committerAddress,
             "Only the committer may submit blocks"
@@ -135,17 +195,52 @@ contract RollupChain {
         uint256 blockNumber = blocks.length;
         bytes32 root = merkleUtils.getMerkleRoot(_transitions);
 
-        // TODO: compute intentHash.
+        // Loop over transition and handle these cases:
+        // 1- deposit: update the pending deposit record
+        // 2- withdraw: create a pending withdraw record
+        // 3- commitment sync: fill the "intents" array for future executeBlock()
+        // 4- balance sync: update the pending balance sync record
+
+        uint256[] memory intentIndexes = new uint256[](_transitions.length);
+        uint32 numIntents = 0;
+
+        for (uint256 i = 0; i < _transitions.length; i++) {
+            uint8 transitionType = transitionEvaluator.getTransitionType(_transitions[i]);
+            if (transitionType == transitionEvaluator.TRANSITION_TYPE_DEPOSIT()) {
+                dt.DepositTransition memory dp = transitionEvaluator.decodeDepositTransition(_transitions[i]);
+                bool updated = updatePendingDeposit(dp.account, dp.assetId, dp.amount, blockNumber);
+                require(updated, "Invalid deposit transition, no matching pending deposit");
+            } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_WITHDRAW()) {
+                dt.WithdrawTransition memory wd = transitionEvaluator.decodeWithdrawTransition(_transitions[i]);
+                // TODO: handle pending withdraw
+            } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_SYNC_COMMITMENT()) {
+                intentIndexes[numIntents++] = i;
+            } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_SYNC_BALANCE()) {
+                dt.BalanceSyncTransition memory bs = transitionEvaluator.decodeBalanceSyncTransition(_transitions[i]);
+                // TODO: handle pending balance sync
+            }
+        }
+
+        // Compute the intent hash.
+        bytes32 intentHash = bytes32(0);
+        if (numIntents > 0) {
+            bytes[] memory intents = new bytes[](numIntents);
+            for (uint256 i = 0; i < numIntents; i++) {
+                dt.CommitmentSyncTransition memory cs = transitionEvaluator.decodeCommitmentSyncTransition(_transitions[intentIndexes[i]]);
+                intents[i] = abi.encodePacked(cs.strategyId, cs.pendingCommitAmount, cs.pendingUncommitAmount);
+            }
+
+            intentHash = merkleUtils.getMerkleRoot(intents);
+        }
+
         dt.Block memory rollupBlock = dt.Block({
             rootHash: root,
-            intentHash: bytes32(0),
+            intentHash: intentHash,
             blockTime: block.number
         });
         blocks.push(rollupBlock);
 
         emit RollupBlockCommitted(blockNumber);
-
-        return root;
     }
 
     function executeBlock(
@@ -516,5 +611,43 @@ contract RollupChain {
                 _accountInfo.stTokens,
                 _accountInfo.timestamp
             );
+    }
+
+    function addPendingDeposit(
+        address _account,
+        uint32 _assetId,
+        uint256 _amount
+    ) private returns (uint256) {
+        uint256 depositId = pendingDepositsTail++;
+        pendingDeposits[depositId] = PendingDeposit({
+            account: _account,
+            assetId: _assetId,
+            amount: _amount,
+            blockId: 0,
+            status: PendingDepositStatus.Pending
+        });
+        return depositId;
+    }
+
+    function updatePendingDeposit(
+        address _account,
+        uint32 _assetId,
+        uint256 _amount,
+        uint256 _blockId
+    ) private returns (bool) {
+        uint256 depositId = pendingDepositsCommitHead;
+        if (depositId >= pendingDepositsTail) {
+            return false; // there are no pending deposits
+        }
+
+        PendingDeposit memory pd = pendingDeposits[depositId];
+        if (pd.account == _account && pd.assetId == _assetId && pd.amount == _amount) {
+            pendingDeposits[depositId].status = PendingDepositStatus.Done;
+            pendingDeposits[depositId].blockId = _blockId;
+            pendingDepositsCommitHead++;
+            return true;
+        }
+
+        return false; // mismatch in pending deposit (e.g. wrong ordering)
     }
 }
