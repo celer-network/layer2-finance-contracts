@@ -73,8 +73,8 @@ abigen_one() {
   abigen -abi ../genfiles/$1.abi -bin ../genfiles/$1.bin -pkg contracts -type $1 -out contracts/$gofile.go
 }
 
-// $1 is go file path, $2 is struct name
-// will delete type $2 struct {...} from $1
+# $1 is go file path, $2 is struct name
+# will delete type $2 struct {...} from $1
 del_dup_structs() {
  sed -i -e "/type $2 struct {/,/}/d" $1
 }
