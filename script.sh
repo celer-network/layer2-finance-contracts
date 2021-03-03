@@ -14,6 +14,7 @@ GO_REPO=https://${GH_TOKEN}@github.com/celer-network/defi-rollup
 solFiles=(
   MerkleUtils
   Registry
+  TransitionEvaluator
   RollupChain
   StrategyDummy
   StrategyCurve3PoolDAI
