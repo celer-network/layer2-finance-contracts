@@ -30,7 +30,7 @@ dld_solc() {
 run_solc() {
   mkdir -p genfiles
   for f in ${solFiles[@]}; do
-    solc --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/$OPENZEPPELIN/ contracts/$f.sol
+    solc --allow-paths contracts --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/$OPENZEPPELIN/ contracts/$f.sol
   done
 }
 
@@ -49,6 +49,13 @@ run_abigen() {
   for f in ${solFiles[@]}; do
     abigen_one $f
   done
+  # delete duplicated struct defs, add here if new dup appears
+  del_dup_structs contracts/transitionevaluator.go DataTypesAccountInfo
+  del_dup_structs contracts/transitionevaluator.go DataTypesStorageSlot
+
+  pushd contracts
+  go build # make sure contracts pkg can build
+  popd
 
   if [[ `git status --porcelain` ]]; then
     echo "Sync-ing go binding"
@@ -64,6 +71,12 @@ abigen_one() {
   gofile=`echo $1|tr '[:upper:]' '[:lower:]'`
   mkdir -p contracts
   abigen -abi ../genfiles/$1.abi -bin ../genfiles/$1.bin -pkg contracts -type $1 -out contracts/$gofile.go
+}
+
+# $1 is go file path, $2 is struct name
+# will delete type $2 struct {...} from $1
+del_dup_structs() {
+ sed -i -e "/type $2 struct {/,/}/d" $1
 }
 
 setup_git() {
