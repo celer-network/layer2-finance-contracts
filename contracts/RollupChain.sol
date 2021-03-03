@@ -10,6 +10,7 @@ import {DataTypes as dt} from "./DataTypes.sol";
 import {MerkleUtils} from "./MerkleUtils.sol";
 import {TransitionEvaluator} from "./TransitionEvaluator.sol";
 import {Registry} from "./Registry.sol";
+import {IStrategy} from "./interfaces/IStrategy.sol";
 
 contract RollupChain {
     using SafeMath for uint256;
@@ -247,8 +248,49 @@ contract RollupChain {
         emit RollupBlockCommitted(blockNumber);
     }
 
+    // Note: only the "intent" transitions (commitment sync) are given to executeBlock() instead of
+    // re-sending the whole rollup block.  This includes the case of a rollup block with zero intents.
     function executeBlock(bytes[] calldata _intents) external {
-        // TODO: verify intents and call strategy APIs.
+        uint256 blockId = countExecuted;
+        require(blockId < blocks.length, "No blocks pending execution");
+        require(blocks[blockId].blockTime + blockChallengePeriod < block.number, "Block still in challenge period");
+
+        // Validate the input intent transitions.
+        bytes32 intentHash = bytes32(0);
+        if (_intents.length > 0) {
+            bytes32[] memory hashes = new bytes32[](_intents.length);
+            for (uint256 i = 0; i < _intents.length; i++) {
+                hashes[i] = keccak256(_intents[i]);
+            }
+
+            intentHash = keccak256(abi.encodePacked(hashes));
+        }
+
+        require(intentHash == blocks[blockId].intentHash, "Invalid block intent transitions");
+
+        // Decode the intent transitions and execute the strategy updates.
+        for (uint256 i = 0; i < _intents.length; i++) {
+            dt.CommitmentSyncTransition memory cs = transitionEvaluator.decodeCommitmentSyncTransition(_intents[i]);
+
+            address stAddr = registry.strategyIndexToAddress(cs.strategyId);
+            require(stAddr != address(0), "Unknown strategy ID");
+
+            IStrategy(stAddr).syncCommitment(cs.pendingCommitAmount, cs.pendingUncommitAmount);
+        }
+
+        countExecuted++;
+
+        // Delete pending deposit records finalized by this block.
+        while (pendingDepositsExecuteHead < pendingDepositsCommitHead) {
+            PendingDeposit memory pend = pendingDeposits[pendingDepositsExecuteHead];
+            if (pend.status != PendingDepositStatus.Done || pend.blockId > blockId) {
+                break;
+            }
+            delete pendingDeposits[pendingDepositsExecuteHead];
+            pendingDepositsExecuteHead++;
+        }
+
+        // TODO: update pending withdraw and balance sync records.
     }
 
     // TODO: decide who does the L1-to-L2 balance sync (an external function or
