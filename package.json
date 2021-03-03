@@ -21,8 +21,6 @@
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@openzeppelin/contracts": "^3.4.0",
     "@typechain/ethers-v5": "^5.0.0",
-    "@typechain/truffle-v5": "^4.0.1",
-    "@typechain/web3-v1": "^2.0.0",
     "@types/chai": "^4.2.15",
     "@types/mocha": "^8.2.0",
     "@types/node": "^14.14.27",
