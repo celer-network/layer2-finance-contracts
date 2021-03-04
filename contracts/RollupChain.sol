@@ -93,8 +93,8 @@ contract RollupChain {
     uint256 constant WITHDRAW_WAIT_PERIOD = 0;
 
     // TODO: make these modifiable by admin
-    uint64 public blockChallengePeriod; // count of onchain block numbers to challenge a rollup block
-    uint32 public blockIdCensorshipPeriod; // count of rollup blocks before L2 transition arrives
+    uint256 public blockChallengePeriod; // count of onchain block numbers to challenge a rollup block
+    uint256 public blockIdCensorshipPeriod; // count of rollup blocks before L2 transition arrives
 
     address public committerAddress;
 
@@ -108,8 +108,8 @@ contract RollupChain {
      * Constructor *
      **************/
     constructor(
-        uint64 _blockChallengePeriod,
-        uint32 _blockIdCensorshipPeriod,
+        uint256 _blockChallengePeriod,
+        uint256 _blockIdCensorshipPeriod,
         address _transitionEvaluatorAddress,
         address _merkleUtilsAddress,
         address _registryAddress,
