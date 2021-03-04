@@ -52,7 +52,7 @@ contract DataTypes {
         uint8 transitionType;
         bytes32 stateRoot;
         uint32 strategyId;
-        uint256 newAssetBalance;
+        int256 newAssetDelta; // positive or negative delta allowed
     }
 
     struct CommitmentSyncTransition {
