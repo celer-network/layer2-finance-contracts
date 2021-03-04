@@ -46,18 +46,26 @@ contract RollupChain {
     uint256 pendingDepositsCommitHead; // moves up inside blockCommit() -- intermediate
     uint256 pendingDepositsTail; // moves up inside L1 deposit() -- highest
 
-    // Track pending withdraws arriving from L2 then done on L1, per target address.
-    // - commitBlock() creates it in "pending" status
-    // - executeBlock() moves it to "ready" status
-    // - fraudulent block moves it back to "pending" status
-    // - L1 withdraw(), after deadline passes, gives the funds and deletes it
-    enum PendingWithdrawStatus {Pending, Ready}
-    struct PendingWithdraw {
-        uint32 assetIndex;
+    // Track pending withdraws arriving from L2 then done on L1 across 2 phases.
+    // A separate mapping is used for each phase:
+    // (1) pendingWithdrawCommits: commitBlock() --> executeBlock(), per blockId
+    // (2) pendingWithdraws: executeBlock() --> L1-withdraw, per user account address
+    //
+    // - commitBlock() creates pendingWithdrawCommits entries for the blockId.
+    // - executeBlock() aggregates them into per-account pendingWithdraws entries and
+    //   deletes the pendingWithdrawCommits entries.
+    // - fraudulent block deletes the pendingWithdrawCommits during the blockId rollback.
+    // - L1 withdraw() gives the funds and deletes the account's pendingWithdraws entries.
+    struct PendingWithdrawCommit {
+        address account;
+        uint32 assetId;
         uint256 amount;
-        uint256 blockId; // rollup block containing the L2 transition (rollback on fraud)
-        uint256 deadline; // cannot L1-withdraw before this deadline (onchain block number)
-        PendingWithdrawStatus status;
+    }
+    mapping(uint256 => PendingWithdrawCommit[]) public pendingWithdrawCommits;
+
+    struct PendingWithdraw {
+        uint32 assetId;
+        uint256 totalAmount;
     }
     mapping(address => PendingWithdraw[]) public pendingWithdraws;
 
@@ -93,8 +101,8 @@ contract RollupChain {
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
     event BalanceSync(uint32 strategyId, uint256 assetBalance, uint256 syncId);
-    event AssetDeposited(address account, address asset, uint256 amount, uint256 depositId);
-    event AssetWithdrawn(address account, address asset, uint256 amount);
+    event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
+    event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
 
     /***************
      * Constructor *
@@ -149,40 +157,30 @@ contract RollupChain {
             status: PendingDepositStatus.Pending
         });
 
-        emit AssetDeposited(account, _asset, _amount, depositId);
+        emit AssetDeposited(account, assetId, _amount, depositId);
     }
 
-    function withdraw(
-        address _account,
-        address _asset,
-        uint256 _amount, // TODO: remove and determine amount from pending withdraws.
-        bytes memory _signature
-    ) public {
-        require(registry.assetAddressToIndex(_asset) != 0, "Unknown asset");
+    // Note: the account address is an optional parameter.  If it is specified, it allows the
+    // withdrawal for a 3rd-party address.  Otherwise, the msg.sender is used as target address.
+    function withdraw(address _account) public {
+        if (_account == address(0)) {
+            _account = msg.sender;
+        }
 
-        // TODO: verify and aggregate based on "ready" status of many pending withdraws.
-        // TODO: discuss "signature" content vs reality of amounts in ready withdraws
-        // TODO: delete the consumed pending withdraw entries.
+        require(pendingWithdraws[_account].length > 0, "No assets available to withdraw");
 
-        //bytes32 withdrawHash = keccak256(
-        //    abi.encodePacked(
-        //        address(this),
-        //        "withdraw",
-        //        _account,
-        //        _asset,
-        //        _amount,
-        //        nonce
-        //    )
-        //);
-        //bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(withdrawHash);
-        //require(
-        //    ECDSA.recover(prefixedHash, _signature) == _account,
-        //    "Withdraw signature is invalid!"
-        //);
+        // Transfer all withdrawable assets for this account.
+        // TODO: native ETH not yet supported; need if/else on asset address.
+        for (uint256 i = 0; i < pendingWithdraws[_account].length; i++) {
+            PendingWithdraw memory pw = pendingWithdraws[_account][i];
+            address asset = registry.assetIndexToAddress(pw.assetId);
+            require(asset != address(0), "BUG: invalid asset in pending withdraws");
 
-        require(IERC20(_asset).transfer(_account, _amount), "Withdraw failed");
+            require(IERC20(asset).transfer(_account, pw.totalAmount), "Withdraw failed");
+            emit AssetWithdrawn(_account, pw.assetId, pw.totalAmount);
+        }
 
-        emit AssetWithdrawn(_account, _asset, _amount);
+        delete pendingWithdraws[_account];
     }
 
     /**
@@ -196,7 +194,7 @@ contract RollupChain {
 
         // Loop over transition and handle these cases:
         // 1- deposit: update the pending deposit record
-        // 2- withdraw: create a pending withdraw record
+        // 2- withdraw: create a pending withdraw-commit record
         // 3- commitment sync: fill the "intents" array for future executeBlock()
         // 4- balance sync: update the pending balance sync record
 
@@ -221,8 +219,11 @@ contract RollupChain {
                 pendingDeposits[depositId].blockId = blockNumber; // "done": block holding the transition
                 pendingDepositsCommitHead++;
             } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_WITHDRAW()) {
+                // Append the pending withdraw-commit record for this blockId.
                 dt.WithdrawTransition memory wd = transitionEvaluator.decodeWithdrawTransition(_transitions[i]);
-                // TODO: handle pending withdraw
+                pendingWithdrawCommits[blockNumber].push(
+                    PendingWithdrawCommit({account: wd.account, assetId: wd.assetId, amount: wd.amount})
+                );
             } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_SYNC_COMMITMENT()) {
                 intentIndexes[numIntents++] = i;
             } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_SYNC_BALANCE()) {
@@ -290,7 +291,30 @@ contract RollupChain {
             pendingDepositsExecuteHead++;
         }
 
-        // TODO: update pending withdraw and balance sync records.
+        // Aggregate the pending withdraw-commit records for this blockId into the final
+        // pending withdraw records per account (for later L1 withdraw), and delete them.
+        for (uint256 i = 0; i < pendingWithdrawCommits[blockId].length; i++) {
+            PendingWithdrawCommit memory pwc = pendingWithdrawCommits[blockId][i];
+
+            // Find and increment this account's assetId total amount, or create a new entry.
+            // Note: the per-asset entries are in an array to allow L1-withdraw to iterate
+            // over them, which is why this is an O(n) lookup (very small "n").
+            bool found = false;
+            for (uint256 j = 0; j < pendingWithdraws[pwc.account].length; j++) {
+                if (pendingWithdraws[pwc.account][j].assetId == pwc.assetId) {
+                    pendingWithdraws[pwc.account][j].totalAmount += pwc.amount;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                pendingWithdraws[pwc.account].push(PendingWithdraw({assetId: pwc.assetId, totalAmount: pwc.amount}));
+            }
+        }
+
+        delete pendingWithdrawCommits[blockId];
+
+        // TODO: update pending balance sync records.
     }
 
     // TODO: decide who does the L1-to-L2 balance sync (an external function or
