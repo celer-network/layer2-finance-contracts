@@ -280,8 +280,7 @@ contract RollupChain {
 
             IStrategy strategy = IStrategy(stAddr);
             if (cs.pendingCommitAmount > 0) {
-                IERC20(strategy.getAssetAddress()).safeApprove(stAddr, 0);
-                IERC20(strategy.getAssetAddress()).safeApprove(stAddr, cs.pendingCommitAmount);
+                IERC20(strategy.getAssetAddress()).safeIncreaseAllowance(stAddr, cs.pendingCommitAmount);
             }
             strategy.syncCommitment(cs.pendingCommitAmount, cs.pendingUncommitAmount);
         }
