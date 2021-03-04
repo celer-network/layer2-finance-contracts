@@ -82,7 +82,7 @@ contract TransitionEvaluator {
         uint8 transitionType;
 
         assembly {
-            transitionType := mload(add(_bytes, 0x01))
+            transitionType := mload(add(_bytes, 0x20))
         }
 
         return transitionType;

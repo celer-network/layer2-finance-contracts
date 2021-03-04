@@ -11,18 +11,35 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./interfaces/IStrategy.sol";
 
 /**
- * A dummy sample strategy.
+ * @notice A dummy sample strategy that does nothing with the committed funds.
  */
 contract StrategyDummy is IStrategy {
-    using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
-    constructor() {}
+    address controller;
+    address asset;
 
-    function syncCommitment(uint256, uint256) external view override {}
+    constructor(address _controller, address _asset) {
+        controller = _controller;
+        asset = _asset;
+    }
 
-    function syncBalance() external pure override returns (uint256) {
-        return 1e18;
+    function getAssetAddress() external view override returns (address) {
+        return asset;
+    }
+
+    function syncCommitment(uint256 _commitAmount, uint256 _uncommitAmount) external override {
+        if (_commitAmount > 0) {
+            IERC20(asset).safeTransferFrom(controller, address(this), _commitAmount);
+        }
+        if (_uncommitAmount > 0) {
+            IERC20(asset).safeTransfer(controller, _uncommitAmount);
+        }
+    }
+
+    function syncBalance() external view override returns (uint256) {
+        return IERC20(asset).balanceOf(address(this));
     }
 }

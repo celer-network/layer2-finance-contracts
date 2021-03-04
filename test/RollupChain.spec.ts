@@ -1,58 +1,32 @@
 import { expect } from 'chai';
-import hre, { ethers } from 'hardhat';
+import { ethers } from 'hardhat';
 
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
-
-import { Registry__factory } from '../typechain';
-import { MerkleUtils__factory } from '../typechain/factories/MerkleUtils__factory';
-import { RollupChain__factory } from '../typechain/factories/RollupChain__factory';
-import { TransitionEvaluator__factory } from '../typechain/factories/TransitionEvaluator__factory';
-import { RollupChain } from '../typechain/RollupChain';
-
-declare module 'mocha' {
-  export interface Context {
-    rollupChain: RollupChain;
-    adminSigner: SignerWithAddress;
-  }
-}
+import { deployContracts } from './common';
 
 describe('RollupChain', function () {
   beforeEach(async function () {
-    const signers: SignerWithAddress[] = await hre.ethers.getSigners();
-    this.adminSigner = signers[0];
+    await deployContracts(this);
+  });
 
-    const merkleUtilsFactory = (await ethers.getContractFactory(
-      'MerkleUtils'
-    )) as MerkleUtils__factory;
-    const merkleUtils = await merkleUtilsFactory.deploy();
-    await merkleUtils.deployed();
-
-    const registryFactory = (await ethers.getContractFactory(
-      'Registry'
-    )) as Registry__factory;
-    const registry = await registryFactory.deploy();
-    await registry.deployed();
-
-    const transitionEvaluatorFactory = (await ethers.getContractFactory(
-      'TransitionEvaluator'
-    )) as TransitionEvaluator__factory;
-    const transitionEvaluator = await transitionEvaluatorFactory.deploy(
-      registry.address
-    );
-    await merkleUtils.deployed();
-
-    const rollupChainFactory = (await ethers.getContractFactory(
-      'RollupChain'
-    )) as RollupChain__factory;
-    this.rollupChain = await rollupChainFactory.deploy(
-      0,
-      0,
-      transitionEvaluator.address,
-      merkleUtils.address,
-      registry.address,
-      this.adminSigner.address
-    );
-    await this.rollupChain.deployed();
+  it('should deposit', async function () {
+    const tokenAddress = this.testERC20.address;
+    await this.registry.registerAsset(tokenAddress);
+    await this.testERC20.approve(this.rollupChain.address, 1);
+    await expect(this.rollupChain.deposit(tokenAddress, 1))
+      .to.emit(this.rollupChain, 'AssetDeposited')
+      .withArgs(this.adminSigner.address, 1, 1, 0);
+    const [
+      account,
+      assetID,
+      amount,
+      blockID,
+      status
+    ] = await this.rollupChain.pendingDeposits(0);
+    expect(account).to.equal(this.adminSigner.address);
+    expect(assetID).to.equal(1);
+    expect(amount).to.equal(1);
+    expect(blockID).to.equal(0);
+    expect(status).to.equal(0);
   });
 
   it('should commit block', async function () {
@@ -64,7 +38,33 @@ describe('RollupChain', function () {
       '0x000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000737461746520726f6f740000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000102030000000000000000000000000000000000000000000000000000000000bc614e00000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000d7468697320697320612073696700000000000000000000000000000000000000',
       '0x000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000737461746520726f6f740000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000102030000000000000000000000000000000000000000000000000000000000bc614e00000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000d7468697320697320612073696700000000000000000000000000000000000000'
     ];
-    expect(await this.rollupChain.commitBlock(txs)).not.throw;
+    expect(await this.rollupChain.commitBlock(txs)).to.not.throw;
     expect(await this.rollupChain.getCurrentBlockNumber()).to.equal(0); // 0-based indexing
+  });
+
+  it('should execute block with one deposit, one commit, one sync commitment and one sync balance', async function () {
+    const tokenAddress = this.testERC20.address;
+    await this.registry.registerAsset(tokenAddress);
+    const stAddress = this.strategyDummy.address;
+    await this.registry.registerStrategy(stAddress);
+    await this.testERC20.approve(this.rollupChain.address, 1);
+    await this.rollupChain.deposit(tokenAddress, 1);
+
+    const txs = [
+      // Deposit
+      '0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001',
+      // Commit
+      '0x000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000737461746520726f6f74000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000d7468697320697320612073696700000000000000000000000000000000000000',
+      // Sync commitment
+      '0x000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000737461746520726f6f740000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000',
+      // Sync balance
+      '0x000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000737461746520726f6f7400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001'
+    ];
+    await this.rollupChain.commitBlock(txs);
+    const intents = [
+      // Sync commitment
+      '0x000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000737461746520726f6f740000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000'
+    ];
+    expect(await this.rollupChain.executeBlock(intents)).to.not.throw;
   });
 });
