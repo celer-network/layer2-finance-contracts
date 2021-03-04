@@ -4,6 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 /* Internal Imports */
 import {DataTypes as dt} from "./DataTypes.sol";
@@ -14,6 +15,7 @@ import {IStrategy} from "./interfaces/IStrategy.sol";
 
 contract RollupChain {
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     /* Fields */
     // The state transition evaluator
@@ -145,7 +147,7 @@ contract RollupChain {
         require(assetId != 0, "Unknown asset");
 
         // TODO: native ETH not yet supported; need if/else on asset address.
-        require(IERC20(_asset).transferFrom(account, address(this), _amount), "Deposit failed");
+        IERC20(_asset).safeTransferFrom(account, address(this), _amount);
 
         // Add a pending deposit record.
         uint256 depositId = pendingDepositsTail++;
@@ -176,7 +178,7 @@ contract RollupChain {
             address asset = registry.assetIndexToAddress(pw.assetId);
             require(asset != address(0), "BUG: invalid asset in pending withdraws");
 
-            require(IERC20(asset).transfer(_account, pw.totalAmount), "Withdraw failed");
+            IERC20(asset).safeTransfer(_account, pw.totalAmount);
             emit AssetWithdrawn(_account, pw.assetId, pw.totalAmount);
         }
 
@@ -276,7 +278,12 @@ contract RollupChain {
             address stAddr = registry.strategyIndexToAddress(cs.strategyId);
             require(stAddr != address(0), "Unknown strategy ID");
 
-            IStrategy(stAddr).syncCommitment(cs.pendingCommitAmount, cs.pendingUncommitAmount);
+            IStrategy strategy = IStrategy(stAddr);
+            if (cs.pendingCommitAmount > 0) {
+                IERC20(strategy.getAssetAddress()).safeApprove(stAddr, 0);
+                IERC20(strategy.getAssetAddress()).safeApprove(stAddr, cs.pendingCommitAmount);
+            }
+            strategy.syncCommitment(cs.pendingCommitAmount, cs.pendingUncommitAmount);
         }
 
         countExecuted++;

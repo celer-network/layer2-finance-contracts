@@ -15,7 +15,7 @@ import "./interfaces/IStrategy.sol";
 import "./interfaces/uniswap/IUniswapV2.sol";
 
 /**
- * Deposits DAI into Curve 3Pool and issues stCrv3PoolDAI in L2. Holds 3CRV (Curve 3Pool LP tokens).
+ * @notice Deposits DAI into Curve 3Pool and issues stCrv3PoolDAI in L2. Holds 3CRV (Curve 3Pool LP tokens).
  */
 contract StrategyCurve3PoolDAI is IStrategy {
     using SafeERC20 for IERC20;
@@ -59,6 +59,10 @@ contract StrategyCurve3PoolDAI is IStrategy {
         weth = _weth;
         uniswap = _uniswap;
         slippage = _slippage;
+    }
+
+    function getAssetAddress() external view override returns (address) {
+        return dai;
     }
 
     function syncCommitment(uint256 commitAmount, uint256 uncommitAmount) external override {
