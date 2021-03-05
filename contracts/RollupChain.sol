@@ -80,7 +80,7 @@ contract RollupChain {
     enum PendingBalanceSyncStatus {Pending, Done}
     struct PendingBalanceSync {
         uint32 strategyId;
-        uint256 balance;
+        uint256 delta;
         uint256 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
         PendingBalanceSyncStatus status;
     }
@@ -88,6 +88,9 @@ contract RollupChain {
     uint256 pendingBalanceSyncsExecuteHead; // moves up inside blockExecute() -- lowest
     uint256 pendingBalanceSyncsCommitHead; // moves up inside blockCommit() -- intermediate
     uint256 pendingBalanceSyncsTail; // moves up inside L1 Balance Sync -- highest
+
+    // Track the asset balances of strategies to compute deltas after syncBalance() calls.
+    mapping(uint32 => uint256) public strategyAssetBalances;
 
     // State tree height
     uint256 constant STATE_TREE_HEIGHT = 32;
@@ -102,7 +105,7 @@ contract RollupChain {
 
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
-    event BalanceSync(uint32 strategyId, uint256 assetBalance, uint256 syncId);
+    event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
 
@@ -188,10 +191,10 @@ contract RollupChain {
     /**
      * Submit a prepared batch as a new rollup block.
      */
-    function commitBlock(bytes[] calldata _transitions) external {
+    function commitBlock(uint256 _blockId, bytes[] calldata _transitions) external {
         require(msg.sender == committerAddress, "Only the committer may submit blocks");
+        require(_blockId == blocks.length, "Wrong block ID");
 
-        uint256 blockNumber = blocks.length;
         bytes32 root = merkleUtils.getMerkleRoot(_transitions);
 
         // Loop over transition and handle these cases:
@@ -218,19 +221,31 @@ contract RollupChain {
                 );
 
                 pendingDeposits[depositId].status = PendingDepositStatus.Done;
-                pendingDeposits[depositId].blockId = blockNumber; // "done": block holding the transition
+                pendingDeposits[depositId].blockId = _blockId; // "done": block holding the transition
                 pendingDepositsCommitHead++;
             } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_WITHDRAW()) {
                 // Append the pending withdraw-commit record for this blockId.
                 dt.WithdrawTransition memory wd = transitionEvaluator.decodeWithdrawTransition(_transitions[i]);
-                pendingWithdrawCommits[blockNumber].push(
+                pendingWithdrawCommits[_blockId].push(
                     PendingWithdrawCommit({account: wd.account, assetId: wd.assetId, amount: wd.amount})
                 );
             } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_SYNC_COMMITMENT()) {
                 intentIndexes[numIntents++] = i;
             } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_SYNC_BALANCE()) {
+                // Update the pending balance sync record.
                 dt.BalanceSyncTransition memory bs = transitionEvaluator.decodeBalanceSyncTransition(_transitions[i]);
-                // TODO: handle pending balance sync
+                uint256 syncId = pendingBalanceSyncsCommitHead;
+                require(syncId < pendingBalanceSyncsTail, "invalid balance sync transition, no pending balance syncs");
+
+                PendingBalanceSync memory pend = pendingBalanceSyncs[syncId];
+                require(
+                    pend.strategyId == bs.strategyId && pend.delta == bs.newAssetDelta,
+                    "invalid balance sync transition, mismatch or wrong ordering"
+                );
+
+                pendingBalanceSyncs[syncId].status = PendingBalanceSyncStatus.Done;
+                pendingBalanceSyncs[syncId].blockId = _blockId; // "done": block holding the transition
+                pendingBalanceSyncsCommitHead++;
             }
         }
 
@@ -248,7 +263,7 @@ contract RollupChain {
         dt.Block memory rollupBlock = dt.Block({rootHash: root, intentHash: intentHash, blockTime: block.number});
         blocks.push(rollupBlock);
 
-        emit RollupBlockCommitted(blockNumber);
+        emit RollupBlockCommitted(_blockId);
     }
 
     // Note: only the "intent" transitions (commitment sync) are given to executeBlock() instead of
@@ -283,6 +298,9 @@ contract RollupChain {
                 IERC20(strategy.getAssetAddress()).safeIncreaseAllowance(stAddr, cs.pendingCommitAmount);
             }
             strategy.syncCommitment(cs.pendingCommitAmount, cs.pendingUncommitAmount);
+
+            uint256 oldBalance = strategyAssetBalances[cs.strategyId];
+            strategyAssetBalances[cs.strategyId] = oldBalance.add(cs.pendingCommitAmount).sub(cs.pendingUncommitAmount);
         }
 
         countExecuted++;
@@ -320,11 +338,36 @@ contract RollupChain {
 
         delete pendingWithdrawCommits[blockId];
 
-        // TODO: update pending balance sync records.
+        // Delete pending balance sync records finalized by this block.
+        while (pendingBalanceSyncsExecuteHead < pendingBalanceSyncsCommitHead) {
+            PendingBalanceSync memory pend = pendingBalanceSyncs[pendingBalanceSyncsExecuteHead];
+            if (pend.status != PendingBalanceSyncStatus.Done || pend.blockId > blockId) {
+                break;
+            }
+            delete pendingBalanceSyncs[pendingBalanceSyncsExecuteHead];
+            pendingBalanceSyncsExecuteHead++;
+        }
     }
 
-    // TODO: decide who does the L1-to-L2 balance sync (an external function or
-    // an internal side-effect of executeBlock()?
+    function syncBalance(uint32 _strategyId) external {
+        address stAddr = registry.strategyIndexToAddress(_strategyId);
+        require(stAddr != address(0), "Unknown strategy ID");
+
+        uint256 newBalance = IStrategy(stAddr).syncBalance();
+        uint256 delta = newBalance.sub(strategyAssetBalances[_strategyId]);
+        strategyAssetBalances[_strategyId] = newBalance;
+
+        // Add a pending balance sync record.
+        uint256 syncId = pendingBalanceSyncsTail++;
+        pendingBalanceSyncs[syncId] = PendingBalanceSync({
+            strategyId: _strategyId,
+            delta: delta,
+            blockId: blocks.length, // "pending": baseline of censorship delay
+            status: PendingBalanceSyncStatus.Pending
+        });
+
+        emit BalanceSync(_strategyId, delta, syncId);
+    }
 
     /**********************
      * Proving Invalidity *
