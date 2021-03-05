@@ -20,6 +20,7 @@ describe('StrategyDummy', function () {
     )) as StrategyDummy__factory;
     this.strategyDummy = await strategyDummyFactory.deploy(
       this.adminSigner.address,
+      this.adminSigner.address,
       this.testERC20.address
     );
     await this.strategyDummy.deployed();
@@ -31,19 +32,23 @@ describe('StrategyDummy', function () {
     );
   });
 
-  it('should return empty balance initially', async function () {
-    expect(await this.strategyDummy.syncBalance()).to.equal('0');
+  it('should take 1 from funder and add to balance', async function () {
+    await this.testERC20.approve(this.strategyDummy.address, 1);
+    expect(await this.strategyDummy.updateBalance()).to.not.throw;
+    expect(await this.strategyDummy.getBalance()).to.equal(1);
   });
 
   it('should sync commit', async function () {
-    await this.testERC20.approve(this.strategyDummy.address, 1);
+    await this.testERC20.approve(this.strategyDummy.address, 2);
     expect(await this.strategyDummy.syncCommitment(1, 0)).to.not.throw;
-    expect(await this.strategyDummy.syncBalance()).to.equal('1');
+    await this.strategyDummy.updateBalance();
+    expect(await this.strategyDummy.getBalance()).to.equal(2);
   });
 
   it('should sync uncommit', async function () {
-    await this.testERC20.approve(this.strategyDummy.address, 3);
+    await this.testERC20.approve(this.strategyDummy.address, 4);
     expect(await this.strategyDummy.syncCommitment(3, 1)).to.not.throw;
-    expect(await this.strategyDummy.syncBalance()).to.equal('2');
+    await this.strategyDummy.updateBalance();
+    expect(await this.strategyDummy.getBalance()).to.equal(3);
   });
 });

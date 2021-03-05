@@ -19,10 +19,16 @@ contract StrategyDummy is IStrategy {
     using SafeERC20 for IERC20;
 
     address controller;
+    address funder;
     address asset;
 
-    constructor(address _controller, address _asset) {
+    constructor(
+        address _controller,
+        address _funder,
+        address _asset
+    ) {
         controller = _controller;
+        funder = _funder;
         asset = _asset;
     }
 
@@ -31,6 +37,8 @@ contract StrategyDummy is IStrategy {
     }
 
     function syncCommitment(uint256 _commitAmount, uint256 _uncommitAmount) external override {
+        require(msg.sender == controller, "Not controller");
+
         if (_commitAmount > 0) {
             IERC20(asset).safeTransferFrom(controller, address(this), _commitAmount);
         }
@@ -39,7 +47,11 @@ contract StrategyDummy is IStrategy {
         }
     }
 
-    function syncBalance() external view override returns (uint256) {
+    function getBalance() external view override returns (uint256) {
         return IERC20(asset).balanceOf(address(this));
+    }
+
+    function updateBalance() external override {
+        IERC20(asset).safeTransferFrom(funder, address(this), 1);
     }
 }

@@ -353,7 +353,8 @@ contract RollupChain {
         address stAddr = registry.strategyIndexToAddress(_strategyId);
         require(stAddr != address(0), "Unknown strategy ID");
 
-        uint256 newBalance = IStrategy(stAddr).syncBalance();
+        IStrategy strategy = IStrategy(stAddr);
+        uint256 newBalance = strategy.getBalance();
         uint256 delta = newBalance.sub(strategyAssetBalances[_strategyId]);
         strategyAssetBalances[_strategyId] = newBalance;
 
