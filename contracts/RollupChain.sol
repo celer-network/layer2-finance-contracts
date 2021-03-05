@@ -80,7 +80,7 @@ contract RollupChain {
     enum PendingBalanceSyncStatus {Pending, Done}
     struct PendingBalanceSync {
         uint32 strategyId;
-        int256 delta;
+        uint256 delta;
         uint256 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
         PendingBalanceSyncStatus status;
     }
@@ -90,9 +90,7 @@ contract RollupChain {
     uint256 pendingBalanceSyncsTail; // moves up inside L1 Balance Sync -- highest
 
     // Track the asset balances of strategies to compute deltas after syncBalance() calls.
-    // Note: balances are "int256" to handle in the future negative values in case of strategies
-    // that could temporarily lose value and have negative balances.
-    mapping(uint32 => int256) public strategyAssetBalances;
+    mapping(uint32 => uint256) public strategyAssetBalances;
 
     // State tree height
     uint256 constant STATE_TREE_HEIGHT = 32;
@@ -107,7 +105,7 @@ contract RollupChain {
 
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
-    event BalanceSync(uint32 strategyId, int256 delta, uint256 syncId);
+    event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
 
@@ -302,7 +300,8 @@ contract RollupChain {
             }
             strategy.syncCommitment(cs.pendingCommitAmount, cs.pendingUncommitAmount);
 
-            strategyAssetBalances[cs.strategyId] += int256(cs.pendingCommitAmount) - int256(cs.pendingUncommitAmount);
+            uint256 oldBalance = strategyAssetBalances[cs.strategyId];
+            strategyAssetBalances[cs.strategyId] = oldBalance.add(cs.pendingCommitAmount).sub(cs.pendingUncommitAmount);
         }
 
         countExecuted++;
@@ -355,8 +354,8 @@ contract RollupChain {
         address stAddr = registry.strategyIndexToAddress(_strategyId);
         require(stAddr != address(0), "Unknown strategy ID");
 
-        int256 newBalance = int256(IStrategy(stAddr).syncBalance());
-        int256 delta = newBalance - strategyAssetBalances[_strategyId];
+        uint256 newBalance = IStrategy(stAddr).syncBalance();
+        uint256 delta = newBalance.sub(strategyAssetBalances[_strategyId]);
         strategyAssetBalances[_strategyId] = newBalance;
 
         // Add a pending balance sync record.

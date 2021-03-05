@@ -334,8 +334,8 @@ contract TransitionEvaluator {
         pure
         returns (DataTypes.BalanceSyncTransition memory)
     {
-        (uint8 transitionType, bytes32 stateRoot, uint32 strategyId, int256 newAssetDelta) =
-            abi.decode((_rawBytes), (uint8, bytes32, uint32, int256));
+        (uint8 transitionType, bytes32 stateRoot, uint32 strategyId, uint256 newAssetDelta) =
+            abi.decode((_rawBytes), (uint8, bytes32, uint32, uint256));
         DataTypes.BalanceSyncTransition memory transition =
             DataTypes.BalanceSyncTransition(transitionType, stateRoot, strategyId, newAssetDelta);
         return transition;
