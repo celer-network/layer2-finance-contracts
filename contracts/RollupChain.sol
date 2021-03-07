@@ -5,6 +5,8 @@ pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /* Internal Imports */
 import {DataTypes as dt} from "./DataTypes.sol";
@@ -13,7 +15,7 @@ import {TransitionEvaluator} from "./TransitionEvaluator.sol";
 import {Registry} from "./Registry.sol";
 import {IStrategy} from "./interfaces/IStrategy.sol";
 
-contract RollupChain {
+contract RollupChain is Ownable, Pausable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -128,7 +130,31 @@ contract RollupChain {
         committerAddress = _committerAddress;
     }
 
-    /* Methods */
+    /**
+     * @dev Called by the owner to pause contract
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @dev Called by the owner to unpause contract
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /**
+     * @notice Owner drains one type of tokens when the contract is paused
+     * @dev This is for emergency situations.
+     * @param _asset drained asset address
+     * @param _amount drained asset amount
+     * @param _receiver address to receive the drained asset
+     */
+    function drainToken(address _asset, uint256 _amount, address _receiver) external whenPaused onlyOwner {
+        IERC20(_asset).safeTransfer(_receiver, _amount);
+    }
+
     function pruneBlocksAfter(uint256 _blockNumber) internal {
         for (uint256 i = _blockNumber; i < blocks.length; i++) {
             delete blocks[i];
@@ -139,11 +165,11 @@ contract RollupChain {
         return blocks.length - 1;
     }
 
-    function setCommitterAddress(address _committerAddress) external {
+    function setCommitterAddress(address _committerAddress) external onlyOwner {
         committerAddress = _committerAddress;
     }
 
-    function deposit(address _asset, uint256 _amount) public {
+    function deposit(address _asset, uint256 _amount) external whenNotPaused {
         address account = msg.sender;
         uint32 assetId = registry.assetAddressToIndex(_asset);
 
@@ -167,7 +193,7 @@ contract RollupChain {
 
     // Note: the account address is an optional parameter.  If it is specified, it allows the
     // withdrawal for a 3rd-party address.  Otherwise, the msg.sender is used as target address.
-    function withdraw(address _account) public {
+    function withdraw(address _account) external whenNotPaused {
         if (_account == address(0)) {
             _account = msg.sender;
         }
@@ -191,7 +217,7 @@ contract RollupChain {
     /**
      * Submit a prepared batch as a new rollup block.
      */
-    function commitBlock(uint256 _blockId, bytes[] calldata _transitions) external {
+    function commitBlock(uint256 _blockId, bytes[] calldata _transitions) external whenNotPaused {
         require(msg.sender == committerAddress, "Only the committer may submit blocks");
         require(_blockId == blocks.length, "Wrong block ID");
 
@@ -268,7 +294,7 @@ contract RollupChain {
 
     // Note: only the "intent" transitions (commitment sync) are given to executeBlock() instead of
     // re-sending the whole rollup block.  This includes the case of a rollup block with zero intents.
-    function executeBlock(bytes[] calldata _intents) external {
+    function executeBlock(bytes[] calldata _intents) external whenNotPaused {
         uint256 blockId = countExecuted;
         require(blockId < blocks.length, "No blocks pending execution");
         require(blocks[blockId].blockTime + blockChallengePeriod < block.number, "Block still in challenge period");
@@ -349,7 +375,7 @@ contract RollupChain {
         }
     }
 
-    function syncBalance(uint32 _strategyId) external {
+    function syncBalance(uint32 _strategyId) external whenNotPaused {
         address stAddr = registry.strategyIndexToAddress(_strategyId);
         require(stAddr != address(0), "Unknown strategy ID");
 
