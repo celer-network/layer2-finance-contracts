@@ -103,13 +103,18 @@ contract RollupChain is Ownable, Pausable {
     uint256 public blockChallengePeriod; // count of onchain block numbers to challenge a rollup block
     uint256 public blockIdCensorshipPeriod; // count of rollup blocks before L2 transition arrives
 
-    address public committerAddress;
+    address public operator;
 
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
     event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
+
+    modifier onlyOperator() {
+        require(msg.sender == operator, "caller is not operator");
+        _;
+    }
 
     /***************
      * Constructor *
@@ -120,14 +125,14 @@ contract RollupChain is Ownable, Pausable {
         address _transitionEvaluatorAddress,
         address _merkleUtilsAddress,
         address _registryAddress,
-        address _committerAddress
+        address _operator
     ) public {
         blockChallengePeriod = _blockChallengePeriod;
         blockIdCensorshipPeriod = _blockIdCensorshipPeriod;
         transitionEvaluator = TransitionEvaluator(_transitionEvaluatorAddress);
         merkleUtils = MerkleUtils(_merkleUtilsAddress);
         registry = Registry(_registryAddress);
-        committerAddress = _committerAddress;
+        operator = _operator;
     }
 
     /**
@@ -155,18 +160,12 @@ contract RollupChain is Ownable, Pausable {
         IERC20(_asset).safeTransfer(_receiver, _amount);
     }
 
-    function pruneBlocksAfter(uint256 _blockNumber) internal {
-        for (uint256 i = _blockNumber; i < blocks.length; i++) {
-            delete blocks[i];
-        }
-    }
-
     function getCurrentBlockNumber() public view returns (uint256) {
         return blocks.length - 1;
     }
 
-    function setCommitterAddress(address _committerAddress) external onlyOwner {
-        committerAddress = _committerAddress;
+    function setOperator(address _operator) external onlyOwner {
+        operator = _operator;
     }
 
     function deposit(address _asset, uint256 _amount) external whenNotPaused {
@@ -217,8 +216,7 @@ contract RollupChain is Ownable, Pausable {
     /**
      * Submit a prepared batch as a new rollup block.
      */
-    function commitBlock(uint256 _blockId, bytes[] calldata _transitions) external whenNotPaused {
-        require(msg.sender == committerAddress, "Only the committer may submit blocks");
+    function commitBlock(uint256 _blockId, bytes[] calldata _transitions) external whenNotPaused onlyOperator {
         require(_blockId == blocks.length, "Wrong block ID");
 
         bytes32 root = merkleUtils.getMerkleRoot(_transitions);
@@ -375,7 +373,7 @@ contract RollupChain is Ownable, Pausable {
         }
     }
 
-    function syncBalance(uint32 _strategyId) external whenNotPaused {
+    function syncBalance(uint32 _strategyId) external whenNotPaused onlyOperator {
         address stAddr = registry.strategyIndexToAddress(_strategyId);
         require(stAddr != address(0), "Unknown strategy ID");
 
@@ -666,5 +664,11 @@ contract RollupChain is Ownable, Pausable {
                 _accountInfo.stTokens,
                 _accountInfo.timestamp
             );
+    }
+
+    function pruneBlocksAfter(uint256 _blockNumber) private {
+        for (uint256 i = _blockNumber; i < blocks.length; i++) {
+            delete blocks[i];
+        }
     }
 }
