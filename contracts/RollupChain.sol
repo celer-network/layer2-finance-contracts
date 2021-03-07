@@ -94,6 +94,11 @@ contract RollupChain is Ownable, Pausable {
     // Track the asset balances of strategies to compute deltas after syncBalance() calls.
     mapping(uint32 => uint256) public strategyAssetBalances;
 
+    // per-asset (total deposit - total withdrawal) amount
+    mapping(address => uint256) netDeposits;
+    // per-asset (total deposit - total withdrawal) limit
+    mapping(address => uint256) netDepositLimits;
+
     // State tree height
     uint256 constant STATE_TREE_HEIGHT = 32;
     // TODO: Set a reasonable wait period
@@ -168,6 +173,12 @@ contract RollupChain is Ownable, Pausable {
         operator = _operator;
     }
 
+    function setNetDepositLimit(address _asset, uint256 _limit) external onlyOwner {
+        uint32 assetId = registry.assetAddressToIndex(_asset);
+        require(assetId != 0, "Unknown asset");
+        netDepositLimits[_asset] = _limit;
+    }
+
     function deposit(address _asset, uint256 _amount) external whenNotPaused {
         address account = msg.sender;
         uint32 assetId = registry.assetAddressToIndex(_asset);
@@ -187,6 +198,12 @@ contract RollupChain is Ownable, Pausable {
             status: PendingDepositStatus.Pending
         });
 
+        uint256 netDeposit = netDeposits[_asset].add(_amount);
+        uint256 limit = netDepositLimits[_asset];
+        if (limit > 0) {
+            require(netDeposit <= limit, "net deposit exceeds limit");
+        }
+        netDeposits[_asset] = netDeposit;
         emit AssetDeposited(account, assetId, _amount, depositId);
     }
 
@@ -205,8 +222,13 @@ contract RollupChain is Ownable, Pausable {
             PendingWithdraw memory pw = pendingWithdraws[_account][i];
             address asset = registry.assetIndexToAddress(pw.assetId);
             require(asset != address(0), "BUG: invalid asset in pending withdraws");
-
             IERC20(asset).safeTransfer(_account, pw.totalAmount);
+
+            if (netDeposits[asset] < pw.totalAmount) {
+                netDeposits[asset] = 0;
+            } else {
+                netDeposits[asset] = netDeposits[asset].sub(pw.totalAmount);
+            }
             emit AssetWithdrawn(_account, pw.assetId, pw.totalAmount);
         }
 
