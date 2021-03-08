@@ -163,18 +163,23 @@ contract TransitionEvaluator {
         DataTypes.DepositTransition memory _transition,
         DataTypes.StorageSlot memory _storageSlot
     ) public view returns (DataTypes.AccountInfo memory) {
-        address account = _storageSlot.value.account;
+        if (_storageSlot.value.account == address(0)) {
+            // first time deposit
+            require(_storageSlot.value.accountId == 0, "empty account id must be zero");
+            require(_storageSlot.value.idleAssets.length == 0, "empty account idleAssets must be empty");
+            require(_storageSlot.value.stTokens.length == 0, "empty account stTokens must be empty");
+            require(_storageSlot.value.timestamp == 0, "empty account timestamp must be zero");
+            _storageSlot.value.account = _transition.account;
+            _storageSlot.value.accountId = _transition.accountId;
+        } else {
+            require(_storageSlot.value.account == _transition.account, "account address not match");
+            require(_storageSlot.value.accountId == _transition.accountId, "account id not match");
+        }
 
-        // TODO (dominator008): Verify signature of depositer
+        uint32 assetId = _transition.assetId;
+        _storageSlot.value.idleAssets[assetId] = _storageSlot.value.idleAssets[assetId].add(_transition.amount);
 
         DataTypes.AccountInfo memory outputStorage;
-        uint32 assetId = _transition.assetId;
-        /*
-        uint256 oldBalance = _storageSlot.value.balances[assetId];
-        _storageSlot.value.balances[assetId] = oldBalance.add(
-            _transition.amount
-        );
-        */
         outputStorage = _storageSlot.value;
         return outputStorage;
     }
