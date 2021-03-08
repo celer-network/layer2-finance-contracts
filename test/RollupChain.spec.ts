@@ -8,7 +8,10 @@ describe('RollupChain', function () {
     await deployContracts(this);
     const tokenAddress = this.testERC20.address;
     await this.registry.registerAsset(tokenAddress);
-    await this.rollupChain.setNetDepositLimit(tokenAddress, ethers.utils.parseEther('10000'));
+    await this.rollupChain.setNetDepositLimit(
+      tokenAddress,
+      ethers.utils.parseEther('10000')
+    );
   });
 
   it('should deposit', async function () {
@@ -35,6 +38,57 @@ describe('RollupChain', function () {
     expect(amount).to.equal(ethers.utils.parseEther('1'));
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
+  });
+
+  it('should withdraw', async function () {
+    const tokenAddress = this.testERC20.address;
+    await this.testERC20.approve(
+      this.rollupChain.address,
+      ethers.utils.parseEther('1')
+    );
+    await this.rollupChain.deposit(tokenAddress, ethers.utils.parseEther('1'));
+    await expect(
+      this.rollupChain.withdraw(this.adminSigner.address)
+    ).to.be.revertedWith('No assets available to withdraw');
+
+    const txs = [
+      // Deposit
+      '0x000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000737461746520726f6f74000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a7640000',
+      // Withdraw
+      '0x000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000737461746520726f6f74000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000000000000bc614e0000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000d7468697320697320612073696700000000000000000000000000000000000000'
+    ];
+    await this.rollupChain.commitBlock(0, txs);
+
+    let [
+      account,
+      assetID,
+      amount
+    ] = await this.rollupChain.pendingWithdrawCommits(0, 0);
+    expect(account).to.equal(this.adminSigner.address);
+    expect(assetID).to.equal(1);
+    expect(amount).to.equal(ethers.utils.parseEther('1'));
+
+    await this.rollupChain.executeBlock([]);
+
+    let totalAmount;
+    [assetID, totalAmount] = await this.rollupChain.pendingWithdraws(
+      this.adminSigner.address,
+      0
+    );
+    expect(assetID).to.equal(1);
+    expect(totalAmount).to.equal(ethers.utils.parseEther('1'));
+
+    const balanceBefore = await this.testERC20.balanceOf(
+      this.adminSigner.address
+    );
+    expect(await this.rollupChain.withdraw(this.adminSigner.address)).to.not
+      .throw;
+    const balanceAfter = await this.testERC20.balanceOf(
+      this.adminSigner.address
+    );
+    expect(balanceAfter.sub(balanceBefore)).to.equal(
+      ethers.utils.parseEther('1')
+    );
   });
 
   it('should commit block', async function () {
