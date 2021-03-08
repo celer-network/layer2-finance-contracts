@@ -95,9 +95,9 @@ contract RollupChain is Ownable, Pausable {
     mapping(uint32 => uint256) public strategyAssetBalances;
 
     // per-asset (total deposit - total withdrawal) amount
-    mapping(address => uint256) netDeposits;
+    mapping(address => uint256) public netDeposits;
     // per-asset (total deposit - total withdrawal) limit
-    mapping(address => uint256) netDepositLimits;
+    mapping(address => uint256) public netDepositLimits;
 
     // State tree height
     uint256 constant STATE_TREE_HEIGHT = 32;
