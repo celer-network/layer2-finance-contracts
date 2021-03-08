@@ -32,23 +32,45 @@ describe('StrategyDummy', function () {
     );
   });
 
-  it('should take 1 from funder and add to balance', async function () {
-    await this.testERC20.approve(this.strategyDummy.address, 1);
+  it('should take 1e18 from funder and add to balance', async function () {
+    await this.testERC20.approve(
+      this.strategyDummy.address,
+      ethers.utils.parseEther('1')
+    );
     expect(await this.strategyDummy.updateBalance()).to.not.throw;
-    expect(await this.strategyDummy.getBalance()).to.equal(1);
+    expect(await this.strategyDummy.getBalance()).to.equal(
+      ethers.utils.parseEther('1')
+    );
   });
 
   it('should sync commit', async function () {
-    await this.testERC20.approve(this.strategyDummy.address, 2);
-    expect(await this.strategyDummy.syncCommitment(1, 0)).to.not.throw;
+    await this.testERC20.approve(
+      this.strategyDummy.address,
+      ethers.utils.parseEther('2')
+    );
+    expect(
+      await this.strategyDummy.syncCommitment(ethers.utils.parseEther('1'), 0)
+    ).to.not.throw;
     await this.strategyDummy.updateBalance();
-    expect(await this.strategyDummy.getBalance()).to.equal(2);
+    expect(await this.strategyDummy.getBalance()).to.equal(
+      ethers.utils.parseEther('2')
+    );
   });
 
   it('should sync uncommit', async function () {
-    await this.testERC20.approve(this.strategyDummy.address, 4);
-    expect(await this.strategyDummy.syncCommitment(3, 1)).to.not.throw;
+    await this.testERC20.approve(
+      this.strategyDummy.address,
+      ethers.utils.parseEther('4')
+    );
+    expect(
+      await this.strategyDummy.syncCommitment(
+        ethers.utils.parseEther('3'),
+        ethers.utils.parseEther('1')
+      )
+    ).to.not.throw;
     await this.strategyDummy.updateBalance();
-    expect(await this.strategyDummy.getBalance()).to.equal(3);
+    expect(await this.strategyDummy.getBalance()).to.equal(
+      ethers.utils.parseEther('3')
+    );
   });
 });
