@@ -162,6 +162,9 @@ contract RollupChain is Ownable, Pausable {
      * @param _receiver address to receive the drained asset
      */
     function drainToken(address _asset, uint256 _amount, address _receiver) external whenPaused onlyOwner {
+        if (_receiver == address(0)) {
+            _receiver = msg.sender;
+        }
         IERC20(_asset).safeTransfer(_receiver, _amount);
     }
 
@@ -199,10 +202,8 @@ contract RollupChain is Ownable, Pausable {
         });
 
         uint256 netDeposit = netDeposits[_asset].add(_amount);
-        uint256 limit = netDepositLimits[_asset];
-        if (limit > 0) {
-            require(netDeposit <= limit, "net deposit exceeds limit");
-        }
+        require(netDeposit <= netDepositLimits[_asset], "net deposit exceeds limit");
+
         netDeposits[_asset] = netDeposit;
         emit AssetDeposited(account, assetId, _amount, depositId);
     }
