@@ -203,8 +203,8 @@ contract RollupChain is Ownable, Pausable {
 
         uint256 netDeposit = netDeposits[_asset].add(_amount);
         require(netDeposit <= netDepositLimits[_asset], "net deposit exceeds limit");
-
         netDeposits[_asset] = netDeposit;
+
         emit AssetDeposited(account, assetId, _amount, depositId);
     }
 
