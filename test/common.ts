@@ -76,6 +76,7 @@ export async function deployContracts(context: Mocha.Context) {
   )) as StrategyDummy__factory;
   context.strategyDummy = await strategyDummyFactory.deploy(
     context.rollupChain.address,
+    context.adminSigner.address,
     context.testERC20.address
   );
   await context.strategyDummy.deployed();

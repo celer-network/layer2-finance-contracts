@@ -76,9 +76,13 @@ contract StrategyCurve3PoolDAI is IStrategy {
         }
     }
 
-    function syncBalance() external override returns (uint256) {
-        require(msg.sender == controller, "Not controller");
+    function getBalance() external view override returns (uint256) {
+        uint256 triCrvBalance = IGauge(gauge).balanceOf(address(this));
+        uint256 daiBalance = triCrvBalance.mul(ICurveFi(triPool).calc_withdraw_one_coin(triCrvBalance, 0));
+        return daiBalance;
+    }
 
+    function updateBalance() external override {
         // Harvest CRV
         IMintr(mintr).mint(gauge);
         uint256 crvBalance = IERC20(crv).balanceOf(address(this));
@@ -112,10 +116,6 @@ contract StrategyCurve3PoolDAI is IStrategy {
             uint256 obtainedTriCrvBalance = IERC20(triCrv).balanceOf(address(this));
             IGauge(gauge).deposit(obtainedTriCrvBalance);
         }
-
-        uint256 triCrvBalance = IGauge(gauge).balanceOf(address(this));
-        uint256 daiBalance = triCrvBalance.mul(ICurveFi(triPool).calc_withdraw_one_coin(triCrvBalance, 0));
-        return daiBalance;
     }
 
     function commit(uint256 _daiAmount) internal {

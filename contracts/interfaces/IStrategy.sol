@@ -20,9 +20,14 @@ interface IStrategy {
     function getAssetAddress() external view returns (address);
 
     /**
-     * @dev Updates and returns the new asset balance.
+     * @dev Updates the asset balance.
      */
-    function syncBalance() external returns (uint256);
+    function updateBalance() external;
+
+    /**
+     * @dev Returns the asset balance.
+     */
+    function getBalance() external view returns (uint256);
 
     /**
      * @dev Commits to / uncommits from strategies per instructions from L2.
