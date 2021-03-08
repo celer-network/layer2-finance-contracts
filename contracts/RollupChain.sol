@@ -5,6 +5,8 @@ pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /* Internal Imports */
 import {DataTypes as dt} from "./DataTypes.sol";
@@ -13,7 +15,7 @@ import {TransitionEvaluator} from "./TransitionEvaluator.sol";
 import {Registry} from "./Registry.sol";
 import {IStrategy} from "./interfaces/IStrategy.sol";
 
-contract RollupChain {
+contract RollupChain is Ownable, Pausable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -92,6 +94,11 @@ contract RollupChain {
     // Track the asset balances of strategies to compute deltas after syncBalance() calls.
     mapping(uint32 => uint256) public strategyAssetBalances;
 
+    // per-asset (total deposit - total withdrawal) amount
+    mapping(address => uint256) netDeposits;
+    // per-asset (total deposit - total withdrawal) limit
+    mapping(address => uint256) netDepositLimits;
+
     // State tree height
     uint256 constant STATE_TREE_HEIGHT = 32;
     // TODO: Set a reasonable wait period
@@ -101,13 +108,18 @@ contract RollupChain {
     uint256 public blockChallengePeriod; // count of onchain block numbers to challenge a rollup block
     uint256 public blockIdCensorshipPeriod; // count of rollup blocks before L2 transition arrives
 
-    address public committerAddress;
+    address public operator;
 
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
     event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
+
+    modifier onlyOperator() {
+        require(msg.sender == operator, "caller is not operator");
+        _;
+    }
 
     /***************
      * Constructor *
@@ -118,32 +130,59 @@ contract RollupChain {
         address _transitionEvaluatorAddress,
         address _merkleUtilsAddress,
         address _registryAddress,
-        address _committerAddress
+        address _operator
     ) public {
         blockChallengePeriod = _blockChallengePeriod;
         blockIdCensorshipPeriod = _blockIdCensorshipPeriod;
         transitionEvaluator = TransitionEvaluator(_transitionEvaluatorAddress);
         merkleUtils = MerkleUtils(_merkleUtilsAddress);
         registry = Registry(_registryAddress);
-        committerAddress = _committerAddress;
+        operator = _operator;
     }
 
-    /* Methods */
-    function pruneBlocksAfter(uint256 _blockNumber) internal {
-        for (uint256 i = _blockNumber; i < blocks.length; i++) {
-            delete blocks[i];
+    /**
+     * @dev Called by the owner to pause contract
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @dev Called by the owner to unpause contract
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /**
+     * @notice Owner drains one type of tokens when the contract is paused
+     * @dev This is for emergency situations.
+     * @param _asset drained asset address
+     * @param _amount drained asset amount
+     * @param _receiver address to receive the drained asset
+     */
+    function drainToken(address _asset, uint256 _amount, address _receiver) external whenPaused onlyOwner {
+        if (_receiver == address(0)) {
+            _receiver = msg.sender;
         }
+        IERC20(_asset).safeTransfer(_receiver, _amount);
     }
 
     function getCurrentBlockNumber() public view returns (uint256) {
         return blocks.length - 1;
     }
 
-    function setCommitterAddress(address _committerAddress) external {
-        committerAddress = _committerAddress;
+    function setOperator(address _operator) external onlyOwner {
+        operator = _operator;
     }
 
-    function deposit(address _asset, uint256 _amount) public {
+    function setNetDepositLimit(address _asset, uint256 _limit) external onlyOwner {
+        uint32 assetId = registry.assetAddressToIndex(_asset);
+        require(assetId != 0, "Unknown asset");
+        netDepositLimits[_asset] = _limit;
+    }
+
+    function deposit(address _asset, uint256 _amount) external whenNotPaused {
         address account = msg.sender;
         uint32 assetId = registry.assetAddressToIndex(_asset);
 
@@ -162,12 +201,16 @@ contract RollupChain {
             status: PendingDepositStatus.Pending
         });
 
+        uint256 netDeposit = netDeposits[_asset].add(_amount);
+        require(netDeposit <= netDepositLimits[_asset], "net deposit exceeds limit");
+        netDeposits[_asset] = netDeposit;
+
         emit AssetDeposited(account, assetId, _amount, depositId);
     }
 
     // Note: the account address is an optional parameter.  If it is specified, it allows the
     // withdrawal for a 3rd-party address.  Otherwise, the msg.sender is used as target address.
-    function withdraw(address _account) public {
+    function withdraw(address _account) external whenNotPaused {
         if (_account == address(0)) {
             _account = msg.sender;
         }
@@ -180,8 +223,13 @@ contract RollupChain {
             PendingWithdraw memory pw = pendingWithdraws[_account][i];
             address asset = registry.assetIndexToAddress(pw.assetId);
             require(asset != address(0), "BUG: invalid asset in pending withdraws");
-
             IERC20(asset).safeTransfer(_account, pw.totalAmount);
+
+            if (netDeposits[asset] < pw.totalAmount) {
+                netDeposits[asset] = 0;
+            } else {
+                netDeposits[asset] = netDeposits[asset].sub(pw.totalAmount);
+            }
             emit AssetWithdrawn(_account, pw.assetId, pw.totalAmount);
         }
 
@@ -191,8 +239,7 @@ contract RollupChain {
     /**
      * Submit a prepared batch as a new rollup block.
      */
-    function commitBlock(uint256 _blockId, bytes[] calldata _transitions) external {
-        require(msg.sender == committerAddress, "Only the committer may submit blocks");
+    function commitBlock(uint256 _blockId, bytes[] calldata _transitions) external whenNotPaused onlyOperator {
         require(_blockId == blocks.length, "Wrong block ID");
 
         bytes32 root = merkleUtils.getMerkleRoot(_transitions);
@@ -268,7 +315,7 @@ contract RollupChain {
 
     // Note: only the "intent" transitions (commitment sync) are given to executeBlock() instead of
     // re-sending the whole rollup block.  This includes the case of a rollup block with zero intents.
-    function executeBlock(bytes[] calldata _intents) external {
+    function executeBlock(bytes[] calldata _intents) external whenNotPaused {
         uint256 blockId = countExecuted;
         require(blockId < blocks.length, "No blocks pending execution");
         require(blocks[blockId].blockTime + blockChallengePeriod < block.number, "Block still in challenge period");
@@ -349,7 +396,7 @@ contract RollupChain {
         }
     }
 
-    function syncBalance(uint32 _strategyId) external {
+    function syncBalance(uint32 _strategyId) external whenNotPaused onlyOperator {
         address stAddr = registry.strategyIndexToAddress(_strategyId);
         require(stAddr != address(0), "Unknown strategy ID");
 
@@ -640,5 +687,11 @@ contract RollupChain {
                 _accountInfo.stTokens,
                 _accountInfo.timestamp
             );
+    }
+
+    function pruneBlocksAfter(uint256 _blockNumber) private {
+        for (uint256 i = _blockNumber; i < blocks.length; i++) {
+            delete blocks[i];
+        }
     }
 }

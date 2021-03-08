@@ -6,11 +6,13 @@ import { deployContracts } from './common';
 describe('RollupChain', function () {
   beforeEach(async function () {
     await deployContracts(this);
+    const tokenAddress = this.testERC20.address;
+    await this.registry.registerAsset(tokenAddress);
+    await this.rollupChain.setNetDepositLimit(tokenAddress, ethers.utils.parseEther('10000'));
   });
 
   it('should deposit', async function () {
     const tokenAddress = this.testERC20.address;
-    await this.registry.registerAsset(tokenAddress);
     await this.testERC20.approve(
       this.rollupChain.address,
       ethers.utils.parseEther('1')
@@ -20,6 +22,7 @@ describe('RollupChain', function () {
     )
       .to.emit(this.rollupChain, 'AssetDeposited')
       .withArgs(this.adminSigner.address, 1, ethers.utils.parseEther('1'), 0);
+
     const [
       account,
       assetID,
@@ -48,7 +51,6 @@ describe('RollupChain', function () {
 
   it('should execute block with one deposit, one commit, one sync commitment and one sync balance', async function () {
     const tokenAddress = this.testERC20.address;
-    await this.registry.registerAsset(tokenAddress);
     const stAddress = this.strategyDummy.address;
     await this.registry.registerStrategy(stAddress);
     await this.testERC20.approve(
