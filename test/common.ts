@@ -3,7 +3,6 @@ import hre, { ethers } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 
 import { Registry__factory } from '../typechain';
-import { MerkleUtils__factory } from '../typechain/factories/MerkleUtils__factory';
 import { RollupChain__factory } from '../typechain/factories/RollupChain__factory';
 import { StrategyDummy__factory } from '../typechain/factories/StrategyDummy__factory';
 import { TestERC20__factory } from '../typechain/factories/TestERC20__factory';
@@ -32,12 +31,6 @@ export async function initAdminSigner(context: Mocha.Context) {
 export async function deployContracts(context: Mocha.Context) {
   await initAdminSigner(context);
 
-  const merkleUtilsFactory = (await ethers.getContractFactory(
-    'MerkleUtils'
-  )) as MerkleUtils__factory;
-  const merkleUtils = await merkleUtilsFactory.deploy();
-  await merkleUtils.deployed();
-
   const registryFactory = (await ethers.getContractFactory(
     'Registry'
   )) as Registry__factory;
@@ -59,7 +52,6 @@ export async function deployContracts(context: Mocha.Context) {
     0,
     0,
     transitionEvaluator.address,
-    merkleUtils.address,
     context.registry.address,
     context.adminSigner.address
   );
