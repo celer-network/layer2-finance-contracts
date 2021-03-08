@@ -12,7 +12,6 @@ GO_REPO=https://${GH_TOKEN}@github.com/celer-network/defi-rollup
 
 # xx.sol under contracts/, no need for .sol suffix
 solFiles=(
-  MerkleUtils
   Registry
   TransitionEvaluator
   RollupChain
