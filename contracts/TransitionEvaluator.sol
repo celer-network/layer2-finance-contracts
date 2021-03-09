@@ -285,6 +285,43 @@ contract TransitionEvaluator {
     }
 
     /**
+     * Apply a CommitmentSyncTransition.
+     */
+    function applyCommitmentSyncTransition(DataTypes.CommitmentSyncTransition memory _transition)
+        public
+        view
+        returns (DataTypes.StrategyInfo memory)
+    {
+        DataTypes.StrategyInfo memory strategyInfo; // TODO: tmp variable, remove later
+
+        require(
+            _transition.pendingCommitAmount == strategyInfo.pendingCommitAmount,
+            "pending commitment amount not match"
+        );
+        require(
+            _transition.pendingUncommitAmount == strategyInfo.pendingUncommitAmount,
+            "pending uncommitment amount not match"
+        );
+        strategyInfo.pendingCommitAmount = 0;
+        strategyInfo.pendingUncommitAmount = 0;
+
+        return strategyInfo;
+    }
+
+    /**
+     * Apply a BalanceSyncTransition.
+     */
+    function applyBalanceSyncTransition(DataTypes.BalanceSyncTransition memory _transition)
+        public
+        view
+        returns (DataTypes.StrategyInfo memory)
+    {
+        DataTypes.StrategyInfo memory strategyInfo; // TODO: tmp variable, remove later
+        strategyInfo.assetBalance = strategyInfo.assetBalance.add(_transition.newAssetDelta);
+        return strategyInfo;
+    }
+
+    /**
      * Get the hash of the AccountInfo.
      */
     function getAccountInfoHash(DataTypes.AccountInfo memory _accountInfo) public pure returns (bytes32) {
