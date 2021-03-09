@@ -176,8 +176,8 @@ contract TransitionEvaluator {
             require(_storageSlot.value.accountId == _transition.accountId, "account id not match");
         }
 
-        uint32 assetId = _transition.assetId;
-        _storageSlot.value.idleAssets[assetId] = _storageSlot.value.idleAssets[assetId].add(_transition.amount);
+        _storageSlot.value.idleAssets[_transition.assetId] =
+            _storageSlot.value.idleAssets[_transition.assetId].add(_transition.amount);
 
         DataTypes.AccountInfo memory outputStorage;
         outputStorage = _storageSlot.value;
@@ -193,34 +193,29 @@ contract TransitionEvaluator {
     ) public view returns (DataTypes.AccountInfo memory) {
         address account = _storageSlot.value.account;
 
-        /*
-        DataTypes.WithdrawTx memory withdrawTx = DataTypes.WithdrawTx(
-            accountRegistry.registeredAccounts(account),
-            _transition.assetId,
-            _transition.amount,
-            _transition.nonce
+        bytes32 txHash = keccak256(
+            abi.encodePacked(
+                _transition.transitionType,
+                _transition.account,
+                _transition.assetId,
+                _transition.amount,
+                _transition.timestamp
+            )
         );
-
-        bytes32 txHash = getWithdrawTxHash(withdrawTx);
         bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
         require(
-            ECDSA.recover(prefixedHash, _transition.signature) == account,
+            ECDSA.recover(prefixedHash, _transition.signature) == _storageSlot.value.account,
             "Withdraw signature is invalid!"
         );
-        */
+
+        require(_storageSlot.value.accountId == _transition.accountId, "account id not match");
+        require(_storageSlot.value.timestamp < _transition.timestamp, "timestamp should monotonically increasing");
+        _storageSlot.value.timestamp = _transition.timestamp;
+
+        _storageSlot.value.idleAssets[_transition.assetId] =
+            _storageSlot.value.idleAssets[_transition.assetId].sub(_transition.amount);
 
         DataTypes.AccountInfo memory outputStorage;
-        uint32 assetId = _transition.assetId;
-        /*
-        uint256 oldBalance = _storageSlot.value.balances[assetId];
-        _storageSlot.value.balances[assetId] = oldBalance.sub(
-            _transition.amount
-        );
-        uint256 oldWithdrawNonce = _storageSlot
-            .value
-            .nonces[assetId];
-        _storageSlot.value.nonces[assetId] = oldWithdrawNonce.add(1);
-        */
         outputStorage = _storageSlot.value;
         return outputStorage;
     }
