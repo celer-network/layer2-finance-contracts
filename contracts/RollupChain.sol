@@ -339,15 +339,18 @@ contract RollupChain is Ownable, Pausable {
 
             address stAddr = registry.strategyIndexToAddress(cs.strategyId);
             require(stAddr != address(0), "Unknown strategy ID");
-
             IStrategy strategy = IStrategy(stAddr);
-            if (cs.pendingCommitAmount > 0) {
-                IERC20(strategy.getAssetAddress()).safeIncreaseAllowance(stAddr, cs.pendingCommitAmount);
-            }
-            strategy.syncCommitment(cs.pendingCommitAmount, cs.pendingUncommitAmount);
 
-            uint256 oldBalance = strategyAssetBalances[cs.strategyId];
-            strategyAssetBalances[cs.strategyId] = oldBalance.add(cs.pendingCommitAmount).sub(cs.pendingUncommitAmount);
+            if (cs.pendingCommitAmount > cs.pendingUncommitAmount) {
+                uint256 commitAmount = cs.pendingCommitAmount.sub(cs.pendingUncommitAmount);
+                IERC20(strategy.getAssetAddress()).safeIncreaseAllowance(stAddr, commitAmount);
+                strategy.aggregateCommit(commitAmount);
+                strategyAssetBalances[cs.strategyId] = strategyAssetBalances[cs.strategyId].add(commitAmount);
+            } else if (cs.pendingCommitAmount < cs.pendingUncommitAmount) {
+                uint256 uncommitAmount = cs.pendingUncommitAmount.sub(cs.pendingCommitAmount);
+                strategy.aggregateUncommit(uncommitAmount);
+                strategyAssetBalances[cs.strategyId] = strategyAssetBalances[cs.strategyId].sub(uncommitAmount);
+            }
         }
 
         countExecuted++;
