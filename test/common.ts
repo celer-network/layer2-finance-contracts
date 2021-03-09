@@ -1,75 +1,62 @@
-import hre, { ethers } from 'hardhat';
+import { Fixture } from 'ethereum-waffle';
+import { ethers, waffle } from 'hardhat';
 
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
+import { Wallet } from '@ethersproject/wallet';
 
 import { Registry__factory } from '../typechain';
 import { RollupChain__factory } from '../typechain/factories/RollupChain__factory';
 import { StrategyDummy__factory } from '../typechain/factories/StrategyDummy__factory';
 import { TestERC20__factory } from '../typechain/factories/TestERC20__factory';
 import { TransitionEvaluator__factory } from '../typechain/factories/TransitionEvaluator__factory';
-import { Registry } from '../typechain/Registry.d';
-import { RollupChain } from '../typechain/RollupChain.d';
-import { StrategyDummy } from '../typechain/StrategyDummy.d';
-import { TestERC20 } from '../typechain/TestERC20.d';
 
-declare module 'mocha' {
-  export interface Context {
-    registry: Registry;
-    rollupChain: RollupChain;
-    strategyDummy: StrategyDummy;
-    testERC20: TestERC20;
-
-    adminSigner: SignerWithAddress;
-  }
+// Workaround for https://github.com/nomiclabs/hardhat/issues/849
+// TODO: Remove once fixed upstream.
+export function loadFixture<T>(fixture: Fixture<T>) {
+  const provider = waffle.provider;
+  return waffle.createFixtureLoader(provider.getWallets(), provider)(fixture);
 }
 
-export async function initAdminSigner(context: Mocha.Context) {
-  const signers: SignerWithAddress[] = await hre.ethers.getSigners();
-  context.adminSigner = signers[0];
-}
-
-export async function deployContracts(context: Mocha.Context) {
-  await initAdminSigner(context);
-
+export async function deployContracts(admin: Wallet) {
   const registryFactory = (await ethers.getContractFactory(
     'Registry'
   )) as Registry__factory;
-  context.registry = await registryFactory.deploy();
-  await context.registry.deployed();
+  const registry = await registryFactory.deploy();
+  await registry.deployed();
 
   const transitionEvaluatorFactory = (await ethers.getContractFactory(
     'TransitionEvaluator'
   )) as TransitionEvaluator__factory;
   const transitionEvaluator = await transitionEvaluatorFactory.deploy(
-    context.registry.address
+    registry.address
   );
   await transitionEvaluator.deployed();
 
   const rollupChainFactory = (await ethers.getContractFactory(
     'RollupChain'
   )) as RollupChain__factory;
-  context.rollupChain = await rollupChainFactory.deploy(
+  const rollupChain = await rollupChainFactory.deploy(
     0,
     0,
     transitionEvaluator.address,
-    context.registry.address,
-    context.adminSigner.address
+    registry.address,
+    admin.address
   );
-  await context.rollupChain.deployed();
+  await rollupChain.deployed();
 
   const testERC20Factory = (await ethers.getContractFactory(
     'TestERC20'
   )) as TestERC20__factory;
-  context.testERC20 = await testERC20Factory.deploy();
-  await context.testERC20.deployed();
+  const testERC20 = await testERC20Factory.deploy();
+  await testERC20.deployed();
 
   const strategyDummyFactory = (await ethers.getContractFactory(
     'StrategyDummy'
   )) as StrategyDummy__factory;
-  context.strategyDummy = await strategyDummyFactory.deploy(
-    context.rollupChain.address,
-    context.adminSigner.address,
-    context.testERC20.address
+  const strategyDummy = await strategyDummyFactory.deploy(
+    rollupChain.address,
+    admin.address,
+    testERC20.address
   );
-  await context.strategyDummy.deployed();
+  await strategyDummy.deployed();
+  return { admin, registry, rollupChain, strategyDummy, testERC20 };
 }
