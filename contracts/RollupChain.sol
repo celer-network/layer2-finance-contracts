@@ -10,10 +10,10 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /* Internal Imports */
 import {DataTypes as dt} from "./DataTypes.sol";
-import {MerkleUtils} from "./MerkleUtils.sol";
 import {TransitionEvaluator} from "./TransitionEvaluator.sol";
 import {Registry} from "./Registry.sol";
 import {IStrategy} from "./interfaces/IStrategy.sol";
+import "./lib/Lib_MerkleTree.sol";
 
 contract RollupChain is Ownable, Pausable {
     using SafeMath for uint256;
@@ -22,8 +22,6 @@ contract RollupChain is Ownable, Pausable {
     /* Fields */
     // The state transition evaluator
     TransitionEvaluator transitionEvaluator;
-    // The Merkle Tree library (currently a contract for ease of testing)
-    MerkleUtils merkleUtils;
     // Asset and strategy registry
     Registry registry;
 
@@ -128,14 +126,12 @@ contract RollupChain is Ownable, Pausable {
         uint256 _blockChallengePeriod,
         uint256 _blockIdCensorshipPeriod,
         address _transitionEvaluatorAddress,
-        address _merkleUtilsAddress,
         address _registryAddress,
         address _operator
     ) public {
         blockChallengePeriod = _blockChallengePeriod;
         blockIdCensorshipPeriod = _blockIdCensorshipPeriod;
         transitionEvaluator = TransitionEvaluator(_transitionEvaluatorAddress);
-        merkleUtils = MerkleUtils(_merkleUtilsAddress);
         registry = Registry(_registryAddress);
         operator = _operator;
     }
@@ -242,7 +238,11 @@ contract RollupChain is Ownable, Pausable {
     function commitBlock(uint256 _blockId, bytes[] calldata _transitions) external whenNotPaused onlyOperator {
         require(_blockId == blocks.length, "Wrong block ID");
 
-        bytes32 root = merkleUtils.getMerkleRoot(_transitions);
+        bytes32[] memory leafs = new bytes32[](_transitions.length);
+        for (uint256 i = 0; i < _transitions.length; i++) {
+            leafs[i] = keccak256(_transitions[i]);
+        }
+        bytes32 root = Lib_MerkleTree.getMerkleRoot(leafs);
 
         // Loop over transition and handle these cases:
         // 1- deposit: update the pending deposit record
@@ -426,12 +426,14 @@ contract RollupChain is Ownable, Pausable {
      * to be what the sparse merkle tree expects.
      */
     function verifyAndStoreStorageSlotInclusionProof(dt.IncludedStorageSlot memory _includedStorageSlot) private {
+        /* TODO:
         bytes memory accountInfoBytes = getAccountInfoBytes(_includedStorageSlot.storageSlot.value);
         merkleUtils.verifyAndStore(
             accountInfoBytes,
             uint256(_includedStorageSlot.storageSlot.slotIndex),
             _includedStorageSlot.siblings
         );
+        */
     }
 
     function getStateRootAndStorageSlots(bytes memory _transition)
@@ -551,7 +553,7 @@ contract RollupChain is Ownable, Pausable {
 
         /********* #4: STORE_STORAGE_INCLUSION_PROOFS *********/
         // Now verify and store the storage inclusion proofs
-        merkleUtils.setMerkleRootAndHeight(preStateRoot, STATE_TREE_HEIGHT);
+        //TODO: merkleUtils.setMerkleRootAndHeight(preStateRoot, STATE_TREE_HEIGHT);
         for (uint256 i = 0; i < _transitionStorageSlots.length; i++) {
             verifyAndStoreStorageSlotInclusionProof(_transitionStorageSlots[i]);
         }
@@ -580,17 +582,21 @@ contract RollupChain is Ownable, Pausable {
 
         /********* #6: UPDATE_STATE_ROOT *********/
         // Now we need to check if the state root is incorrect, to do this we first insert the new leaf values
+        /* TODO:
         for (uint256 i = 0; i < _transitionStorageSlots.length; i++) {
             merkleUtils.updateLeaf(outputs[i], _transitionStorageSlots[i].storageSlot.slotIndex);
         }
+        */
 
         /********* #7: COMPARE_STATE_ROOTS *********/
         // Check if the calculated state root equals what we expect
+        /* TODO:
         if (postStateRoot != merkleUtils.getRoot()) {
             // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
             pruneBlocksAfter(_invalidIncludedTransition.inclusionProof.blockNumber);
             return;
         }
+        */
 
         // Woah! Looks like there's no fraud!
         revert("No fraud detected!");
@@ -646,13 +652,15 @@ contract RollupChain is Ownable, Pausable {
      */
     function checkTransitionInclusion(dt.IncludedTransition memory _includedTransition) public view returns (bool) {
         bytes32 rootHash = blocks[_includedTransition.inclusionProof.blockNumber].rootHash;
-        bool isIncluded =
+        bool isIncluded = true;
+        /* TODO:
             merkleUtils.verify(
                 rootHash,
                 _includedTransition.transition,
                 _includedTransition.inclusionProof.transitionIndex,
                 _includedTransition.inclusionProof.siblings
             );
+        */
         return isIncluded;
     }
 
