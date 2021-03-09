@@ -27,17 +27,17 @@ contract TransitionEvaluator {
         registry = Registry(_registryAddress);
     }
 
-    function evaluateTransition(bytes calldata _transition, DataTypes.StorageSlot[] calldata _storageSlots)
-        external
-        view
-        returns (bytes32[] memory)
-    {
+    function evaluateTransition(
+        bytes calldata _transition,
+        DataTypes.AccountInfo calldata _accountInfo,
+        DataTypes.StrategyInfo calldata _strategyInfo
+    ) external view returns (bytes32[] memory) {
         // Convert our inputs to memory
         bytes memory transition = _transition;
 
-        DataTypes.StorageSlot[] memory storageSlots = new DataTypes.StorageSlot[](_storageSlots.length);
         // Direct copy not supported by Solidity yet
         /*
+        DataTypes.StorageSlot[] memory storageSlots = new DataTypes.StorageSlot[](_storageSlots.length);
         for (uint256 i = 0; i < _storageSlots.length; i++) {
             uint256 slotIndex = _storageSlots[i].slotIndex;
             address account = _storageSlots[i].value.account;
@@ -63,13 +63,13 @@ contract TransitionEvaluator {
         if (transitionType == TRANSITION_TYPE_DEPOSIT) {
             DataTypes.DepositTransition memory deposit = decodeDepositTransition(transition);
 
-            DataTypes.AccountInfo memory updatedAccountInfo = applyDepositTransition(deposit, storageSlots[0]);
+            DataTypes.AccountInfo memory updatedAccountInfo = applyDepositTransition(deposit, _accountInfo);
             outputs = new bytes32[](1);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
         } else if (transitionType == TRANSITION_TYPE_WITHDRAW) {
             DataTypes.WithdrawTransition memory withdraw = decodeWithdrawTransition(transition);
 
-            DataTypes.AccountInfo memory updatedAccountInfo = applyWithdrawTransition(withdraw, storageSlots[0]);
+            DataTypes.AccountInfo memory updatedAccountInfo = applyWithdrawTransition(withdraw, _accountInfo);
             outputs = new bytes32[](1);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
         } else {
@@ -98,26 +98,30 @@ contract TransitionEvaluator {
     function getTransitionStateRootAndAccessList(bytes calldata _rawTransition)
         external
         pure
-        returns (bytes32, uint256[] memory)
+        returns (
+            bytes32,
+            uint32,
+            uint32
+        )
     {
         // Initialize memory rawTransition
         bytes memory rawTransition = _rawTransition;
-        // Initialize stateRoot and storageSlots
+        // Initialize stateRoot and account and strategy IDs.
         bytes32 stateRoot;
-        uint256[] memory storageSlots;
+        uint32 accountId;
+        uint32 strategyId;
         uint8 transitionType = extractTransitionType(rawTransition);
         if (transitionType == TRANSITION_TYPE_DEPOSIT) {
             DataTypes.DepositTransition memory transition = decodeDepositTransition(rawTransition);
             stateRoot = transition.stateRoot;
-            storageSlots = new uint256[](1);
-            storageSlots[0] = transition.accountId;
+            accountId = transition.accountId;
         } else if (transitionType == TRANSITION_TYPE_WITHDRAW) {
             DataTypes.WithdrawTransition memory transition = decodeWithdrawTransition(rawTransition);
             stateRoot = transition.stateRoot;
-            storageSlots = new uint256[](1);
-            storageSlots[0] = transition.accountId;
+            accountId = transition.accountId;
         }
-        return (stateRoot, storageSlots);
+        // TODO: handle other transitions
+        return (stateRoot, accountId, strategyId);
     }
 
     /*
@@ -161,21 +165,19 @@ contract TransitionEvaluator {
      */
     function applyDepositTransition(
         DataTypes.DepositTransition memory _transition,
-        DataTypes.StorageSlot memory _storageSlot
+        DataTypes.AccountInfo memory _accountInfo
     ) public view returns (DataTypes.AccountInfo memory) {
-        address account = _storageSlot.value.account;
-
         // TODO (dominator008): Verify signature of depositer
 
         DataTypes.AccountInfo memory outputStorage;
         uint32 assetId = _transition.assetId;
         /*
+        address account = _storageSlot.value.account;
         uint256 oldBalance = _storageSlot.value.balances[assetId];
         _storageSlot.value.balances[assetId] = oldBalance.add(
             _transition.amount
         );
         */
-        outputStorage = _storageSlot.value;
         return outputStorage;
     }
 
@@ -184,11 +186,10 @@ contract TransitionEvaluator {
      */
     function applyWithdrawTransition(
         DataTypes.WithdrawTransition memory _transition,
-        DataTypes.StorageSlot memory _storageSlot
+        DataTypes.AccountInfo memory _accountInfo
     ) public view returns (DataTypes.AccountInfo memory) {
-        address account = _storageSlot.value.account;
-
         /*
+        address account = _storageSlot.value.account;
         DataTypes.WithdrawTx memory withdrawTx = DataTypes.WithdrawTx(
             accountRegistry.registeredAccounts(account),
             _transition.assetId,
@@ -216,7 +217,6 @@ contract TransitionEvaluator {
             .nonces[assetId];
         _storageSlot.value.nonces[assetId] = oldWithdrawNonce.add(1);
         */
-        outputStorage = _storageSlot.value;
         return outputStorage;
     }
 
@@ -234,6 +234,24 @@ contract TransitionEvaluator {
                     _accountInfo.idleAssets,
                     _accountInfo.stTokens,
                     _accountInfo.timestamp
+                )
+            );
+    }
+
+    /**
+     * Get the hash of the StrategyInfo.
+     */
+    function getStrategyInfoHash(DataTypes.StrategyInfo memory _strategyInfo) public pure returns (bytes32) {
+        // Here we don't use `abi.encode([struct])` because it's not clear
+        // how to generate that encoding client-side.
+        return
+            keccak256(
+                abi.encode(
+                    _strategyInfo.assetId,
+                    _strategyInfo.assetBalance,
+                    _strategyInfo.stTokenSupply,
+                    _strategyInfo.pendingCommitAmount,
+                    _strategyInfo.pendingUncommitAmount
                 )
             );
     }
@@ -362,29 +380,5 @@ contract TransitionEvaluator {
                 pendingUncommitAmount
             );
         return transition;
-    }
-
-    /**
-     * Verify a WithdrawTransition signature.
-     */
-    function verifyWithdrawTransition(address _account, bytes memory _rawTransition) public view returns (bool) {
-        /*
-            DataTypes.WithdrawTransition memory transition
-         = decodeWithdrawTransition(_rawTransition);
-        DataTypes.WithdrawTx memory withdrawTx = DataTypes.WithdrawTx(
-            accountRegistry.registeredAccounts(_account),
-            transition.assetId,
-            transition.amount,
-            transition.nonce
-        );
-
-        bytes32 txHash = getWithdrawTxHash(withdrawTx);
-        bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
-        require(
-            ECDSA.recover(prefixedHash, transition.signature) == _account,
-            "Withdraw signature is invalid!"
-        );
-        */
-        return true;
     }
 }
