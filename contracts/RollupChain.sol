@@ -346,7 +346,7 @@ contract RollupChain is Ownable, Pausable {
                 IERC20(strategy.getAssetAddress()).safeIncreaseAllowance(stAddr, commitAmount);
                 strategy.aggregateCommit(commitAmount);
                 strategyAssetBalances[cs.strategyId] = strategyAssetBalances[cs.strategyId].add(commitAmount);
-            } else if (cs.pendingCommitAmount > cs.pendingUncommitAmount) {
+            } else if (cs.pendingCommitAmount < cs.pendingUncommitAmount) {
                 uint256 uncommitAmount = cs.pendingUncommitAmount.sub(cs.pendingCommitAmount);
                 strategy.aggregateUncommit(uncommitAmount);
                 strategyAssetBalances[cs.strategyId] = strategyAssetBalances[cs.strategyId].sub(uncommitAmount);
