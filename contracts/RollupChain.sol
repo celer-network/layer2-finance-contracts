@@ -501,24 +501,6 @@ contract RollupChain is Ownable, Pausable {
         return (success, preStateRoot, postStateRoot, storageSlots);
     }
 
-    function verifyWithdrawTransition(address _account, dt.IncludedTransition memory _includedTransition)
-        public
-        view
-        returns (bool)
-    {
-        require(checkTransitionInclusion(_includedTransition), "Withdraw transition must be included");
-        require(
-            transitionEvaluator.verifyWithdrawTransition(_account, _includedTransition.transition),
-            "Withdraw signature is invalid"
-        );
-
-        require(
-            getCurrentBlockNumber() - _includedTransition.inclusionProof.blockNumber >= WITHDRAW_WAIT_PERIOD,
-            "Withdraw wait period not passed"
-        );
-        return true;
-    }
-
     /**
      * Checks if a transition is invalid and if it is prunes that block and it's children from the chain.
      */

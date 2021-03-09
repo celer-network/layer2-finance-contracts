@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 /* Internal Imports */
 import {DataTypes} from "./DataTypes.sol";
 import {Registry} from "./Registry.sol";
+import {IStrategy} from "./interfaces/IStrategy.sol";
 
 contract TransitionEvaluator {
     using SafeMath for uint256;
@@ -120,42 +121,6 @@ contract TransitionEvaluator {
         return (stateRoot, storageSlots);
     }
 
-    /*
-    function getWithdrawTxHash(DataTypes.WithdrawTx memory _withdrawTx)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return
-            keccak256(
-                abi.encodePacked(
-                    accountRegistry.accountAddresses(_withdrawTx.accountIndex),
-                    tokenRegistry.assetIndexToAddress(_withdrawTx.assetId),
-                    _withdrawTx.amount,
-                    _withdrawTx.nonce
-                )
-            );
-    }
-
-    function verifyEmptyAccountInfo(DataTypes.AccountInfo memory _accountInfo)
-        internal
-        pure
-    {
-        require(
-            _accountInfo.account == 0x0000000000000000000000000000000000000000,
-            "Address of empty account must be zero"
-        );
-        require(
-            _accountInfo.balances.length == 0,
-            "Balance array must be empty"
-        );
-        require(
-            _accountInfo.nonces.length == 0,
-            "Nonce array must be empty"
-        );
-    }
-    */
-
     /**
      * Apply a DepositTransition.
      */
@@ -164,7 +129,7 @@ contract TransitionEvaluator {
         DataTypes.StorageSlot memory _storageSlot
     ) public view returns (DataTypes.AccountInfo memory) {
         if (_storageSlot.value.account == address(0)) {
-            // first time deposit
+            // first time deposit of this account
             require(_storageSlot.value.accountId == 0, "empty account id must be zero");
             require(_storageSlot.value.idleAssets.length == 0, "empty account idleAssets must be empty");
             require(_storageSlot.value.stTokens.length == 0, "empty account stTokens must be empty");
@@ -180,9 +145,7 @@ contract TransitionEvaluator {
             _transition.amount
         );
 
-        DataTypes.AccountInfo memory outputStorage;
-        outputStorage = _storageSlot.value;
-        return outputStorage;
+        return _storageSlot.value;
     }
 
     /**
@@ -218,9 +181,107 @@ contract TransitionEvaluator {
             _transition.amount
         );
 
-        DataTypes.AccountInfo memory outputStorage;
-        outputStorage = _storageSlot.value;
-        return outputStorage;
+        return _storageSlot.value;
+    }
+
+    /**
+     * Apply a CommitTransition.
+     */
+    function applyCommitTransition(
+        DataTypes.CommitTransition memory _transition,
+        DataTypes.StorageSlot memory _storageSlot
+    ) public view returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
+        address account = _storageSlot.value.account;
+        bytes32 txHash =
+            keccak256(
+                abi.encodePacked(
+                    _transition.transitionType,
+                    _transition.strategyId,
+                    _transition.assetAmount,
+                    _transition.timestamp
+                )
+            );
+        bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
+        require(
+            ECDSA.recover(prefixedHash, _transition.signature) == _storageSlot.value.account,
+            "Commit signature is invalid!"
+        );
+
+        DataTypes.StrategyInfo memory strategyInfo; // TODO: tmp variable, remove later
+        uint256 newStToken;
+        if (strategyInfo.assetId == 0) {
+            // first time commit of this strategy
+            require(strategyInfo.assetBalance == 0, "empty strategy assetBalance must be zero");
+            require(strategyInfo.stTokenSupply == 0, "empty strategy stTokenSupply must be zero");
+            require(strategyInfo.pendingCommitAmount == 0, "empty strategy pendingCommitAmount must be zero");
+            require(strategyInfo.pendingUncommitAmount == 0, "empty strategy pendingUncommitAmount must be zero");
+
+            address strategyAddr = registry.strategyIndexToAddress(_transition.strategyId);
+            address assetAddr = IStrategy(strategyAddr).getAssetAddress();
+            strategyInfo.assetId = registry.assetAddressToIndex(assetAddr);
+            newStToken = _transition.assetAmount;
+        } else {
+            newStToken = _transition.assetAmount.mul(strategyInfo.stTokenSupply).div(strategyInfo.assetBalance);
+        }
+
+        _storageSlot.value.idleAssets[strategyInfo.assetId] = _storageSlot.value.idleAssets[strategyInfo.assetId].sub(
+            _transition.assetAmount
+        );
+        _storageSlot.value.stTokens[_transition.strategyId] = _storageSlot.value.stTokens[_transition.strategyId].add(
+            newStToken
+        );
+        require(_storageSlot.value.accountId == _transition.accountId, "account id not match");
+        require(_storageSlot.value.timestamp < _transition.timestamp, "timestamp should monotonically increasing");
+        _storageSlot.value.timestamp = _transition.timestamp;
+
+        strategyInfo.stTokenSupply = strategyInfo.stTokenSupply.add(newStToken);
+        strategyInfo.assetBalance = strategyInfo.assetBalance.add(_transition.assetAmount);
+        strategyInfo.pendingCommitAmount = strategyInfo.pendingCommitAmount.add(_transition.assetAmount);
+
+        return (_storageSlot.value, strategyInfo);
+    }
+
+    /**
+     * Apply a CommitTransition.
+     */
+    function applyUncommitTransition(
+        DataTypes.UncommitTransition memory _transition,
+        DataTypes.StorageSlot memory _storageSlot
+    ) public view returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
+        address account = _storageSlot.value.account;
+        bytes32 txHash =
+            keccak256(
+                abi.encodePacked(
+                    _transition.transitionType,
+                    _transition.strategyId,
+                    _transition.stTokenAmount,
+                    _transition.timestamp
+                )
+            );
+        bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
+        require(
+            ECDSA.recover(prefixedHash, _transition.signature) == _storageSlot.value.account,
+            "Uncommit signature is invalid!"
+        );
+
+        DataTypes.StrategyInfo memory strategyInfo; // TODO: tmp variable, remove later
+        uint256 newIdleAsset = _transition.stTokenAmount.mul(strategyInfo.assetBalance).div(strategyInfo.stTokenSupply);
+
+        _storageSlot.value.idleAssets[strategyInfo.assetId] = _storageSlot.value.idleAssets[strategyInfo.assetId].add(
+            newIdleAsset
+        );
+        _storageSlot.value.stTokens[_transition.strategyId] = _storageSlot.value.stTokens[_transition.strategyId].sub(
+            _transition.stTokenAmount
+        );
+        require(_storageSlot.value.accountId == _transition.accountId, "account id not match");
+        require(_storageSlot.value.timestamp < _transition.timestamp, "timestamp should monotonically increasing");
+        _storageSlot.value.timestamp = _transition.timestamp;
+
+        strategyInfo.stTokenSupply = strategyInfo.stTokenSupply.sub(_transition.stTokenAmount);
+        strategyInfo.assetBalance = strategyInfo.assetBalance.sub(newIdleAsset);
+        strategyInfo.pendingUncommitAmount = strategyInfo.pendingUncommitAmount.add(newIdleAsset);
+
+        return (_storageSlot.value, strategyInfo);
     }
 
     /**
@@ -365,29 +426,5 @@ contract TransitionEvaluator {
                 pendingUncommitAmount
             );
         return transition;
-    }
-
-    /**
-     * Verify a WithdrawTransition signature.
-     */
-    function verifyWithdrawTransition(address _account, bytes memory _rawTransition) public view returns (bool) {
-        /*
-            DataTypes.WithdrawTransition memory transition
-         = decodeWithdrawTransition(_rawTransition);
-        DataTypes.WithdrawTx memory withdrawTx = DataTypes.WithdrawTx(
-            accountRegistry.registeredAccounts(_account),
-            transition.assetId,
-            transition.amount,
-            transition.nonce
-        );
-
-        bytes32 txHash = getWithdrawTxHash(withdrawTx);
-        bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
-        require(
-            ECDSA.recover(prefixedHash, transition.signature) == _account,
-            "Withdraw signature is invalid!"
-        );
-        */
-        return true;
     }
 }
