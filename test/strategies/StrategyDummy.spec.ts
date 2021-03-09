@@ -1,75 +1,72 @@
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 
+import { Wallet } from '@ethersproject/wallet';
+
 import { StrategyDummy__factory } from '../../typechain/factories/StrategyDummy__factory';
 import { TestERC20__factory } from '../../typechain/factories/TestERC20__factory';
-import { initAdminSigner } from '../common';
+import { loadFixture } from '../common';
 
 describe('StrategyDummy', function () {
-  beforeEach(async function () {
-    await initAdminSigner(this);
-
+  async function fixture([admin]: Wallet[]) {
     const testERC20Factory = (await ethers.getContractFactory(
       'TestERC20'
     )) as TestERC20__factory;
-    this.testERC20 = await testERC20Factory.deploy();
-    await this.testERC20.deployed();
+    const testERC20 = await testERC20Factory.deploy();
+    await testERC20.deployed();
 
     const strategyDummyFactory = (await ethers.getContractFactory(
       'StrategyDummy'
     )) as StrategyDummy__factory;
-    this.strategyDummy = await strategyDummyFactory.deploy(
-      this.adminSigner.address,
-      this.adminSigner.address,
-      this.testERC20.address
+    const strategyDummy = await strategyDummyFactory.deploy(
+      admin.address,
+      admin.address,
+      testERC20.address
     );
-    await this.strategyDummy.deployed();
-  });
+    await strategyDummy.deployed();
+    return { strategyDummy, testERC20 };
+  }
 
   it('should return asset address', async function () {
-    expect(await this.strategyDummy.getAssetAddress()).to.equal(
-      this.testERC20.address
-    );
+    const { strategyDummy, testERC20 } = await loadFixture(fixture);
+    expect(await strategyDummy.getAssetAddress()).to.equal(testERC20.address);
   });
 
   it('should take 1e18 from funder and add to balance', async function () {
-    await this.testERC20.approve(
-      this.strategyDummy.address,
+    const { strategyDummy, testERC20 } = await loadFixture(fixture);
+    await testERC20.approve(
+      strategyDummy.address,
       ethers.utils.parseEther('1')
     );
-    expect(await this.strategyDummy.updateBalance()).to.not.throw;
-    expect(await this.strategyDummy.getBalance()).to.equal(
+    expect(await strategyDummy.updateBalance()).to.not.throw;
+    expect(await strategyDummy.getBalance()).to.equal(
       ethers.utils.parseEther('1')
     );
   });
 
-  it('should sync commit', async function () {
-    await this.testERC20.approve(
-      this.strategyDummy.address,
+  it('should aggregate commit', async function () {
+    const { strategyDummy, testERC20 } = await loadFixture(fixture);
+    await testERC20.approve(
+      strategyDummy.address,
       ethers.utils.parseEther('2')
     );
-    expect(
-      await this.strategyDummy.syncCommitment(ethers.utils.parseEther('1'), 0)
-    ).to.not.throw;
-    await this.strategyDummy.updateBalance();
-    expect(await this.strategyDummy.getBalance()).to.equal(
+    expect(await strategyDummy.aggregateCommit(ethers.utils.parseEther('1'))).to.not.throw;
+    await strategyDummy.updateBalance();
+    expect(await strategyDummy.getBalance()).to.equal(
       ethers.utils.parseEther('2')
     );
   });
 
-  it('should sync uncommit', async function () {
-    await this.testERC20.approve(
-      this.strategyDummy.address,
+  it('should aggregate uncommit', async function () {
+    const { strategyDummy, testERC20 } = await loadFixture(fixture);
+    await testERC20.approve(
+      strategyDummy.address,
       ethers.utils.parseEther('4')
     );
-    expect(
-      await this.strategyDummy.syncCommitment(
-        ethers.utils.parseEther('3'),
-        ethers.utils.parseEther('1')
-      )
-    ).to.not.throw;
-    await this.strategyDummy.updateBalance();
-    expect(await this.strategyDummy.getBalance()).to.equal(
+    expect(await strategyDummy.aggregateCommit(ethers.utils.parseEther('3'))).to.not.throw;
+    expect(await strategyDummy.aggregateUncommit(ethers.utils.parseEther('1'))).to.not.throw;
+    await strategyDummy.updateBalance();
+    expect(await strategyDummy.getBalance()).to.equal(
       ethers.utils.parseEther('3')
     );
   });

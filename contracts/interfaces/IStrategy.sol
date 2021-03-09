@@ -30,10 +30,16 @@ interface IStrategy {
     function getBalance() external view returns (uint256);
 
     /**
-     * @dev Commits to / uncommits from strategies per instructions from L2.
+     * @dev Commits to strategies per instructions from L2.
      *
      * @param commitAmount The aggregated amount to commit.
+     */
+    function aggregateCommit(uint256 commitAmount) external;
+
+    /**
+     * @dev Uncommits from strategies per instructions from L2.
+     *
      * @param uncommitAmount The aggregated amount to uncommit.
      */
-    function syncCommitment(uint256 commitAmount, uint256 uncommitAmount) external;
+    function aggregateUncommit(uint256 uncommitAmount) external;
 }

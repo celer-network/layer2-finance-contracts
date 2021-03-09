@@ -211,13 +211,12 @@ contract RollupChain is Ownable, Pausable {
         emit AssetDeposited(account, assetId, _amount, depositId);
     }
 
-    // Note: the account address is an optional parameter.  If it is specified, it allows the
-    // withdrawal for a 3rd-party address.  Otherwise, the msg.sender is used as target address.
+    /**
+     * @notice Executes all pending withdraws to an account.
+     *
+     * @param _account The destination account.
+     */
     function withdraw(address _account) external whenNotPaused {
-        if (_account == address(0)) {
-            _account = msg.sender;
-        }
-
         require(pendingWithdraws[_account].length > 0, "No assets available to withdraw");
 
         // Transfer all withdrawable assets for this account.
@@ -352,15 +351,18 @@ contract RollupChain is Ownable, Pausable {
 
             address stAddr = registry.strategyIndexToAddress(cs.strategyId);
             require(stAddr != address(0), "Unknown strategy ID");
-
             IStrategy strategy = IStrategy(stAddr);
-            if (cs.pendingCommitAmount > 0) {
-                IERC20(strategy.getAssetAddress()).safeIncreaseAllowance(stAddr, cs.pendingCommitAmount);
-            }
-            strategy.syncCommitment(cs.pendingCommitAmount, cs.pendingUncommitAmount);
 
-            uint256 oldBalance = strategyAssetBalances[cs.strategyId];
-            strategyAssetBalances[cs.strategyId] = oldBalance.add(cs.pendingCommitAmount).sub(cs.pendingUncommitAmount);
+            if (cs.pendingCommitAmount > cs.pendingUncommitAmount) {
+                uint256 commitAmount = cs.pendingCommitAmount.sub(cs.pendingUncommitAmount);
+                IERC20(strategy.getAssetAddress()).safeIncreaseAllowance(stAddr, commitAmount);
+                strategy.aggregateCommit(commitAmount);
+                strategyAssetBalances[cs.strategyId] = strategyAssetBalances[cs.strategyId].add(commitAmount);
+            } else if (cs.pendingCommitAmount < cs.pendingUncommitAmount) {
+                uint256 uncommitAmount = cs.pendingUncommitAmount.sub(cs.pendingCommitAmount);
+                strategy.aggregateUncommit(uncommitAmount);
+                strategyAssetBalances[cs.strategyId] = strategyAssetBalances[cs.strategyId].sub(uncommitAmount);
+            }
         }
 
         countExecuted++;
