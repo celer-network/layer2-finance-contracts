@@ -157,7 +157,11 @@ contract RollupChain is Ownable, Pausable {
      * @param _amount drained asset amount
      * @param _receiver address to receive the drained asset
      */
-    function drainToken(address _asset, uint256 _amount, address _receiver) external whenPaused onlyOwner {
+    function drainToken(
+        address _asset,
+        uint256 _amount,
+        address _receiver
+    ) external whenPaused onlyOwner {
         if (_receiver == address(0)) {
             _receiver = msg.sender;
         }

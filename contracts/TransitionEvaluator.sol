@@ -176,8 +176,9 @@ contract TransitionEvaluator {
             require(_storageSlot.value.accountId == _transition.accountId, "account id not match");
         }
 
-        _storageSlot.value.idleAssets[_transition.assetId] =
-            _storageSlot.value.idleAssets[_transition.assetId].add(_transition.amount);
+        _storageSlot.value.idleAssets[_transition.assetId] = _storageSlot.value.idleAssets[_transition.assetId].add(
+            _transition.amount
+        );
 
         DataTypes.AccountInfo memory outputStorage;
         outputStorage = _storageSlot.value;
@@ -193,15 +194,16 @@ contract TransitionEvaluator {
     ) public view returns (DataTypes.AccountInfo memory) {
         address account = _storageSlot.value.account;
 
-        bytes32 txHash = keccak256(
-            abi.encodePacked(
-                _transition.transitionType,
-                _transition.account,
-                _transition.assetId,
-                _transition.amount,
-                _transition.timestamp
-            )
-        );
+        bytes32 txHash =
+            keccak256(
+                abi.encodePacked(
+                    _transition.transitionType,
+                    _transition.account,
+                    _transition.assetId,
+                    _transition.amount,
+                    _transition.timestamp
+                )
+            );
         bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
         require(
             ECDSA.recover(prefixedHash, _transition.signature) == _storageSlot.value.account,
@@ -212,8 +214,9 @@ contract TransitionEvaluator {
         require(_storageSlot.value.timestamp < _transition.timestamp, "timestamp should monotonically increasing");
         _storageSlot.value.timestamp = _transition.timestamp;
 
-        _storageSlot.value.idleAssets[_transition.assetId] =
-            _storageSlot.value.idleAssets[_transition.assetId].sub(_transition.amount);
+        _storageSlot.value.idleAssets[_transition.assetId] = _storageSlot.value.idleAssets[_transition.assetId].sub(
+            _transition.amount
+        );
 
         DataTypes.AccountInfo memory outputStorage;
         outputStorage = _storageSlot.value;
