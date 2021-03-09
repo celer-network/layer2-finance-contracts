@@ -1,30 +1,42 @@
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 
-import { deployContracts } from './common';
+import { Wallet } from '@ethersproject/wallet';
+
+import { deployContracts, loadFixture } from './common';
 
 describe('RollupChain', function () {
-  beforeEach(async function () {
-    await deployContracts(this);
-    const tokenAddress = this.testERC20.address;
-    await this.registry.registerAsset(tokenAddress);
-    await this.rollupChain.setNetDepositLimit(
+  async function fixture([admin]: Wallet[]) {
+    const {
+      registry,
+      rollupChain,
+      strategyDummy,
+      testERC20
+    } = await deployContracts(admin);
+    const tokenAddress = testERC20.address;
+    await registry.registerAsset(tokenAddress);
+    await rollupChain.setNetDepositLimit(
       tokenAddress,
       ethers.utils.parseEther('10000')
     );
-  });
+    return {
+      admin,
+      registry,
+      rollupChain,
+      strategyDummy,
+      testERC20
+    };
+  }
 
   it('should deposit', async function () {
-    const tokenAddress = this.testERC20.address;
-    await this.testERC20.approve(
-      this.rollupChain.address,
-      ethers.utils.parseEther('1')
-    );
+    const { admin, rollupChain, testERC20 } = await loadFixture(fixture);
+    const tokenAddress = testERC20.address;
+    await testERC20.approve(rollupChain.address, ethers.utils.parseEther('1'));
     await expect(
-      this.rollupChain.deposit(tokenAddress, ethers.utils.parseEther('1'))
+      rollupChain.deposit(tokenAddress, ethers.utils.parseEther('1'))
     )
-      .to.emit(this.rollupChain, 'AssetDeposited')
-      .withArgs(this.adminSigner.address, 1, ethers.utils.parseEther('1'), 0);
+      .to.emit(rollupChain, 'AssetDeposited')
+      .withArgs(admin.address, 1, ethers.utils.parseEther('1'), 0);
 
     const [
       account,
@@ -32,8 +44,8 @@ describe('RollupChain', function () {
       amount,
       blockID,
       status
-    ] = await this.rollupChain.pendingDeposits(0);
-    expect(account).to.equal(this.adminSigner.address);
+    ] = await rollupChain.pendingDeposits(0);
+    expect(account).to.equal(admin.address);
     expect(assetID).to.equal(1);
     expect(amount).to.equal(ethers.utils.parseEther('1'));
     expect(blockID).to.equal(0);
@@ -41,15 +53,13 @@ describe('RollupChain', function () {
   });
 
   it('should withdraw', async function () {
-    const tokenAddress = this.testERC20.address;
-    await this.testERC20.approve(
-      this.rollupChain.address,
-      ethers.utils.parseEther('1')
+    const { admin, rollupChain, testERC20 } = await loadFixture(fixture);
+    const tokenAddress = testERC20.address;
+    await testERC20.approve(rollupChain.address, ethers.utils.parseEther('1'));
+    await rollupChain.deposit(tokenAddress, ethers.utils.parseEther('1'));
+    await expect(rollupChain.withdraw(admin.address)).to.be.revertedWith(
+      'No assets available to withdraw'
     );
-    await this.rollupChain.deposit(tokenAddress, ethers.utils.parseEther('1'));
-    await expect(
-      this.rollupChain.withdraw(this.adminSigner.address)
-    ).to.be.revertedWith('No assets available to withdraw');
 
     const txs = [
       // Deposit
@@ -57,41 +67,36 @@ describe('RollupChain', function () {
       // Withdraw
       '0x000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000737461746520726f6f74000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000000000000bc614e0000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000d7468697320697320612073696700000000000000000000000000000000000000'
     ];
-    await this.rollupChain.commitBlock(0, txs);
+    await rollupChain.commitBlock(0, txs);
 
-    let [
-      account,
-      assetID,
-      amount
-    ] = await this.rollupChain.pendingWithdrawCommits(0, 0);
-    expect(account).to.equal(this.adminSigner.address);
+    let [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(
+      0,
+      0
+    );
+    expect(account).to.equal(admin.address);
     expect(assetID).to.equal(1);
     expect(amount).to.equal(ethers.utils.parseEther('1'));
 
-    await this.rollupChain.executeBlock([]);
+    await rollupChain.executeBlock([]);
 
     let totalAmount;
-    [assetID, totalAmount] = await this.rollupChain.pendingWithdraws(
-      this.adminSigner.address,
+    [assetID, totalAmount] = await rollupChain.pendingWithdraws(
+      admin.address,
       0
     );
     expect(assetID).to.equal(1);
     expect(totalAmount).to.equal(ethers.utils.parseEther('1'));
 
-    const balanceBefore = await this.testERC20.balanceOf(
-      this.adminSigner.address
-    );
-    expect(await this.rollupChain.withdraw(this.adminSigner.address)).to.not
-      .throw;
-    const balanceAfter = await this.testERC20.balanceOf(
-      this.adminSigner.address
-    );
+    const balanceBefore = await testERC20.balanceOf(admin.address);
+    expect(await rollupChain.withdraw(admin.address)).to.not.throw;
+    const balanceAfter = await testERC20.balanceOf(admin.address);
     expect(balanceAfter.sub(balanceBefore)).to.equal(
       ethers.utils.parseEther('1')
     );
   });
 
   it('should commit block', async function () {
+    const { rollupChain } = await loadFixture(fixture);
     // TODO: generate test data more programmatically
     const txs = [
       '0x000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000737461746520726f6f740000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000001020300000000000000000000000000000000000000000000000000000000000102030000000000000000000000000000000000000000000000000000000000010203',
@@ -99,37 +104,40 @@ describe('RollupChain', function () {
       '0x000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000737461746520726f6f740000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000102030000000000000000000000000000000000000000000000000000000000bc614e00000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000d7468697320697320612073696700000000000000000000000000000000000000',
       '0x000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000737461746520726f6f740000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000102030000000000000000000000000000000000000000000000000000000000bc614e00000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000d7468697320697320612073696700000000000000000000000000000000000000'
     ];
-    expect(await this.rollupChain.commitBlock(0, txs)).to.not.throw;
-    expect(await this.rollupChain.getCurrentBlockNumber()).to.equal(0); // 0-based indexing
+    expect(await rollupChain.commitBlock(0, txs)).to.not.throw;
+    expect(await rollupChain.getCurrentBlockNumber()).to.equal(0); // 0-based indexing
   });
 
   it('should execute block with one deposit, one commit, one sync commitment and one sync balance', async function () {
-    const tokenAddress = this.testERC20.address;
-    const stAddress = this.strategyDummy.address;
-    await this.registry.registerStrategy(stAddress);
-    await this.testERC20.approve(
-      this.rollupChain.address,
+    const {
+      registry,
+      rollupChain,
+      strategyDummy,
+      testERC20
+    } = await loadFixture(fixture);
+    const tokenAddress = testERC20.address;
+    const stAddress = strategyDummy.address;
+    await registry.registerStrategy(stAddress);
+    await testERC20.approve(rollupChain.address, ethers.utils.parseEther('1'));
+    await testERC20.approve(
+      strategyDummy.address,
       ethers.utils.parseEther('1')
     );
-    await this.testERC20.approve(
-      this.strategyDummy.address,
-      ethers.utils.parseEther('1')
-    );
-    await this.rollupChain.deposit(tokenAddress, ethers.utils.parseEther('1'));
-    await this.strategyDummy.updateBalance();
-    await this.rollupChain.syncBalance(1);
+    await rollupChain.deposit(tokenAddress, ethers.utils.parseEther('1'));
+    await strategyDummy.updateBalance();
+    await rollupChain.syncBalance(1);
 
     let [
       strategyID,
       delta,
       blockID,
       status
-    ] = await this.rollupChain.pendingBalanceSyncs(0);
+    ] = await rollupChain.pendingBalanceSyncs(0);
     expect(strategyID).to.equal(1);
     expect(delta).to.equal(ethers.utils.parseEther('1'));
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
-    expect(await this.strategyDummy.getBalance()).to.equal(
+    expect(await strategyDummy.getBalance()).to.equal(
       ethers.utils.parseEther('1')
     );
 
@@ -143,15 +151,15 @@ describe('RollupChain', function () {
       // Sync balance
       '0x000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000737461746520726f6f7400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a7640000'
     ];
-    await this.rollupChain.commitBlock(0, txs);
+    await rollupChain.commitBlock(0, txs);
     const intents = [
       // Sync commitment
       '0x000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000737461746520726f6f7400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000000000000000000'
     ];
-    expect(await this.rollupChain.executeBlock(intents)).to.not.throw;
+    expect(await rollupChain.executeBlock(intents)).to.not.throw;
 
     // Check fund committed
-    expect(await this.strategyDummy.getBalance()).to.equal(
+    expect(await strategyDummy.getBalance()).to.equal(
       ethers.utils.parseEther('2')
     );
 
@@ -163,7 +171,7 @@ describe('RollupChain', function () {
       amount,
       blockID,
       status
-    ] = await this.rollupChain.pendingDeposits(0);
+    ] = await rollupChain.pendingDeposits(0);
     expect(account).to.equal(ethers.constants.AddressZero);
     expect(assetID).to.equal(0);
     expect(amount).to.equal(0);
@@ -176,7 +184,7 @@ describe('RollupChain', function () {
       delta,
       blockID,
       status
-    ] = await this.rollupChain.pendingBalanceSyncs(0);
+    ] = await rollupChain.pendingBalanceSyncs(0);
     expect(strategyID).to.equal(0);
     expect(delta).to.equal(0);
     expect(blockID).to.equal(0);
