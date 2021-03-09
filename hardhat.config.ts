@@ -1,5 +1,6 @@
 import '@nomiclabs/hardhat-waffle';
-import 'hardhat-typechain';
+import 'hardhat-gas-reporter';
+import '@typechain/hardhat';
 
 import { HardhatUserConfig } from 'hardhat/types';
 
@@ -13,6 +14,11 @@ const config: HardhatUserConfig = {
         runs: 200
       }
     }
+  },
+  gasReporter: {
+    enabled: process.env.REPORT_GAS ? true : false,
+    noColors: true,
+    outputFile: 'gas_usage/summary.txt'
   },
   typechain: {
     outDir: 'typechain',
