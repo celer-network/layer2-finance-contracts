@@ -6,6 +6,7 @@ contract DataTypes {
         bytes32 rootHash;
         bytes32 intentHash; // hash of L2-to-L1 commitment sync transitions
         uint256 blockTime; // blockNum when this rollup block is committed
+        uint32 blockSize; // number of transitions in the block
     }
 
     struct DepositTransition {
@@ -63,17 +64,6 @@ contract DataTypes {
         uint256 pendingUncommitAmount;
     }
 
-    struct TransitionInclusionProof {
-        uint256 blockNumber;
-        uint256 transitionIndex;
-        bytes32[] siblings;
-    }
-
-    struct IncludedTransition {
-        bytes transition;
-        TransitionInclusionProof inclusionProof;
-    }
-
     struct AccountInfo {
         address account;
         uint32 accountId; // mapping only on L2 must be part of stateRoot
@@ -90,13 +80,22 @@ contract DataTypes {
         uint256 pendingUncommitAmount;
     }
 
-    struct StorageSlot {
-        uint256 slotIndex;
-        AccountInfo value;
+    struct TransitionProof {
+        bytes transition;
+        uint256 blockNumber;
+        uint32 index;
+        bytes32[] siblings;
     }
 
-    struct IncludedStorageSlot {
-        StorageSlot storageSlot;
+    struct AccountProof {
+        AccountInfo value;
+        uint256 index;
+        bytes32[] siblings;
+    }
+
+    struct StrategyProof {
+        StrategyInfo value;
+        uint256 index;
         bytes32[] siblings;
     }
 }

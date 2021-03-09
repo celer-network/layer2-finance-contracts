@@ -97,8 +97,11 @@ contract RollupChain is Ownable, Pausable {
     // per-asset (total deposit - total withdrawal) limit
     mapping(address => uint256) public netDepositLimits;
 
-    // State tree height
+    // State tree constants.
     uint256 constant STATE_TREE_HEIGHT = 32;
+    uint256 constant STATE_TOTAL_LEAVES = 2**STATE_TREE_HEIGHT;
+    uint256 constant STATE_STRATEGY_ID_FLAG = 0x80000000;
+
     // TODO: Set a reasonable wait period
     uint256 constant WITHDRAW_WAIT_PERIOD = 0;
 
@@ -310,7 +313,13 @@ contract RollupChain is Ownable, Pausable {
             intentHash = keccak256(abi.encodePacked(intents));
         }
 
-        dt.Block memory rollupBlock = dt.Block({rootHash: root, intentHash: intentHash, blockTime: block.number});
+        dt.Block memory rollupBlock =
+            dt.Block({
+                rootHash: root,
+                intentHash: intentHash,
+                blockTime: block.number,
+                blockSize: uint32(_transitions.length)
+            });
         blocks.push(rollupBlock);
 
         emit RollupBlockCommitted(_blockId);
@@ -426,60 +435,23 @@ contract RollupChain is Ownable, Pausable {
      * Proving Invalidity *
      *********************/
 
-    /**
-     * Verify inclusion of the claimed includedStorageSlot & store their results.
-     * Note the complexity here is we need to store an empty storage slot as being 32 bytes of zeros
-     * to be what the sparse merkle tree expects.
-     */
-    function verifyAndStoreStorageSlotInclusionProof(dt.IncludedStorageSlot memory _includedStorageSlot) private {
-        /* TODO:
-        bytes memory accountInfoBytes = getAccountInfoBytes(_includedStorageSlot.storageSlot.value);
-        merkleUtils.verifyAndStore(
-            accountInfoBytes,
-            uint256(_includedStorageSlot.storageSlot.slotIndex),
-            _includedStorageSlot.siblings
-        );
-        */
-    }
-
-    function getStateRootAndStorageSlots(bytes memory _transition)
-        public
-        returns (
-            bool,
-            bytes32,
-            uint256[] memory
-        )
-    {
-        bool success;
-        bytes memory returnData;
-        bytes32 stateRoot;
-        uint256[] memory storageSlots;
-        (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(transitionEvaluator.getTransitionStateRootAndAccessList.selector, _transition)
-        );
-
-        // If the call was successful let's decode!
-        if (success) {
-            (stateRoot, storageSlots) = abi.decode((returnData), (bytes32, uint256[]));
-        }
-        return (success, stateRoot, storageSlots);
-    }
-
-    function getStateRootsAndStorageSlots(bytes memory _preStateTransition, bytes memory _invalidTransition)
+    function getStateRootsAndIds(bytes memory _preStateTransition, bytes memory _invalidTransition)
         public
         returns (
             bool,
             bytes32,
             bytes32,
-            uint256[] memory
+            uint32,
+            uint32
         )
     {
         bool success;
         bytes memory returnData;
         bytes32 preStateRoot;
         bytes32 postStateRoot;
-        uint256[] memory preStateStorageSlots;
-        uint256[] memory storageSlots;
+        uint32 accountId;
+        uint32 strategyId;
+
         // First decode the prestate root
         (success, returnData) = address(transitionEvaluator).call(
             abi.encodeWithSelector(
@@ -490,7 +462,8 @@ contract RollupChain is Ownable, Pausable {
 
         // Make sure the call was successful
         require(success, "If the preStateRoot is invalid, then prove that invalid instead!");
-        (preStateRoot, preStateStorageSlots) = abi.decode((returnData), (bytes32, uint256[]));
+        (preStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
+
         // Now that we have the prestateRoot, let's decode the postState
         (success, returnData) = address(transitionEvaluator).call(
             abi.encodeWithSelector(transitionEvaluator.getTransitionStateRootAndAccessList.selector, _invalidTransition)
@@ -498,93 +471,105 @@ contract RollupChain is Ownable, Pausable {
 
         // If the call was successful let's decode!
         if (success) {
-            (postStateRoot, storageSlots) = abi.decode((returnData), (bytes32, uint256[]));
+            (postStateRoot, accountId, strategyId) = abi.decode((returnData), (bytes32, uint32, uint32));
         }
-        return (success, preStateRoot, postStateRoot, storageSlots);
+        return (success, preStateRoot, postStateRoot, accountId, strategyId);
     }
 
     /**
-     * Checks if a transition is invalid and if it is prunes that block and it's children from the chain.
+     * Dispute a transition in a block.  Provide the transition proofs of the previous (valid) transition
+     * and the disputed transition, the account proof, and the strategy proof (needed for commit/uncommit
+     * disputed transitions).  If the transition is invalid, prune the chain from that invalid block.
      */
-    function proveTransitionInvalid(
-        dt.IncludedTransition memory _preStateIncludedTransition,
-        dt.IncludedTransition memory _invalidIncludedTransition,
-        dt.IncludedStorageSlot[] memory _transitionStorageSlots
+    function disputeTransition(
+        dt.TransitionProof memory _prevTransitionProof,
+        dt.TransitionProof memory _invalidTransitionProof,
+        dt.AccountProof memory _accountProof,
+        dt.StrategyProof memory _strategyProof
     ) public {
-        // For convenience store the transitions
-        bytes memory preStateTransition = _preStateIncludedTransition.transition;
-        bytes memory invalidTransition = _invalidIncludedTransition.transition;
+        uint256 blockId = _invalidTransitionProof.blockNumber;
+        require(blocks[blockId].blockTime + blockChallengePeriod > block.number, "Block challenge period is over");
 
         /********* #1: CHECK_SEQUENTIAL_TRANSITIONS *********/
-        // First verify that the transitions are sequential
-        verifySequentialTransitions(_preStateIncludedTransition, _invalidIncludedTransition);
+        // First verify that the transitions are sequential and in their respective block root hashes.
+        verifySequentialTransitions(_prevTransitionProof, _invalidTransitionProof);
 
         /********* #2: DECODE_TRANSITIONS *********/
-        // Decode our transitions and determine which storage slots we'll need in order to validate the transition
-        (bool success, bytes32 preStateRoot, bytes32 postStateRoot, uint256[] memory storageSlotIndexes) =
-            getStateRootsAndStorageSlots(preStateTransition, invalidTransition);
+        // Decode our transitions and determine the account and strategy IDs needed to validate the transition
+        (bool ok, bytes32 preStateRoot, bytes32 postStateRoot, uint32 accountId, uint32 strategyId) =
+            getStateRootsAndIds(_prevTransitionProof.transition, _invalidTransitionProof.transition);
         // If not success something went wrong with the decoding...
-        if (!success) {
+        if (!ok) {
             // Prune the block if it has an incorrectly encoded transition!
-            pruneBlocksAfter(_invalidIncludedTransition.inclusionProof.blockNumber);
+            pruneBlocksAfter(blockId);
             return;
         }
 
-        /********* #3: VERIFY_TRANSITION_STORAGE_SLOTS *********/
-        // Make sure the storage slots we were given are correct
-        for (uint256 i = 0; i < _transitionStorageSlots.length; i++) {
+        /********* #3: VERIFY_TRANSITION_ACCOUNT_INDEX *********/
+        // The account ID is also its leaf node index in the Merkle tree (i.e. left half-tree).
+        // The strategy ID is shifted in range to create its leaf node index (i.e. right half-tree).
+        require(_accountProof.index == accountId, "Supplied account index is incorrect");
+
+        if (strategyId > 0) {
             require(
-                _transitionStorageSlots[i].storageSlot.slotIndex == storageSlotIndexes[i],
-                "Supplied storage slot index is incorrect!"
+                _strategyProof.index == (strategyId | STATE_STRATEGY_ID_FLAG),
+                "Supplied strategy index is incorrect"
             );
         }
 
-        /********* #4: STORE_STORAGE_INCLUSION_PROOFS *********/
-        // Now verify and store the storage inclusion proofs
-        //TODO: merkleUtils.setMerkleRootAndHeight(preStateRoot, STATE_TREE_HEIGHT);
-        for (uint256 i = 0; i < _transitionStorageSlots.length; i++) {
-            verifyAndStoreStorageSlotInclusionProof(_transitionStorageSlots[i]);
+        /********* #4: ACCOUNT_AND_STRATEGY_INCLUSION_PROOFS *********/
+        verifyProofInclusion(
+            preStateRoot,
+            keccak256(getAccountInfoBytes(_accountProof.value)),
+            _accountProof.index,
+            _accountProof.siblings
+        );
+        if (strategyId > 0) {
+            verifyProofInclusion(
+                preStateRoot,
+                keccak256(getStrategyInfoBytes(_strategyProof.value)),
+                _strategyProof.index,
+                _strategyProof.siblings
+            );
         }
 
         /********* #5: EVALUATE_TRANSITION *********/
-        // Now that we've verified and stored our storage in the state tree, lets apply the transaction
-        // To do this first let's pull out the storage slots we care about
-        dt.StorageSlot[] memory storageSlots = new dt.StorageSlot[](_transitionStorageSlots.length);
-        for (uint256 i = 0; i < _transitionStorageSlots.length; i++) {
-            storageSlots[i] = _transitionStorageSlots[i].storageSlot;
-        }
-
+        // Apply the transaction and verify the state root after that.
         bytes memory returnData;
         // Make the external call
-        (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(transitionEvaluator.evaluateTransition.selector, invalidTransition, storageSlots)
+        (ok, returnData) = address(transitionEvaluator).call(
+            abi.encodeWithSelector(
+                transitionEvaluator.evaluateTransition.selector,
+                _invalidTransitionProof.transition,
+                _accountProof.value,
+                _strategyProof.value
+            )
         );
 
         // Check if it was successful. If not, we've got to prune.
-        if (!success) {
-            pruneBlocksAfter(_invalidIncludedTransition.inclusionProof.blockNumber);
+        if (!ok) {
+            pruneBlocksAfter(blockId);
             return;
         }
+
         // It was successful so let's decode the outputs to get the new leaf nodes we'll have to insert
         bytes32[] memory outputs = abi.decode((returnData), (bytes32[]));
+        require(outputs.length >= 1, "Transition evaluation bug: account leaf hash not returned");
+        if (strategyId > 0) {
+            require(outputs.length >= 2, "Transition evaluation bug: strategy leaf hash not returned");
+        }
 
         /********* #6: UPDATE_STATE_ROOT *********/
-        // Now we need to check if the state root is incorrect, to do this we first insert the new leaf values
-        /* TODO:
-        for (uint256 i = 0; i < _transitionStorageSlots.length; i++) {
-            merkleUtils.updateLeaf(outputs[i], _transitionStorageSlots[i].storageSlot.slotIndex);
-        }
-        */
+        // Now we need to check if the state root is incorrect, to do this we first insert the new account values
+        // and compute the updated childOfRoot for the account left-half of the Merkle tree.
+        ok = updateAndVerify(postStateRoot, strategyId, outputs, _accountProof, _strategyProof);
 
-        /********* #7: COMPARE_STATE_ROOTS *********/
-        // Check if the calculated state root equals what we expect
-        /* TODO:
-        if (postStateRoot != merkleUtils.getRoot()) {
+        /********* #7: DETERMINE_FRAUD *********/
+        if (!ok) {
             // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
-            pruneBlocksAfter(_invalidIncludedTransition.inclusionProof.blockNumber);
+            pruneBlocksAfter(blockId);
             return;
         }
-        */
 
         // Woah! Looks like there's no fraud!
         revert("No fraud detected!");
@@ -592,75 +577,98 @@ contract RollupChain is Ownable, Pausable {
 
     /**
      * Verifies that two transitions were included one after another.
-     * This is used to make sure we are comparing the correct
-     * prestate & poststate.
+     * This is used to make sure we are comparing the correct prestate & poststate.
      */
-    function verifySequentialTransitions(
-        dt.IncludedTransition memory _transition0,
-        dt.IncludedTransition memory _transition1
-    ) public view returns (bool) {
-        // Verify inclusion
-        require(checkTransitionInclusion(_transition0), "The first transition must be included!");
-        require(checkTransitionInclusion(_transition1), "The second transition must be included!");
-
-        // Verify that the two transitions are one after another
-
+    function verifySequentialTransitions(dt.TransitionProof memory _tp0, dt.TransitionProof memory _tp1)
+        private
+        returns (bool)
+    {
         // Start by checking if they are in the same block
-        if (_transition0.inclusionProof.blockNumber == _transition1.inclusionProof.blockNumber) {
-            // If the blocknumber is the same, simply check that transition0 preceeds transition1
-            require(
-                _transition0.inclusionProof.transitionIndex == _transition1.inclusionProof.transitionIndex - 1,
-                "Transitions must be sequential!"
-            );
-            // Hurray! The transition is valid!
-            return true;
+        if (_tp0.blockNumber == _tp1.blockNumber) {
+            // If the blocknumber is the same, check that tp0 preceeds tp1
+            require(_tp0.index + 1 == _tp1.index, "Transitions must be sequential");
+        } else {
+            // If not in the same block, check that:
+            // 0) the blocks are one after another
+            require(_tp0.blockNumber + 1 == _tp1.blockNumber, "Blocks must be sequential or equal");
+
+            // 1) the index of tp0 is the last in its block
+            require(_tp0.index == blocks[_tp0.blockNumber].blockSize - 1, "_tp0 must be last in its block");
+
+            // 2) the index of tp1 is the first in its block
+            require(_tp1.index == 0, "_tp1 must be first in its block");
         }
 
-        // If not in the same block, we check that:
-        // 0) the blocks are one after another
-        require(
-            _transition0.inclusionProof.blockNumber == _transition1.inclusionProof.blockNumber - 1,
-            "Blocks must be one after another or equal."
-        );
-        // 1) the transitionIndex of transition0 is the last in the block; and
-        //require(
-        //    _transition0.inclusionProof.transitionIndex ==
-        //        blocks[_transition0.inclusionProof.blockNumber].blockSize - 1,
-        //    "_transition0 must be last in its block."
-        //);
-        // 2) the transitionIndex of transition1 is the first in the block
-        require(_transition1.inclusionProof.transitionIndex == 0, "_transition0 must be first in its block.");
+        // Verify inclusion
+        require(checkTransitionInclusion(_tp0), "_tp0 must be included in its block");
+        require(checkTransitionInclusion(_tp1), "_tp1 must be included in its block");
 
-        // Success!
         return true;
     }
 
     /**
      * Check to see if a transition was indeed included.
      */
-    function checkTransitionInclusion(dt.IncludedTransition memory _includedTransition) public view returns (bool) {
-        bytes32 rootHash = blocks[_includedTransition.inclusionProof.blockNumber].rootHash;
-        bool isIncluded = true;
-        /* TODO:
-            merkleUtils.verify(
-                rootHash,
-                _includedTransition.transition,
-                _includedTransition.inclusionProof.transitionIndex,
-                _includedTransition.inclusionProof.siblings
-            );
-        */
-        return isIncluded;
+    function checkTransitionInclusion(dt.TransitionProof memory _tp) private returns (bool) {
+        bytes32 rootHash = blocks[_tp.blockNumber].rootHash;
+        uint32 totalLeaves = blocks[_tp.blockNumber].blockSize;
+        bytes32 leafHash = keccak256(_tp.transition);
+        (bool ok, ) = Lib_MerkleTree.verify(rootHash, leafHash, _tp.index, _tp.siblings, totalLeaves);
+        return ok;
     }
 
     /**
-     * Get the hash of the transition.
+     * Check if an account or strategy proof was indeed included.
      */
-    function getTransitionHash(bytes memory _transition) public pure returns (bytes32) {
-        return keccak256(_transition);
+    function verifyProofInclusion(
+        bytes32 _stateRoot,
+        bytes32 _leafHash,
+        uint256 _index,
+        bytes32[] memory _siblings
+    ) private {
+        (bool ok, ) = Lib_MerkleTree.verify(_stateRoot, _leafHash, _index, _siblings, STATE_TOTAL_LEAVES);
+        require(ok, "Failed proof inclusion verification check");
     }
 
     /**
-     * Get the bytes value for this storage.
+     * Update the Merkle tree with the new account and strategy leaf nodes and check validity.
+     */
+    function updateAndVerify(
+        bytes32 _stateRoot,
+        uint32 strategyId,
+        bytes32[] memory _leafHashes,
+        dt.AccountProof memory _accountProof,
+        dt.StrategyProof memory _strategyProof
+    ) private returns (bool) {
+        bool ok;
+        bytes32 accountChildOfRoot;
+
+        // If this is a one-leaf scenario (only account update e.g. deposit, withdraw), then this
+        // Merkle tree verification (left-half of tree) is sufficient.
+        (ok, accountChildOfRoot) = Lib_MerkleTree.verify(
+            _stateRoot,
+            _leafHashes[0],
+            _accountProof.index,
+            _accountProof.siblings,
+            STATE_TOTAL_LEAVES
+        );
+        if (strategyId > 0) {
+            // Two-leaf scenario: apply the update for the strategy right-half of the Merkle tree.
+            // Use the new accountChildOfRoot value from the previous step as the new top-level sibling.
+            _strategyProof.siblings[STATE_TREE_HEIGHT - 1] = accountChildOfRoot;
+            (ok, ) = Lib_MerkleTree.verify(
+                _stateRoot,
+                _leafHashes[1],
+                _strategyProof.index,
+                _strategyProof.siblings,
+                STATE_TOTAL_LEAVES
+            );
+        }
+        return ok;
+    }
+
+    /**
+     * Get the bytes value for this account.
      */
     function getAccountInfoBytes(dt.AccountInfo memory _accountInfo) public pure returns (bytes memory) {
         // If it's an empty storage slot, return 32 bytes of zeros (empty value)
@@ -682,6 +690,32 @@ contract RollupChain is Ownable, Pausable {
                 _accountInfo.idleAssets,
                 _accountInfo.stTokens,
                 _accountInfo.timestamp
+            );
+    }
+
+    /**
+     * Get the bytes value for this strategy.
+     */
+    function getStrategyInfoBytes(dt.StrategyInfo memory _strategyInfo) public pure returns (bytes memory) {
+        // If it's an empty storage slot, return 32 bytes of zeros (empty value)
+        if (
+            _strategyInfo.assetId == 0 &&
+            _strategyInfo.assetBalance == 0 &&
+            _strategyInfo.stTokenSupply == 0 &&
+            _strategyInfo.pendingCommitAmount == 0 &&
+            _strategyInfo.pendingUncommitAmount == 0
+        ) {
+            return abi.encodePacked(uint256(0));
+        }
+        // Here we don't use `abi.encode([struct])` because it's not clear
+        // how to generate that encoding client-side.
+        return
+            abi.encode(
+                _strategyInfo.assetId,
+                _strategyInfo.assetBalance,
+                _strategyInfo.stTokenSupply,
+                _strategyInfo.pendingCommitAmount,
+                _strategyInfo.pendingUncommitAmount
             );
     }
 

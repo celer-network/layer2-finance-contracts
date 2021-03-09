@@ -50,7 +50,7 @@ run_abigen() {
   done
   # delete duplicated struct defs, add here if new dup appears
   del_dup_structs contracts/transitionevaluator.go DataTypesAccountInfo
-  del_dup_structs contracts/transitionevaluator.go DataTypesStorageSlot
+  del_dup_structs contracts/transitionevaluator.go DataTypesStrategyInfo
 
   pushd contracts
   go build # make sure contracts pkg can build

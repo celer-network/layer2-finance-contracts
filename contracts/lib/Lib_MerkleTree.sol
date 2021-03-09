@@ -102,9 +102,10 @@ library Lib_MerkleTree {
      * @param _root The Merkle root to verify against.
      * @param _leaf The leaf hash to verify inclusion of.
      * @param _index The index in the tree of this leaf.
-     * @param _siblings Array of sibline nodes in the inclusion proof, starting from depth 0 (bottom of the tree).
+     * @param _siblings Array of sibling nodes in the inclusion proof, starting from depth 0 (bottom of the tree).
      * @param _totalLeaves The total number of leaves originally passed into.
      * @return Whether or not the merkle branch and leaf passes verification.
+     * @return The new value of child of the root node in the path from the leaf node.
      */
     function verify(
         bytes32 _root,
@@ -112,7 +113,7 @@ library Lib_MerkleTree {
         uint256 _index,
         bytes32[] memory _siblings,
         uint256 _totalLeaves
-    ) internal pure returns (bool) {
+    ) internal pure returns (bool, bytes32) {
         require(_totalLeaves > 0, "Lib_MerkleTree: Total leaves must be greater than zero.");
 
         require(_index < _totalLeaves, "Lib_MerkleTree: Index out of bounds.");
@@ -123,8 +124,12 @@ library Lib_MerkleTree {
         );
 
         bytes32 computedRoot = _leaf;
+        bytes32 childOfRoot;
 
         for (uint256 i = 0; i < _siblings.length; i++) {
+            if (i == (_siblings.length - 1)) {
+                childOfRoot = computedRoot;
+            }
             if ((_index & 1) == 1) {
                 computedRoot = keccak256(abi.encodePacked(_siblings[i], computedRoot));
             } else {
@@ -134,7 +139,7 @@ library Lib_MerkleTree {
             _index >>= 1;
         }
 
-        return _root == computedRoot;
+        return (_root == computedRoot, childOfRoot);
     }
 
     /*********************
