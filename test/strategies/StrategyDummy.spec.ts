@@ -43,13 +43,13 @@ describe('StrategyDummy', function () {
     );
   });
 
-  it('should sync commit', async function () {
+  it('should aggregate commit', async function () {
     await this.testERC20.approve(
       this.strategyDummy.address,
       ethers.utils.parseEther('2')
     );
     expect(
-      await this.strategyDummy.syncCommitment(ethers.utils.parseEther('1'), 0)
+      await this.strategyDummy.aggregateCommit(ethers.utils.parseEther('1'))
     ).to.not.throw;
     await this.strategyDummy.updateBalance();
     expect(await this.strategyDummy.getBalance()).to.equal(
@@ -57,16 +57,16 @@ describe('StrategyDummy', function () {
     );
   });
 
-  it('should sync uncommit', async function () {
+  it('should aggregate uncommit', async function () {
     await this.testERC20.approve(
       this.strategyDummy.address,
       ethers.utils.parseEther('4')
     );
     expect(
-      await this.strategyDummy.syncCommitment(
-        ethers.utils.parseEther('3'),
-        ethers.utils.parseEther('1')
-      )
+      await this.strategyDummy.aggregateCommit(ethers.utils.parseEther('3'))
+    ).to.not.throw;
+    expect(
+      await this.strategyDummy.aggregateUncommit(ethers.utils.parseEther('1'))
     ).to.not.throw;
     await this.strategyDummy.updateBalance();
     expect(await this.strategyDummy.getBalance()).to.equal(

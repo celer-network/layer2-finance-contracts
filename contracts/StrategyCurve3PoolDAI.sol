@@ -65,17 +65,6 @@ contract StrategyCurve3PoolDAI is IStrategy {
         return dai;
     }
 
-    function syncCommitment(uint256 commitAmount, uint256 uncommitAmount) external override {
-        require(msg.sender == controller, "Not controller");
-
-        if (commitAmount > 0) {
-            commit(commitAmount);
-        }
-        if (uncommitAmount > 0) {
-            uncommit(uncommitAmount);
-        }
-    }
-
     function getBalance() external view override returns (uint256) {
         uint256 triCrvBalance = IGauge(gauge).balanceOf(address(this));
         uint256 daiBalance = triCrvBalance.mul(ICurveFi(triPool).calc_withdraw_one_coin(triCrvBalance, 0));
@@ -118,7 +107,8 @@ contract StrategyCurve3PoolDAI is IStrategy {
         }
     }
 
-    function commit(uint256 _daiAmount) internal {
+    function aggregateCommit(uint256 _daiAmount) external override {
+        require(msg.sender == controller, "Not controller");
         require(_daiAmount > 0, "Nothing to commit");
 
         // Pull DAI from Controller
@@ -140,7 +130,8 @@ contract StrategyCurve3PoolDAI is IStrategy {
         emit Committed(_daiAmount);
     }
 
-    function uncommit(uint256 _daiAmount) internal {
+    function aggregateUncommit(uint256 _daiAmount) external override {
+        require(msg.sender == controller, "Not controller");
         require(_daiAmount > 0, "Nothing to uncommit");
 
         // Unstake some 3CRV from Gauge
