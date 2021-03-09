@@ -36,15 +36,16 @@ contract StrategyDummy is IStrategy {
         return asset;
     }
 
-    function syncCommitment(uint256 _commitAmount, uint256 _uncommitAmount) external override {
+    function aggregateCommit(uint256 _commitAmount) external override {
         require(msg.sender == controller, "Not controller");
+        require(_commitAmount > 0, "Nothing to commit");
+        IERC20(asset).safeTransferFrom(controller, address(this), _commitAmount);
+    }
 
-        if (_commitAmount > 0) {
-            IERC20(asset).safeTransferFrom(controller, address(this), _commitAmount);
-        }
-        if (_uncommitAmount > 0) {
-            IERC20(asset).safeTransfer(controller, _uncommitAmount);
-        }
+    function aggregateUncommit(uint256 _uncommitAmount) external override {
+        require(msg.sender == controller, "Not controller");
+        require(_uncommitAmount > 0, "Nothing to uncommit");
+        IERC20(asset).safeTransfer(controller, _uncommitAmount);
     }
 
     function getBalance() external view override returns (uint256) {
