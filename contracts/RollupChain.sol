@@ -558,7 +558,7 @@ contract RollupChain is Ownable, Pausable {
         /********* #6: UPDATE_STATE_ROOT *********/
         // Now we need to check if the state root is incorrect, to do this we first insert the new account values
         // and compute the updated childOfRoot for the account left-half of the Merkle tree.
-        ok = updateAndVerify(postStateRoot, strategyId, outputs, _accountProof, _strategyProof);
+        ok = updateAndVerify(postStateRoot, outputs, _accountProof, _strategyProof);
 
         /********* #7: DETERMINE_FRAUD *********/
         if (!ok) {
@@ -577,6 +577,7 @@ contract RollupChain is Ownable, Pausable {
      */
     function verifySequentialTransitions(dt.TransitionProof memory _tp0, dt.TransitionProof memory _tp1)
         private
+        view
         returns (bool)
     {
         // Start by checking if they are in the same block
@@ -605,7 +606,7 @@ contract RollupChain is Ownable, Pausable {
     /**
      * Check to see if a transition was indeed included.
      */
-    function checkTransitionInclusion(dt.TransitionProof memory _tp) private returns (bool) {
+    function checkTransitionInclusion(dt.TransitionProof memory _tp) private view returns (bool) {
         bytes32 rootHash = blocks[_tp.blockNumber].rootHash;
         uint32 totalLeaves = blocks[_tp.blockNumber].blockSize;
         bytes32 leafHash = keccak256(_tp.transition);
@@ -621,7 +622,7 @@ contract RollupChain is Ownable, Pausable {
         bytes32 _leafHash,
         uint256 _index,
         bytes32[] memory _siblings
-    ) private {
+    ) private pure {
         (bool ok, ) = Lib_MerkleTree.verify(_stateRoot, _leafHash, _index, _siblings, STATE_TOTAL_LEAVES);
         require(ok, "Failed proof inclusion verification check");
     }
@@ -631,11 +632,10 @@ contract RollupChain is Ownable, Pausable {
      */
     function updateAndVerify(
         bytes32 _stateRoot,
-        uint32 strategyId,
         bytes32[2] memory _leafHashes,
         dt.AccountProof memory _accountProof,
         dt.StrategyProof memory _strategyProof
-    ) private returns (bool) {
+    ) private pure returns (bool) {
         if (_leafHashes[0] == bytes32(0) && _leafHashes[1] == bytes32(0)) {
             return false;
         }
