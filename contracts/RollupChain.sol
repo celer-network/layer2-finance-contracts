@@ -636,7 +636,7 @@ contract RollupChain is Ownable, Pausable {
         dt.AccountProof memory _accountProof,
         dt.StrategyProof memory _strategyProof
     ) private returns (bool) {
-        if(_leafHashes[0] == bytes32(0) && _leafHashes[1] == bytes32(0)) {
+        if (_leafHashes[0] == bytes32(0) && _leafHashes[1] == bytes32(0)) {
             return false;
         }
 
@@ -655,7 +655,7 @@ contract RollupChain is Ownable, Pausable {
         }
         if (_leafHashes[1] != bytes32(0)) {
             // Apply the update for the strategy right-half of the Merkle tree.
-            // In case of a two-leaf scenario (e.g., commit, uncommit), use the new accountChildOfRoot value from 
+            // In case of a two-leaf scenario (e.g., commit, uncommit), use the new accountChildOfRoot value from
             // the previous step as the new top-level sibling.
             if (_leafHashes[0] != bytes32(0)) {
                 _strategyProof.siblings[STATE_TREE_HEIGHT - 1] = accountChildOfRoot;
