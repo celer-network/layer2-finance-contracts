@@ -115,8 +115,27 @@ contract TransitionEvaluator {
             DataTypes.WithdrawTransition memory transition = decodeWithdrawTransition(rawTransition);
             stateRoot = transition.stateRoot;
             accountId = transition.accountId;
+        } else if (transitionType == TRANSITION_TYPE_COMMIT) {
+            DataTypes.CommitTransition memory transition = decodeCommitTransition(rawTransition);
+            stateRoot = transition.stateRoot;
+            accountId = transition.accountId;
+            strategyId = transition.strategyId;
+        } else if (transitionType == TRANSITION_TYPE_UNCOMMIT) {
+            DataTypes.UncommitTransition memory transition = decodeUncommitTransition(rawTransition);
+            stateRoot = transition.stateRoot;
+            accountId = transition.accountId;
+            strategyId = transition.strategyId;
+        } else if (transitionType == TRANSITION_TYPE_SYNC_COMMITMENT) {
+            DataTypes.CommitmentSyncTransition memory transition = decodeCommitmentSyncTransition(rawTransition);
+            stateRoot = transition.stateRoot;
+            strategyId = transition.strategyId;
+        } else if (transitionType == TRANSITION_TYPE_SYNC_BALANCE) {
+            DataTypes.BalanceSyncTransition memory transition = decodeBalanceSyncTransition(rawTransition);
+            stateRoot = transition.stateRoot;
+            strategyId = transition.strategyId;
+        } else {
+            revert("Transition type not recognized!");
         }
-        // TODO: handle other transitions
         return (stateRoot, accountId, strategyId);
     }
 
