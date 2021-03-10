@@ -126,7 +126,7 @@ contract TransitionEvaluator {
     function applyDepositTransition(
         DataTypes.DepositTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo
-    ) public view returns (DataTypes.AccountInfo memory) {
+    ) public pure returns (DataTypes.AccountInfo memory) {
         if (_accountInfo.account == address(0)) {
             // first time deposit of this account
             require(_accountInfo.accountId == 0, "empty account id must be zero");
@@ -153,9 +153,7 @@ contract TransitionEvaluator {
     function applyWithdrawTransition(
         DataTypes.WithdrawTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo
-    ) public view returns (DataTypes.AccountInfo memory) {
-        address account = _accountInfo.account;
-
+    ) public pure returns (DataTypes.AccountInfo memory) {
         bytes32 txHash =
             keccak256(
                 abi.encodePacked(
@@ -191,7 +189,6 @@ contract TransitionEvaluator {
         DataTypes.AccountInfo memory _accountInfo,
         DataTypes.StrategyInfo memory _strategyInfo
     ) public view returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
-        address account = _accountInfo.account;
         bytes32 txHash =
             keccak256(
                 abi.encodePacked(
@@ -245,8 +242,7 @@ contract TransitionEvaluator {
         DataTypes.UncommitTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo,
         DataTypes.StrategyInfo memory _strategyInfo
-    ) public view returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
-        address account = _accountInfo.account;
+    ) public pure returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
         bytes32 txHash =
             keccak256(
                 abi.encodePacked(
@@ -287,8 +283,8 @@ contract TransitionEvaluator {
      */
     function applyCommitmentSyncTransition(
         DataTypes.CommitmentSyncTransition memory _transition,
-        DataTypes.StrategyInfo memory _strategyInfo
-    ) public view returns (DataTypes.StrategyInfo memory) {
+        DataTypes.StrategyInfo memory // _strategyInfo
+    ) public pure returns (DataTypes.StrategyInfo memory) {
         DataTypes.StrategyInfo memory strategyInfo; // TODO: tmp variable, remove later
 
         require(
@@ -310,8 +306,8 @@ contract TransitionEvaluator {
      */
     function applyBalanceSyncTransition(
         DataTypes.BalanceSyncTransition memory _transition,
-        DataTypes.StrategyInfo memory _strategyInfo
-    ) public view returns (DataTypes.StrategyInfo memory) {
+        DataTypes.StrategyInfo memory // _strategyInfo
+    ) public pure returns (DataTypes.StrategyInfo memory) {
         DataTypes.StrategyInfo memory strategyInfo; // TODO:  variable, remove later
         strategyInfo.assetBalance = strategyInfo.assetBalance.add(_transition.newAssetDelta);
         return strategyInfo;
