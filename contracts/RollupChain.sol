@@ -654,8 +654,8 @@ contract RollupChain is Ownable, Pausable {
         }
         if (_leafHashes[1] != bytes32(0)) {
             // Apply the update for the strategy right-half of the Merkle tree.
-            // In case of a two-leaf scenario: the top-level sibling (account info root) value has already been updated
-            // in the previous step.
+            // In case of a two-leaf scenario (e.g., commit, uncommit), the top-level sibling (accountInfo root)
+            // has already been updated in the previous step.
             (ok, ) = Lib_MerkleTree.verify(
                 _stateRoot,
                 _leafHashes[1],
