@@ -36,43 +36,44 @@ contract TransitionEvaluator {
         // Convert our inputs to memory
         bytes memory transition = _transition;
 
-        // Direct copy not supported by Solidity yet
-        /*
-        DataTypes.StorageSlot[] memory storageSlots = new DataTypes.StorageSlot[](_storageSlots.length);
-        for (uint256 i = 0; i < _storageSlots.length; i++) {
-            uint256 slotIndex = _storageSlots[i].slotIndex;
-            address account = _storageSlots[i].value.account;
-            uint256[] memory balances = _storageSlots[i].value.balances;
-            uint256[] memory nonces = _storageSlots[i]
-                .value
-                .nonces;
-            storageSlots[i] = DataTypes.StorageSlot(
-                slotIndex,
-                DataTypes.AccountInfo(
-                    account,
-                    balances,
-                    nonces
-                )
-            );
-        }
-        */
-
         // Extract the transition type
         uint8 transitionType = extractTransitionType(transition);
         bytes32[] memory outputs;
+        DataTypes.AccountInfo memory updatedAccountInfo;
+        DataTypes.StrategyInfo memory updatedStrategyInfo;
         // Apply the transition and record the resulting storage slots
         if (transitionType == TRANSITION_TYPE_DEPOSIT) {
             DataTypes.DepositTransition memory deposit = decodeDepositTransition(transition);
-
-            DataTypes.AccountInfo memory updatedAccountInfo = applyDepositTransition(deposit, _accountInfo);
+            updatedAccountInfo = applyDepositTransition(deposit, _accountInfo);
             outputs = new bytes32[](1);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
         } else if (transitionType == TRANSITION_TYPE_WITHDRAW) {
             DataTypes.WithdrawTransition memory withdraw = decodeWithdrawTransition(transition);
-
-            DataTypes.AccountInfo memory updatedAccountInfo = applyWithdrawTransition(withdraw, _accountInfo);
+            updatedAccountInfo = applyWithdrawTransition(withdraw, _accountInfo);
             outputs = new bytes32[](1);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
+        } else if (transitionType == TRANSITION_TYPE_COMMIT) {
+            DataTypes.CommitTransition memory commit = decodeCommitTransition(transition);
+            (updatedAccountInfo, updatedStrategyInfo) = applyCommitTransition(commit, _accountInfo, _strategyInfo);
+            outputs = new bytes32[](2);
+            outputs[0] = getAccountInfoHash(updatedAccountInfo);
+            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
+        } else if (transitionType == TRANSITION_TYPE_UNCOMMIT) {
+            DataTypes.UncommitTransition memory uncommit = decodeUncommitTransition(transition);
+            (updatedAccountInfo, updatedStrategyInfo) = applyUncommitTransition(uncommit, _accountInfo, _strategyInfo);
+            outputs = new bytes32[](2);
+            outputs[0] = getAccountInfoHash(updatedAccountInfo);
+            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
+        } else if (transitionType == TRANSITION_TYPE_SYNC_COMMITMENT) {
+            DataTypes.CommitmentSyncTransition memory commitmentSync = decodeCommitmentSyncTransition(transition);
+            updatedStrategyInfo = applyCommitmentSyncTransition(commitmentSync, _strategyInfo);
+            outputs = new bytes32[](1);
+            outputs[0] = getStrategyInfoHash(updatedStrategyInfo);
+        } else if (transitionType == TRANSITION_TYPE_SYNC_BALANCE) {
+            DataTypes.BalanceSyncTransition memory balanceSync = decodeBalanceSyncTransition(transition);
+            updatedStrategyInfo = applyBalanceSyncTransition(balanceSync, _strategyInfo);
+            outputs = new bytes32[](1);
+            outputs[0] = getStrategyInfoHash(updatedStrategyInfo);
         } else {
             revert("Transition type not recognized!");
         }
@@ -231,9 +232,7 @@ contract TransitionEvaluator {
         _accountInfo.idleAssets[_strategyInfo.assetId] = _accountInfo.idleAssets[_strategyInfo.assetId].sub(
             _transition.assetAmount
         );
-        _accountInfo.stTokens[_transition.strategyId] = _accountInfo.stTokens[_transition.strategyId].add(
-            newStToken
-        );
+        _accountInfo.stTokens[_transition.strategyId] = _accountInfo.stTokens[_transition.strategyId].add(newStToken);
         require(_accountInfo.accountId == _transition.accountId, "account id not match");
         require(_accountInfo.timestamp < _transition.timestamp, "timestamp should monotonically increasing");
         _accountInfo.timestamp = _transition.timestamp;
@@ -269,7 +268,8 @@ contract TransitionEvaluator {
             "Uncommit signature is invalid!"
         );
 
-        uint256 newIdleAsset = _transition.stTokenAmount.mul(_strategyInfo.assetBalance).div(_strategyInfo.stTokenSupply);
+        uint256 newIdleAsset =
+            _transition.stTokenAmount.mul(_strategyInfo.assetBalance).div(_strategyInfo.stTokenSupply);
 
         _accountInfo.idleAssets[_strategyInfo.assetId] = _accountInfo.idleAssets[_strategyInfo.assetId].add(
             newIdleAsset
@@ -291,11 +291,10 @@ contract TransitionEvaluator {
     /**
      * Apply a CommitmentSyncTransition.
      */
-    function applyCommitmentSyncTransition(DataTypes.CommitmentSyncTransition memory _transition)
-        public
-        view
-        returns (DataTypes.StrategyInfo memory)
-    {
+    function applyCommitmentSyncTransition(
+        DataTypes.CommitmentSyncTransition memory _transition,
+        DataTypes.StrategyInfo memory _strategyInfo
+    ) public view returns (DataTypes.StrategyInfo memory) {
         DataTypes.StrategyInfo memory strategyInfo; // TODO: tmp variable, remove later
 
         require(
@@ -315,11 +314,10 @@ contract TransitionEvaluator {
     /**
      * Apply a BalanceSyncTransition.
      */
-    function applyBalanceSyncTransition(DataTypes.BalanceSyncTransition memory _transition)
-        public
-        view
-        returns (DataTypes.StrategyInfo memory)
-    {
+    function applyBalanceSyncTransition(
+        DataTypes.BalanceSyncTransition memory _transition,
+        DataTypes.StrategyInfo memory _strategyInfo
+    ) public view returns (DataTypes.StrategyInfo memory) {
         DataTypes.StrategyInfo memory strategyInfo; // TODO:  variable, remove later
         strategyInfo.assetBalance = strategyInfo.assetBalance.add(_transition.newAssetDelta);
         return strategyInfo;
@@ -452,18 +450,6 @@ contract TransitionEvaluator {
         return transition;
     }
 
-    function decodeBalanceSyncTransition(bytes memory _rawBytes)
-        public
-        pure
-        returns (DataTypes.BalanceSyncTransition memory)
-    {
-        (uint8 transitionType, bytes32 stateRoot, uint32 strategyId, uint256 newAssetDelta) =
-            abi.decode((_rawBytes), (uint8, bytes32, uint32, uint256));
-        DataTypes.BalanceSyncTransition memory transition =
-            DataTypes.BalanceSyncTransition(transitionType, stateRoot, strategyId, newAssetDelta);
-        return transition;
-    }
-
     function decodeCommitmentSyncTransition(bytes memory _rawBytes)
         public
         pure
@@ -484,6 +470,18 @@ contract TransitionEvaluator {
                 pendingCommitAmount,
                 pendingUncommitAmount
             );
+        return transition;
+    }
+
+    function decodeBalanceSyncTransition(bytes memory _rawBytes)
+        public
+        pure
+        returns (DataTypes.BalanceSyncTransition memory)
+    {
+        (uint8 transitionType, bytes32 stateRoot, uint32 strategyId, uint256 newAssetDelta) =
+            abi.decode((_rawBytes), (uint8, bytes32, uint32, uint256));
+        DataTypes.BalanceSyncTransition memory transition =
+            DataTypes.BalanceSyncTransition(transitionType, stateRoot, strategyId, newAssetDelta);
         return transition;
     }
 }
