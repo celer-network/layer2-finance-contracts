@@ -641,11 +641,10 @@ contract RollupChain is Ownable, Pausable {
         }
 
         bool ok;
-        bytes32 accountChildOfRoot;
         // If this is a one-leaf scenario (only account update e.g. deposit, withdraw), then this
         // Merkle tree verification (left-half of tree) is sufficient.
         if (_leafHashes[0] != bytes32(0)) {
-            (ok, accountChildOfRoot) = Lib_MerkleTree.verify(
+            (ok, _strategyProof.siblings[STATE_TREE_HEIGHT - 1]) = Lib_MerkleTree.verify(
                 _stateRoot,
                 _leafHashes[0],
                 _accountProof.index,
@@ -654,11 +653,9 @@ contract RollupChain is Ownable, Pausable {
             );
         }
         if (_leafHashes[1] != bytes32(0)) {
-            // Two-leaf scenario: apply the update for the strategy right-half of the Merkle tree.
-            // Use the new accountChildOfRoot value from the previous step as the new top-level sibling.
-            if (_leafHashes[0] != bytes32(0)) {
-                _strategyProof.siblings[STATE_TREE_HEIGHT - 1] = accountChildOfRoot;
-            }
+            // Apply the update for the strategy right-half of the Merkle tree.
+            // In case of a two-leaf scenario: the top-level sibling (account info root) value has already been updated
+            // in the previous step.
             (ok, ) = Lib_MerkleTree.verify(
                 _stateRoot,
                 _leafHashes[1],
