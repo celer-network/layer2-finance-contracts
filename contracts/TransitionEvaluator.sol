@@ -32,48 +32,42 @@ contract TransitionEvaluator {
         bytes calldata _transition,
         DataTypes.AccountInfo calldata _accountInfo,
         DataTypes.StrategyInfo calldata _strategyInfo
-    ) external view returns (bytes32[] memory) {
+    ) external view returns (bytes32[2] memory) {
         // Convert our inputs to memory
         bytes memory transition = _transition;
 
         // Extract the transition type
         uint8 transitionType = extractTransitionType(transition);
-        bytes32[] memory outputs;
+        bytes32[2] memory outputs;
         DataTypes.AccountInfo memory updatedAccountInfo;
         DataTypes.StrategyInfo memory updatedStrategyInfo;
         // Apply the transition and record the resulting storage slots
         if (transitionType == TRANSITION_TYPE_DEPOSIT) {
             DataTypes.DepositTransition memory deposit = decodeDepositTransition(transition);
             updatedAccountInfo = applyDepositTransition(deposit, _accountInfo);
-            outputs = new bytes32[](1);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
         } else if (transitionType == TRANSITION_TYPE_WITHDRAW) {
             DataTypes.WithdrawTransition memory withdraw = decodeWithdrawTransition(transition);
             updatedAccountInfo = applyWithdrawTransition(withdraw, _accountInfo);
-            outputs = new bytes32[](1);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
         } else if (transitionType == TRANSITION_TYPE_COMMIT) {
             DataTypes.CommitTransition memory commit = decodeCommitTransition(transition);
             (updatedAccountInfo, updatedStrategyInfo) = applyCommitTransition(commit, _accountInfo, _strategyInfo);
-            outputs = new bytes32[](2);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
             outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
         } else if (transitionType == TRANSITION_TYPE_UNCOMMIT) {
             DataTypes.UncommitTransition memory uncommit = decodeUncommitTransition(transition);
             (updatedAccountInfo, updatedStrategyInfo) = applyUncommitTransition(uncommit, _accountInfo, _strategyInfo);
-            outputs = new bytes32[](2);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
             outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
         } else if (transitionType == TRANSITION_TYPE_SYNC_COMMITMENT) {
             DataTypes.CommitmentSyncTransition memory commitmentSync = decodeCommitmentSyncTransition(transition);
             updatedStrategyInfo = applyCommitmentSyncTransition(commitmentSync, _strategyInfo);
-            outputs = new bytes32[](1);
-            outputs[0] = getStrategyInfoHash(updatedStrategyInfo);
+            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
         } else if (transitionType == TRANSITION_TYPE_SYNC_BALANCE) {
             DataTypes.BalanceSyncTransition memory balanceSync = decodeBalanceSyncTransition(transition);
             updatedStrategyInfo = applyBalanceSyncTransition(balanceSync, _strategyInfo);
-            outputs = new bytes32[](1);
-            outputs[0] = getStrategyInfoHash(updatedStrategyInfo);
+            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
         } else {
             revert("Transition type not recognized!");
         }

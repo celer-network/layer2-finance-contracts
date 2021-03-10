@@ -553,11 +553,7 @@ contract RollupChain is Ownable, Pausable {
         }
 
         // It was successful so let's decode the outputs to get the new leaf nodes we'll have to insert
-        bytes32[] memory outputs = abi.decode((returnData), (bytes32[]));
-        require(outputs.length >= 1, "Transition evaluation bug: account leaf hash not returned");
-        if (strategyId > 0) {
-            require(outputs.length >= 2, "Transition evaluation bug: strategy leaf hash not returned");
-        }
+        bytes32[2] memory outputs = abi.decode((returnData), (bytes32[2]));
 
         /********* #6: UPDATE_STATE_ROOT *********/
         // Now we need to check if the state root is incorrect, to do this we first insert the new account values
@@ -636,7 +632,7 @@ contract RollupChain is Ownable, Pausable {
     function updateAndVerify(
         bytes32 _stateRoot,
         uint32 strategyId,
-        bytes32[] memory _leafHashes,
+        bytes32[2] memory _leafHashes,
         dt.AccountProof memory _accountProof,
         dt.StrategyProof memory _strategyProof
     ) private returns (bool) {
@@ -645,14 +641,16 @@ contract RollupChain is Ownable, Pausable {
 
         // If this is a one-leaf scenario (only account update e.g. deposit, withdraw), then this
         // Merkle tree verification (left-half of tree) is sufficient.
-        (ok, accountChildOfRoot) = Lib_MerkleTree.verify(
-            _stateRoot,
-            _leafHashes[0],
-            _accountProof.index,
-            _accountProof.siblings,
-            STATE_TOTAL_LEAVES
-        );
-        if (strategyId > 0) {
+        if (_leafHashes[0] != bytes32(0)) {
+            (ok, accountChildOfRoot) = Lib_MerkleTree.verify(
+                _stateRoot,
+                _leafHashes[0],
+                _accountProof.index,
+                _accountProof.siblings,
+                STATE_TOTAL_LEAVES
+            );
+        }
+        if (_leafHashes[1] != bytes32(0)) {
             // Two-leaf scenario: apply the update for the strategy right-half of the Merkle tree.
             // Use the new accountChildOfRoot value from the previous step as the new top-level sibling.
             _strategyProof.siblings[STATE_TREE_HEIGHT - 1] = accountChildOfRoot;
