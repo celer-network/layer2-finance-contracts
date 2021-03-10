@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 /* Internal Imports */
 import {DataTypes} from "./DataTypes.sol";
 import {Registry} from "./Registry.sol";
+import {IStrategy} from "./interfaces/IStrategy.sol";
 
 contract TransitionEvaluator {
     using SafeMath for uint256;
@@ -31,47 +32,42 @@ contract TransitionEvaluator {
         bytes calldata _transition,
         DataTypes.AccountInfo calldata _accountInfo,
         DataTypes.StrategyInfo calldata _strategyInfo
-    ) external view returns (bytes32[] memory) {
+    ) external view returns (bytes32[2] memory) {
         // Convert our inputs to memory
         bytes memory transition = _transition;
 
-        // Direct copy not supported by Solidity yet
-        /*
-        DataTypes.StorageSlot[] memory storageSlots = new DataTypes.StorageSlot[](_storageSlots.length);
-        for (uint256 i = 0; i < _storageSlots.length; i++) {
-            uint256 slotIndex = _storageSlots[i].slotIndex;
-            address account = _storageSlots[i].value.account;
-            uint256[] memory balances = _storageSlots[i].value.balances;
-            uint256[] memory nonces = _storageSlots[i]
-                .value
-                .nonces;
-            storageSlots[i] = DataTypes.StorageSlot(
-                slotIndex,
-                DataTypes.AccountInfo(
-                    account,
-                    balances,
-                    nonces
-                )
-            );
-        }
-        */
-
         // Extract the transition type
         uint8 transitionType = extractTransitionType(transition);
-        bytes32[] memory outputs;
+        bytes32[2] memory outputs;
+        DataTypes.AccountInfo memory updatedAccountInfo;
+        DataTypes.StrategyInfo memory updatedStrategyInfo;
         // Apply the transition and record the resulting storage slots
         if (transitionType == TRANSITION_TYPE_DEPOSIT) {
             DataTypes.DepositTransition memory deposit = decodeDepositTransition(transition);
-
-            DataTypes.AccountInfo memory updatedAccountInfo = applyDepositTransition(deposit, _accountInfo);
-            outputs = new bytes32[](1);
+            updatedAccountInfo = applyDepositTransition(deposit, _accountInfo);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
         } else if (transitionType == TRANSITION_TYPE_WITHDRAW) {
             DataTypes.WithdrawTransition memory withdraw = decodeWithdrawTransition(transition);
-
-            DataTypes.AccountInfo memory updatedAccountInfo = applyWithdrawTransition(withdraw, _accountInfo);
-            outputs = new bytes32[](1);
+            updatedAccountInfo = applyWithdrawTransition(withdraw, _accountInfo);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
+        } else if (transitionType == TRANSITION_TYPE_COMMIT) {
+            DataTypes.CommitTransition memory commit = decodeCommitTransition(transition);
+            (updatedAccountInfo, updatedStrategyInfo) = applyCommitTransition(commit, _accountInfo, _strategyInfo);
+            outputs[0] = getAccountInfoHash(updatedAccountInfo);
+            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
+        } else if (transitionType == TRANSITION_TYPE_UNCOMMIT) {
+            DataTypes.UncommitTransition memory uncommit = decodeUncommitTransition(transition);
+            (updatedAccountInfo, updatedStrategyInfo) = applyUncommitTransition(uncommit, _accountInfo, _strategyInfo);
+            outputs[0] = getAccountInfoHash(updatedAccountInfo);
+            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
+        } else if (transitionType == TRANSITION_TYPE_SYNC_COMMITMENT) {
+            DataTypes.CommitmentSyncTransition memory commitmentSync = decodeCommitmentSyncTransition(transition);
+            updatedStrategyInfo = applyCommitmentSyncTransition(commitmentSync, _strategyInfo);
+            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
+        } else if (transitionType == TRANSITION_TYPE_SYNC_BALANCE) {
+            DataTypes.BalanceSyncTransition memory balanceSync = decodeBalanceSyncTransition(transition);
+            updatedStrategyInfo = applyBalanceSyncTransition(balanceSync, _strategyInfo);
+            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
         } else {
             revert("Transition type not recognized!");
         }
@@ -124,42 +120,6 @@ contract TransitionEvaluator {
         return (stateRoot, accountId, strategyId);
     }
 
-    /*
-    function getWithdrawTxHash(DataTypes.WithdrawTx memory _withdrawTx)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return
-            keccak256(
-                abi.encodePacked(
-                    accountRegistry.accountAddresses(_withdrawTx.accountIndex),
-                    tokenRegistry.assetIndexToAddress(_withdrawTx.assetId),
-                    _withdrawTx.amount,
-                    _withdrawTx.nonce
-                )
-            );
-    }
-
-    function verifyEmptyAccountInfo(DataTypes.AccountInfo memory _accountInfo)
-        internal
-        pure
-    {
-        require(
-            _accountInfo.account == 0x0000000000000000000000000000000000000000,
-            "Address of empty account must be zero"
-        );
-        require(
-            _accountInfo.balances.length == 0,
-            "Balance array must be empty"
-        );
-        require(
-            _accountInfo.nonces.length == 0,
-            "Nonce array must be empty"
-        );
-    }
-    */
-
     /**
      * Apply a DepositTransition.
      */
@@ -167,18 +127,24 @@ contract TransitionEvaluator {
         DataTypes.DepositTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo
     ) public view returns (DataTypes.AccountInfo memory) {
-        // TODO (dominator008): Verify signature of depositer
+        if (_accountInfo.account == address(0)) {
+            // first time deposit of this account
+            require(_accountInfo.accountId == 0, "empty account id must be zero");
+            require(_accountInfo.idleAssets.length == 0, "empty account idleAssets must be empty");
+            require(_accountInfo.stTokens.length == 0, "empty account stTokens must be empty");
+            require(_accountInfo.timestamp == 0, "empty account timestamp must be zero");
+            _accountInfo.account = _transition.account;
+            _accountInfo.accountId = _transition.accountId;
+        } else {
+            require(_accountInfo.account == _transition.account, "account address not match");
+            require(_accountInfo.accountId == _transition.accountId, "account id not match");
+        }
 
-        DataTypes.AccountInfo memory outputStorage;
-        uint32 assetId = _transition.assetId;
-        /*
-        address account = _storageSlot.value.account;
-        uint256 oldBalance = _storageSlot.value.balances[assetId];
-        _storageSlot.value.balances[assetId] = oldBalance.add(
+        _accountInfo.idleAssets[_transition.assetId] = _accountInfo.idleAssets[_transition.assetId].add(
             _transition.amount
         );
-        */
-        return outputStorage;
+
+        return _accountInfo;
     }
 
     /**
@@ -188,36 +154,167 @@ contract TransitionEvaluator {
         DataTypes.WithdrawTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo
     ) public view returns (DataTypes.AccountInfo memory) {
-        /*
-        address account = _storageSlot.value.account;
-        DataTypes.WithdrawTx memory withdrawTx = DataTypes.WithdrawTx(
-            accountRegistry.registeredAccounts(account),
-            _transition.assetId,
-            _transition.amount,
-            _transition.nonce
-        );
+        address account = _accountInfo.account;
 
-        bytes32 txHash = getWithdrawTxHash(withdrawTx);
+        bytes32 txHash =
+            keccak256(
+                abi.encodePacked(
+                    _transition.transitionType,
+                    _transition.account,
+                    _transition.assetId,
+                    _transition.amount,
+                    _transition.timestamp
+                )
+            );
         bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
         require(
-            ECDSA.recover(prefixedHash, _transition.signature) == account,
+            ECDSA.recover(prefixedHash, _transition.signature) == _accountInfo.account,
             "Withdraw signature is invalid!"
         );
-        */
 
-        DataTypes.AccountInfo memory outputStorage;
-        uint32 assetId = _transition.assetId;
-        /*
-        uint256 oldBalance = _storageSlot.value.balances[assetId];
-        _storageSlot.value.balances[assetId] = oldBalance.sub(
+        require(_accountInfo.accountId == _transition.accountId, "account id not match");
+        require(_accountInfo.timestamp < _transition.timestamp, "timestamp should monotonically increasing");
+        _accountInfo.timestamp = _transition.timestamp;
+
+        _accountInfo.idleAssets[_transition.assetId] = _accountInfo.idleAssets[_transition.assetId].sub(
             _transition.amount
         );
-        uint256 oldWithdrawNonce = _storageSlot
-            .value
-            .nonces[assetId];
-        _storageSlot.value.nonces[assetId] = oldWithdrawNonce.add(1);
-        */
-        return outputStorage;
+
+        return _accountInfo;
+    }
+
+    /**
+     * Apply a CommitTransition.
+     */
+    function applyCommitTransition(
+        DataTypes.CommitTransition memory _transition,
+        DataTypes.AccountInfo memory _accountInfo,
+        DataTypes.StrategyInfo memory _strategyInfo
+    ) public view returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
+        address account = _accountInfo.account;
+        bytes32 txHash =
+            keccak256(
+                abi.encodePacked(
+                    _transition.transitionType,
+                    _transition.strategyId,
+                    _transition.assetAmount,
+                    _transition.timestamp
+                )
+            );
+        bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
+        require(
+            ECDSA.recover(prefixedHash, _transition.signature) == _accountInfo.account,
+            "Commit signature is invalid!"
+        );
+
+        uint256 newStToken;
+        if (_strategyInfo.assetId == 0) {
+            // first time commit of this strategy
+            require(_strategyInfo.assetBalance == 0, "empty strategy assetBalance must be zero");
+            require(_strategyInfo.stTokenSupply == 0, "empty strategy stTokenSupply must be zero");
+            require(_strategyInfo.pendingCommitAmount == 0, "empty strategy pendingCommitAmount must be zero");
+            require(_strategyInfo.pendingUncommitAmount == 0, "empty strategy pendingUncommitAmount must be zero");
+
+            address strategyAddr = registry.strategyIndexToAddress(_transition.strategyId);
+            address assetAddr = IStrategy(strategyAddr).getAssetAddress();
+            _strategyInfo.assetId = registry.assetAddressToIndex(assetAddr);
+            newStToken = _transition.assetAmount;
+        } else {
+            newStToken = _transition.assetAmount.mul(_strategyInfo.stTokenSupply).div(_strategyInfo.assetBalance);
+        }
+
+        _accountInfo.idleAssets[_strategyInfo.assetId] = _accountInfo.idleAssets[_strategyInfo.assetId].sub(
+            _transition.assetAmount
+        );
+        _accountInfo.stTokens[_transition.strategyId] = _accountInfo.stTokens[_transition.strategyId].add(newStToken);
+        require(_accountInfo.accountId == _transition.accountId, "account id not match");
+        require(_accountInfo.timestamp < _transition.timestamp, "timestamp should monotonically increasing");
+        _accountInfo.timestamp = _transition.timestamp;
+
+        _strategyInfo.stTokenSupply = _strategyInfo.stTokenSupply.add(newStToken);
+        _strategyInfo.assetBalance = _strategyInfo.assetBalance.add(_transition.assetAmount);
+        _strategyInfo.pendingCommitAmount = _strategyInfo.pendingCommitAmount.add(_transition.assetAmount);
+
+        return (_accountInfo, _strategyInfo);
+    }
+
+    /**
+     * Apply a CommitTransition.
+     */
+    function applyUncommitTransition(
+        DataTypes.UncommitTransition memory _transition,
+        DataTypes.AccountInfo memory _accountInfo,
+        DataTypes.StrategyInfo memory _strategyInfo
+    ) public view returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
+        address account = _accountInfo.account;
+        bytes32 txHash =
+            keccak256(
+                abi.encodePacked(
+                    _transition.transitionType,
+                    _transition.strategyId,
+                    _transition.stTokenAmount,
+                    _transition.timestamp
+                )
+            );
+        bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
+        require(
+            ECDSA.recover(prefixedHash, _transition.signature) == _accountInfo.account,
+            "Uncommit signature is invalid!"
+        );
+
+        uint256 newIdleAsset =
+            _transition.stTokenAmount.mul(_strategyInfo.assetBalance).div(_strategyInfo.stTokenSupply);
+
+        _accountInfo.idleAssets[_strategyInfo.assetId] = _accountInfo.idleAssets[_strategyInfo.assetId].add(
+            newIdleAsset
+        );
+        _accountInfo.stTokens[_transition.strategyId] = _accountInfo.stTokens[_transition.strategyId].sub(
+            _transition.stTokenAmount
+        );
+        require(_accountInfo.accountId == _transition.accountId, "account id not match");
+        require(_accountInfo.timestamp < _transition.timestamp, "timestamp should monotonically increasing");
+        _accountInfo.timestamp = _transition.timestamp;
+
+        _strategyInfo.stTokenSupply = _strategyInfo.stTokenSupply.sub(_transition.stTokenAmount);
+        _strategyInfo.assetBalance = _strategyInfo.assetBalance.sub(newIdleAsset);
+        _strategyInfo.pendingUncommitAmount = _strategyInfo.pendingUncommitAmount.add(newIdleAsset);
+
+        return (_accountInfo, _strategyInfo);
+    }
+
+    /**
+     * Apply a CommitmentSyncTransition.
+     */
+    function applyCommitmentSyncTransition(
+        DataTypes.CommitmentSyncTransition memory _transition,
+        DataTypes.StrategyInfo memory _strategyInfo
+    ) public view returns (DataTypes.StrategyInfo memory) {
+        DataTypes.StrategyInfo memory strategyInfo; // TODO: tmp variable, remove later
+
+        require(
+            _transition.pendingCommitAmount == strategyInfo.pendingCommitAmount,
+            "pending commitment amount not match"
+        );
+        require(
+            _transition.pendingUncommitAmount == strategyInfo.pendingUncommitAmount,
+            "pending uncommitment amount not match"
+        );
+        strategyInfo.pendingCommitAmount = 0;
+        strategyInfo.pendingUncommitAmount = 0;
+
+        return strategyInfo;
+    }
+
+    /**
+     * Apply a BalanceSyncTransition.
+     */
+    function applyBalanceSyncTransition(
+        DataTypes.BalanceSyncTransition memory _transition,
+        DataTypes.StrategyInfo memory _strategyInfo
+    ) public view returns (DataTypes.StrategyInfo memory) {
+        DataTypes.StrategyInfo memory strategyInfo; // TODO:  variable, remove later
+        strategyInfo.assetBalance = strategyInfo.assetBalance.add(_transition.newAssetDelta);
+        return strategyInfo;
     }
 
     /**
@@ -347,18 +444,6 @@ contract TransitionEvaluator {
         return transition;
     }
 
-    function decodeBalanceSyncTransition(bytes memory _rawBytes)
-        public
-        pure
-        returns (DataTypes.BalanceSyncTransition memory)
-    {
-        (uint8 transitionType, bytes32 stateRoot, uint32 strategyId, uint256 newAssetDelta) =
-            abi.decode((_rawBytes), (uint8, bytes32, uint32, uint256));
-        DataTypes.BalanceSyncTransition memory transition =
-            DataTypes.BalanceSyncTransition(transitionType, stateRoot, strategyId, newAssetDelta);
-        return transition;
-    }
-
     function decodeCommitmentSyncTransition(bytes memory _rawBytes)
         public
         pure
@@ -379,6 +464,18 @@ contract TransitionEvaluator {
                 pendingCommitAmount,
                 pendingUncommitAmount
             );
+        return transition;
+    }
+
+    function decodeBalanceSyncTransition(bytes memory _rawBytes)
+        public
+        pure
+        returns (DataTypes.BalanceSyncTransition memory)
+    {
+        (uint8 transitionType, bytes32 stateRoot, uint32 strategyId, uint256 newAssetDelta) =
+            abi.decode((_rawBytes), (uint8, bytes32, uint32, uint256));
+        DataTypes.BalanceSyncTransition memory transition =
+            DataTypes.BalanceSyncTransition(transitionType, stateRoot, strategyId, newAssetDelta);
         return transition;
     }
 }
