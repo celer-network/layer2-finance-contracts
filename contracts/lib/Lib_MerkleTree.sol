@@ -103,33 +103,34 @@ library Lib_MerkleTree {
      * @param _leaf The leaf hash to verify inclusion of.
      * @param _index The index in the tree of this leaf.
      * @param _siblings Array of sibling nodes in the inclusion proof, starting from depth 0 (bottom of the tree).
-     * @param _totalLeaves The total number of leaves originally passed into.
      * @return Whether or not the merkle branch and leaf passes verification.
-     * @return The new value of child of the root node in the path from the leaf node.
      */
     function verify(
         bytes32 _root,
         bytes32 _leaf,
         uint256 _index,
-        bytes32[] memory _siblings,
-        uint256 _totalLeaves
-    ) internal pure returns (bool, bytes32) {
-        require(_totalLeaves > 0, "Lib_MerkleTree: Total leaves must be greater than zero.");
+        bytes32[] memory _siblings
+    ) internal pure returns (bool) {
+        return (_root == computeRoot(_leaf, _index, _siblings));
+    }
 
-        require(_index < _totalLeaves, "Lib_MerkleTree: Index out of bounds.");
-
-        require(
-            _siblings.length == _ceilLog2(_totalLeaves),
-            "Lib_MerkleTree: Total siblings does not correctly correspond to total leaves."
-        );
-
+    /**
+     * Compute the root of a merkle branch for the given leaf hash.  Assumes the original length
+     * of leaves generated is a known, correct input, and does not return true for indices
+     * extending past that index (even if _siblings would be otherwise valid.)
+     * @param _leaf The leaf hash to verify inclusion of.
+     * @param _index The index in the tree of this leaf.
+     * @param _siblings Array of sibling nodes in the inclusion proof, starting from depth 0 (bottom of the tree).
+     * @return The new merkle root.
+     */
+    function computeRoot(
+        bytes32 _leaf,
+        uint256 _index,
+        bytes32[] memory _siblings
+    ) internal pure returns (bytes32) {
         bytes32 computedRoot = _leaf;
-        bytes32 childOfRoot;
 
         for (uint256 i = 0; i < _siblings.length; i++) {
-            if (i == (_siblings.length - 1)) {
-                childOfRoot = computedRoot;
-            }
             if ((_index & 1) == 1) {
                 computedRoot = keccak256(abi.encodePacked(_siblings[i], computedRoot));
             } else {
@@ -139,41 +140,6 @@ library Lib_MerkleTree {
             _index >>= 1;
         }
 
-        return (_root == computedRoot, childOfRoot);
-    }
-
-    /*********************
-     * Private Functions *
-     *********************/
-
-    /**
-     * Calculates the integer ceiling of the log base 2 of an input.
-     * @param _in Unsigned input to calculate the log.
-     * @return ceil(log_base_2(_in))
-     */
-    function _ceilLog2(uint256 _in) private pure returns (uint256) {
-        require(_in > 0, "Lib_MerkleTree: Cannot compute ceil(log_2) of 0.");
-
-        if (_in == 1) {
-            return 0;
-        }
-
-        // Find the highest set bit (will be floor(log_2)).
-        // Borrowed with <3 from https://github.com/ethereum/solidity-examples
-        uint256 val = _in;
-        uint256 highest = 0;
-        for (uint8 i = 128; i >= 1; i >>= 1) {
-            if (val & (((uint256(1) << i) - 1) << i) != 0) {
-                highest += i;
-                val >>= i;
-            }
-        }
-
-        // Increment by one if this is not a perfect logarithm.
-        if ((uint256(1) << highest) != _in) {
-            highest += 1;
-        }
-
-        return highest;
+        return computedRoot;
     }
 }

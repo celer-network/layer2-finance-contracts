@@ -97,11 +97,6 @@ contract RollupChain is Ownable, Pausable {
     // per-asset (total deposit - total withdrawal) limit
     mapping(address => uint256) public netDepositLimits;
 
-    // State tree constants.
-    uint256 constant STATE_TREE_HEIGHT = 32;
-    uint256 constant STATE_TOTAL_LEAVES = 2**STATE_TREE_HEIGHT;
-    uint256 constant STATE_STRATEGY_ID_FLAG = 0x80000000;
-
     // TODO: Set a reasonable wait period
     uint256 constant WITHDRAW_WAIT_PERIOD = 0;
 
@@ -478,8 +473,10 @@ contract RollupChain is Ownable, Pausable {
 
     /**
      * Dispute a transition in a block.  Provide the transition proofs of the previous (valid) transition
-     * and the disputed transition, the account proof, and the strategy proof (needed for commit/uncommit
-     * disputed transitions).  If the transition is invalid, prune the chain from that invalid block.
+     * and the disputed transition, the account proof, and the strategy proof.  Both the account proof and
+     * strategy proof are always needed even if the disputed transition only updates the account or only
+     * updates the strategy because the transition stateRoot = hash(accountStateRoot, strategyStateRoot).
+     * If the transition is invalid, prune the chain from that invalid block.
      */
     function disputeTransition(
         dt.TransitionProof memory _prevTransitionProof,
@@ -506,34 +503,39 @@ contract RollupChain is Ownable, Pausable {
         }
 
         /********* #3: VERIFY_TRANSITION_ACCOUNT_INDEX *********/
-        // The account ID is also its leaf node index in the Merkle tree (i.e. left half-tree).
-        // The strategy ID is shifted in range to create its leaf node index (i.e. right half-tree).
         require(_accountProof.index == accountId, "Supplied account index is incorrect");
 
         if (strategyId > 0) {
-            require(
-                _strategyProof.index == (strategyId | STATE_STRATEGY_ID_FLAG),
-                "Supplied strategy index is incorrect"
-            );
+            require(_strategyProof.index == strategyId, "Supplied strategy index is incorrect");
         }
 
-        /********* #4: ACCOUNT_AND_STRATEGY_INCLUSION_PROOFS *********/
-        verifyProofInclusion(
-            preStateRoot,
-            keccak256(getAccountInfoBytes(_accountProof.value)),
-            _accountProof.index,
-            _accountProof.siblings
+        /********* #4: CHECK_TWO_TREE_STATE_ROOTS *********/
+        // Verify that transition stateRoot == hash(accountStateRoot, strategyStateRoot).
+        // The account and strategy stateRoots must always be given irrespective of what is being disputed.
+        require(
+            checkTwoTreeStateRoot(preStateRoot, _accountProof.stateRoot, _strategyProof.stateRoot),
+            "Failed combined two-tree stateRoot verification check"
         );
+
+        /********* #5: ACCOUNT_AND_STRATEGY_INCLUSION_PROOFS *********/
+        if (_accountProof.value.account != address(0)) {
+            verifyProofInclusion(
+                _accountProof.stateRoot,
+                keccak256(getAccountInfoBytes(_accountProof.value)),
+                _accountProof.index,
+                _accountProof.siblings
+            );
+        }
         if (strategyId > 0) {
             verifyProofInclusion(
-                preStateRoot,
+                _strategyProof.stateRoot,
                 keccak256(getStrategyInfoBytes(_strategyProof.value)),
                 _strategyProof.index,
                 _strategyProof.siblings
             );
         }
 
-        /********* #5: EVALUATE_TRANSITION *********/
+        /********* #6: EVALUATE_TRANSITION *********/
         // Apply the transaction and verify the state root after that.
         bytes memory returnData;
         // Make the external call
@@ -555,12 +557,11 @@ contract RollupChain is Ownable, Pausable {
         // It was successful so let's decode the outputs to get the new leaf nodes we'll have to insert
         bytes32[2] memory outputs = abi.decode((returnData), (bytes32[2]));
 
-        /********* #6: UPDATE_STATE_ROOT *********/
-        // Now we need to check if the state root is incorrect, to do this we first insert the new account values
-        // and compute the updated childOfRoot for the account left-half of the Merkle tree.
+        /********* #7: UPDATE_STATE_ROOT *********/
+        // Now we need to check if the combined new stateRoots of account and strategy Merkle trees is incorrect.
         ok = updateAndVerify(postStateRoot, outputs, _accountProof, _strategyProof);
 
-        /********* #7: DETERMINE_FRAUD *********/
+        /********* #8: DETERMINE_FRAUD *********/
         if (!ok) {
             // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
             pruneBlocksAfter(blockId);
@@ -608,10 +609,20 @@ contract RollupChain is Ownable, Pausable {
      */
     function checkTransitionInclusion(dt.TransitionProof memory _tp) private view returns (bool) {
         bytes32 rootHash = blocks[_tp.blockNumber].rootHash;
-        uint32 totalLeaves = blocks[_tp.blockNumber].blockSize;
         bytes32 leafHash = keccak256(_tp.transition);
-        (bool ok, ) = Lib_MerkleTree.verify(rootHash, leafHash, _tp.index, _tp.siblings, totalLeaves);
-        return ok;
+        return Lib_MerkleTree.verify(rootHash, leafHash, _tp.index, _tp.siblings);
+    }
+
+    /**
+     * Check if the combined stateRoot of the two Merkle trees (account, strategy) matches the stateRoot.
+     */
+    function checkTwoTreeStateRoot(
+        bytes32 _stateRoot,
+        bytes32 _accountStateRoot,
+        bytes32 _strategyStateRoot
+    ) private pure returns (bool) {
+        bytes32 newStateRoot = keccak256(abi.encodePacked(_accountStateRoot, _strategyStateRoot));
+        return (_stateRoot == newStateRoot);
     }
 
     /**
@@ -623,12 +634,12 @@ contract RollupChain is Ownable, Pausable {
         uint256 _index,
         bytes32[] memory _siblings
     ) private pure {
-        (bool ok, ) = Lib_MerkleTree.verify(_stateRoot, _leafHash, _index, _siblings, STATE_TOTAL_LEAVES);
+        bool ok = Lib_MerkleTree.verify(_stateRoot, _leafHash, _index, _siblings);
         require(ok, "Failed proof inclusion verification check");
     }
 
     /**
-     * Update the Merkle tree with the new account and strategy leaf nodes and check validity.
+     * Update the account and strategy Merkle trees with their new leaf nodes and check validity.
      */
     function updateAndVerify(
         bytes32 _stateRoot,
@@ -640,35 +651,23 @@ contract RollupChain is Ownable, Pausable {
             return false;
         }
 
-        bool ok;
-        bytes32 accountChildOfRoot;
-        // If this is a one-leaf scenario (only account update e.g. deposit, withdraw), then this
-        // Merkle tree verification (left-half of tree) is sufficient.
+        // If there is an account update, compute its new Merkle tree root.
+        bytes32 accountStateRoot = _accountProof.stateRoot;
         if (_leafHashes[0] != bytes32(0)) {
-            (ok, accountChildOfRoot) = Lib_MerkleTree.verify(
-                _stateRoot,
-                _leafHashes[0],
-                _accountProof.index,
-                _accountProof.siblings,
-                STATE_TOTAL_LEAVES
-            );
+            accountStateRoot = Lib_MerkleTree.computeRoot(_leafHashes[0], _accountProof.index, _accountProof.siblings);
         }
+
+        // If there is a strategy update, compute its new Merkle tree root.
+        bytes32 strategyStateRoot = _strategyProof.stateRoot;
         if (_leafHashes[1] != bytes32(0)) {
-            // Apply the update for the strategy right-half of the Merkle tree.
-            // In case of a two-leaf scenario (e.g., commit, uncommit), use the new accountChildOfRoot value from
-            // the previous step as the new top-level sibling.
-            if (_leafHashes[0] != bytes32(0)) {
-                _strategyProof.siblings[STATE_TREE_HEIGHT - 1] = accountChildOfRoot;
-            }
-            (ok, ) = Lib_MerkleTree.verify(
-                _stateRoot,
+            strategyStateRoot = Lib_MerkleTree.computeRoot(
                 _leafHashes[1],
                 _strategyProof.index,
-                _strategyProof.siblings,
-                STATE_TOTAL_LEAVES
+                _strategyProof.siblings
             );
         }
-        return ok;
+
+        return checkTwoTreeStateRoot(_stateRoot, accountStateRoot, strategyStateRoot);
     }
 
     /**
