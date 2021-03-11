@@ -97,8 +97,8 @@ contract RollupChain is Ownable, Pausable {
     // per-asset (total deposit - total withdrawal) limit
     mapping(address => uint256) public netDepositLimits;
 
-    uint256 public blockChallengePeriod; // count of onchain block numbers to challenge a rollup block
-    uint256 public maxPriorityTxDelay; // count of rollup blocks L2 transition arrives
+    uint256 public blockChallengePeriod; // delay (in # of ETH blocks) to challenge a rollup block
+    uint256 public maxPriorityTxDelay; // delay (in # of rollup blocks) to reflect an L1-initiated tx in a rollup block
 
     address public operator;
 
