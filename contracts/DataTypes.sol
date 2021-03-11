@@ -87,13 +87,20 @@ contract DataTypes {
         bytes32[] siblings;
     }
 
+    // Even when the disputed transition only affects an account without not a strategy
+    // (e.g. deposit), or only affects a strategy without an account (e.g. syncBalance),
+    // both AccountProof and StrategyProof must be sent to at least give the root hashes
+    // of the two separate Merkle trees (account and strategy).
+    // Each transition stateRoot = hash(accountStateRoot, strategyStateRoot).
     struct AccountProof {
+        bytes32 stateRoot; // for the account Merkle tree
         AccountInfo value;
         uint256 index;
         bytes32[] siblings;
     }
 
     struct StrategyProof {
+        bytes32 stateRoot; // for the strategy Merkle tree
         StrategyInfo value;
         uint256 index;
         bytes32[] siblings;
