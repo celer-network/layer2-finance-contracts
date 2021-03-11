@@ -97,9 +97,8 @@ contract RollupChain is Ownable, Pausable {
     // per-asset (total deposit - total withdrawal) limit
     mapping(address => uint256) public netDepositLimits;
 
-    // TODO: make these modifiable by admin
     uint256 public blockChallengePeriod; // count of onchain block numbers to challenge a rollup block
-    uint256 public blockIdCensorshipPeriod; // count of rollup blocks before L2 transition arrives
+    uint256 public maxPriorityTxDelay; // count of rollup blocks L2 transition arrives
 
     address public operator;
 
@@ -120,13 +119,13 @@ contract RollupChain is Ownable, Pausable {
      **************/
     constructor(
         uint256 _blockChallengePeriod,
-        uint256 _blockIdCensorshipPeriod,
+        uint256 _maxPriorityTxDelay,
         address _transitionEvaluatorAddress,
         address _registryAddress,
         address _operator
     ) public {
         blockChallengePeriod = _blockChallengePeriod;
-        blockIdCensorshipPeriod = _blockIdCensorshipPeriod;
+        maxPriorityTxDelay = _maxPriorityTxDelay;
         transitionEvaluator = TransitionEvaluator(_transitionEvaluatorAddress);
         registry = Registry(_registryAddress);
         operator = _operator;
@@ -162,6 +161,20 @@ contract RollupChain is Ownable, Pausable {
             _receiver = msg.sender;
         }
         IERC20(_asset).safeTransfer(_receiver, _amount);
+    }
+
+    /**
+     * @dev Called by the owner to set blockChallengePeriod
+     */
+    function setBlockChallengePeriod(uint256 _blockChallengePeriod) external onlyOwner {
+        blockChallengePeriod = _blockChallengePeriod;
+    }
+
+    /**
+     * @dev Called by the owner to set maxPriorityTxDelay
+     */
+    function setMaxPriorityTxDelay(uint256 _maxPriorityTxDelay) external onlyOwner {
+        maxPriorityTxDelay = _maxPriorityTxDelay;
     }
 
     function getCurrentBlockNumber() public view returns (uint256) {
