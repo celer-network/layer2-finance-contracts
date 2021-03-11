@@ -740,7 +740,7 @@ contract RollupChain is Ownable, Pausable {
 
         // revert blocks and pending states
         while (blocks.length > _blockNumber) {
-            pendingWithdrawCommits[blocks.length-1];
+            pendingWithdrawCommits[blocks.length - 1];
             blocks.pop();
         }
         bool first;
