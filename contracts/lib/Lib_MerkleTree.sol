@@ -25,7 +25,7 @@ library Lib_MerkleTree {
             return _elements[0];
         }
 
-        uint256[16] memory defaults =
+        uint256[32] memory defaults =
             [
                 0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563,
                 0x633dc4d7da7256660a892f8f1604a44b5432649cc8ec5cb3ced4c4e6ac94dd1d,
@@ -42,7 +42,23 @@ library Lib_MerkleTree {
                 0xad676aa337a485e4728a0b240d92b3ef7b3c372d06d189322bfd5f61f1e7203e,
                 0xa2fca4a49658f9fab7aa63289c91b7c7b6c832a6d0e69334ff5b0a3483d09dab,
                 0x4ebfd9cd7bca2505f7bef59cc1c12ecc708fff26ae4af19abe852afe9e20c862,
-                0x2def10d13dd169f550f578bda343d9717a138562e0093b380a1120789d53cf10
+                0x2def10d13dd169f550f578bda343d9717a138562e0093b380a1120789d53cf10,
+                0x776a31db34a1a0a7caaf862cffdfff1789297ffadc380bd3d39281d340abd3ad,
+                0xe2e7610b87a5fdf3a72ebe271287d923ab990eefac64b6e59d79f8b7e08c46e3,
+                0x504364a5c6858bf98fff714ab5be9de19ed31a976860efbd0e772a2efe23e2e0,
+                0x4f05f4acb83f5b65168d9fef89d56d4d77b8944015e6b1eed81b0238e2d0dba3,
+                0x44a6d974c75b07423e1d6d33f481916fdd45830aea11b6347e700cd8b9f0767c,
+                0xedf260291f734ddac396a956127dde4c34c0cfb8d8052f88ac139658ccf2d507,
+                0x6075c657a105351e7f0fce53bc320113324a522e8fd52dc878c762551e01a46e,
+                0x6ca6a3f763a9395f7da16014725ca7ee17e4815c0ff8119bf33f273dee11833b,
+                0x1c25ef10ffeb3c7d08aa707d17286e0b0d3cbcb50f1bd3b6523b63ba3b52dd0f,
+                0xfffc43bd08273ccf135fd3cacbeef055418e09eb728d727c4d5d5c556cdea7e3,
+                0xc5ab8111456b1f28f3c7a0a604b4553ce905cb019c463ee159137af83c350b22,
+                0x0ff273fcbf4ae0f2bd88d6cf319ff4004f8d7dca70d4ced4e74d2c74139739e6,
+                0x7fa06ba11241ddd5efdc65d4e39c9f6991b74fd4b81b62230808216c876f827c,
+                0x7e275adf313a996c7e2950cac67caba02a5ff925ebf9906b58949f3e77aec5b9,
+                0x8f6162fa308d2b3a15dc33cffac85f13ab349173121645aedf00f471663108be,
+                0x78ccaaab73373552f207a63599de54d7d8d0c1805f86ce7da15818d09f4cff62
             ];
 
         // Reserve memory space for our hashes.
