@@ -97,17 +97,14 @@ contract RollupChain is Ownable, Pausable {
     // per-asset (total deposit - total withdrawal) limit
     mapping(address => uint256) public netDepositLimits;
 
-    // TODO: Set a reasonable wait period
-    uint256 constant WITHDRAW_WAIT_PERIOD = 0;
-
-    // TODO: make these modifiable by admin
-    uint256 public blockChallengePeriod; // count of onchain block numbers to challenge a rollup block
-    uint256 public blockIdCensorshipPeriod; // count of rollup blocks before L2 transition arrives
+    uint256 public blockChallengePeriod; // delay (in # of ETH blocks) to challenge a rollup block
+    uint256 public maxPriorityTxDelay; // delay (in # of rollup blocks) to reflect an L1-initiated tx in a rollup block
 
     address public operator;
 
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
+    event RollupBlockReverted(uint256 blockNumber);
     event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
@@ -122,13 +119,13 @@ contract RollupChain is Ownable, Pausable {
      **************/
     constructor(
         uint256 _blockChallengePeriod,
-        uint256 _blockIdCensorshipPeriod,
+        uint256 _maxPriorityTxDelay,
         address _transitionEvaluatorAddress,
         address _registryAddress,
         address _operator
     ) public {
         blockChallengePeriod = _blockChallengePeriod;
-        blockIdCensorshipPeriod = _blockIdCensorshipPeriod;
+        maxPriorityTxDelay = _maxPriorityTxDelay;
         transitionEvaluator = TransitionEvaluator(_transitionEvaluatorAddress);
         registry = Registry(_registryAddress);
         operator = _operator;
@@ -164,6 +161,20 @@ contract RollupChain is Ownable, Pausable {
             _receiver = msg.sender;
         }
         IERC20(_asset).safeTransfer(_receiver, _amount);
+    }
+
+    /**
+     * @dev Called by the owner to set blockChallengePeriod
+     */
+    function setBlockChallengePeriod(uint256 _blockChallengePeriod) external onlyOwner {
+        blockChallengePeriod = _blockChallengePeriod;
+    }
+
+    /**
+     * @dev Called by the owner to set maxPriorityTxDelay
+     */
+    function setMaxPriorityTxDelay(uint256 _maxPriorityTxDelay) external onlyOwner {
+        maxPriorityTxDelay = _maxPriorityTxDelay;
     }
 
     function getCurrentBlockNumber() public view returns (uint256) {
@@ -498,7 +509,7 @@ contract RollupChain is Ownable, Pausable {
         // If not success something went wrong with the decoding...
         if (!ok) {
             // Prune the block if it has an incorrectly encoded transition!
-            pruneBlocksAfter(blockId);
+            revertBlock(blockId);
             return;
         }
 
@@ -551,7 +562,7 @@ contract RollupChain is Ownable, Pausable {
 
         // Check if it was successful. If not, we've got to prune.
         if (!ok) {
-            pruneBlocksAfter(blockId);
+            revertBlock(blockId);
             return;
         }
 
@@ -565,7 +576,7 @@ contract RollupChain is Ownable, Pausable {
         /********* #8: DETERMINE_FRAUD *********/
         if (!ok) {
             // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
-            pruneBlocksAfter(blockId);
+            revertBlock(blockId);
             return;
         }
 
@@ -724,9 +735,38 @@ contract RollupChain is Ownable, Pausable {
             );
     }
 
-    function pruneBlocksAfter(uint256 _blockNumber) private {
-        for (uint256 i = _blockNumber; i < blocks.length; i++) {
-            delete blocks[i];
+    function revertBlock(uint256 _blockNumber) private {
+        // pause contract
+        _pause();
+
+        // revert blocks and pending states
+        while (blocks.length > _blockNumber) {
+            pendingWithdrawCommits[blocks.length - 1];
+            blocks.pop();
         }
+        bool first;
+        for (uint256 i = pendingDepositsExecuteHead; i < pendingDepositsTail; i++) {
+            if (pendingDeposits[i].blockId >= _blockNumber) {
+                if (!first) {
+                    pendingDepositsCommitHead = i;
+                    first = true;
+                }
+                pendingDeposits[i].blockId = _blockNumber;
+                pendingDeposits[i].status = PendingDepositStatus.Pending;
+            }
+        }
+        first = false;
+        for (uint256 i = pendingBalanceSyncsExecuteHead; i < pendingBalanceSyncsTail; i++) {
+            if (pendingBalanceSyncs[i].blockId >= _blockNumber) {
+                if (!first) {
+                    pendingBalanceSyncsCommitHead = i;
+                    first = true;
+                }
+                pendingBalanceSyncs[i].blockId = _blockNumber;
+                pendingBalanceSyncs[i].status = PendingBalanceSyncStatus.Pending;
+            }
+        }
+
+        emit RollupBlockReverted(_blockNumber);
     }
 }
