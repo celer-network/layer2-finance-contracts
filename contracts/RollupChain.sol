@@ -197,8 +197,9 @@ contract RollupChain is Ownable, Pausable {
 
         require(assetId != 0, "Unknown asset");
 
-        // TODO: native ETH not yet supported; need if/else on asset address.
-        IERC20(_asset).safeTransferFrom(account, address(this), _amount);
+        if (_asset != address(0)) {
+            IERC20(_asset).safeTransferFrom(account, address(this), _amount);
+        }
 
         // Add a pending deposit record.
         uint256 depositId = pendingDepositsTail++;
@@ -226,12 +227,17 @@ contract RollupChain is Ownable, Pausable {
         require(pendingWithdraws[_account].length > 0, "No assets available to withdraw");
 
         // Transfer all withdrawable assets for this account.
-        // TODO: native ETH not yet supported; need if/else on asset address.
         for (uint256 i = 0; i < pendingWithdraws[_account].length; i++) {
             PendingWithdraw memory pw = pendingWithdraws[_account][i];
             address asset = registry.assetIndexToAddress(pw.assetId);
             require(asset != address(0), "BUG: invalid asset in pending withdraws");
-            IERC20(asset).safeTransfer(_account, pw.totalAmount);
+
+            if (asset == address(0)) {
+                address payable receiver = address(uint160(_account));
+                receiver.transfer(pw.totalAmount);
+            } else {
+                IERC20(asset).safeTransfer(_account, pw.totalAmount);
+            }
 
             if (netDeposits[asset] < pw.totalAmount) {
                 netDeposits[asset] = 0;
