@@ -739,18 +739,28 @@ contract RollupChain is Ownable, Pausable {
         _pause();
 
         // revert blocks and pending states
-        for (uint256 i = _blockNumber; i < blocks.length; i++) {
-            delete blocks[i];
-            delete pendingWithdrawCommits[i];
+        while (blocks.length > _blockNumber) {
+            pendingWithdrawCommits[blocks.length-1];
+            blocks.pop();
         }
+        bool first;
         for (uint256 i = pendingDepositsExecuteHead; i < pendingDepositsTail; i++) {
-            if (pendingDeposits[i].blockId > _blockNumber) {
+            if (pendingDeposits[i].blockId >= _blockNumber) {
+                if (!first) {
+                    pendingDepositsCommitHead = i;
+                    first = true;
+                }
                 pendingDeposits[i].blockId = _blockNumber;
                 pendingDeposits[i].status = PendingDepositStatus.Pending;
             }
         }
+        first = false;
         for (uint256 i = pendingBalanceSyncsExecuteHead; i < pendingBalanceSyncsTail; i++) {
-            if (pendingBalanceSyncs[i].blockId > _blockNumber) {
+            if (pendingBalanceSyncs[i].blockId >= _blockNumber) {
+                if (!first) {
+                    pendingBalanceSyncsCommitHead = i;
+                    first = true;
+                }
                 pendingBalanceSyncs[i].blockId = _blockNumber;
                 pendingBalanceSyncs[i].status = PendingBalanceSyncStatus.Pending;
             }
