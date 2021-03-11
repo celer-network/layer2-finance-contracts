@@ -97,9 +97,6 @@ contract RollupChain is Ownable, Pausable {
     // per-asset (total deposit - total withdrawal) limit
     mapping(address => uint256) public netDepositLimits;
 
-    // TODO: Set a reasonable wait period
-    uint256 constant WITHDRAW_WAIT_PERIOD = 0;
-
     // TODO: make these modifiable by admin
     uint256 public blockChallengePeriod; // count of onchain block numbers to challenge a rollup block
     uint256 public blockIdCensorshipPeriod; // count of rollup blocks before L2 transition arrives
@@ -108,6 +105,7 @@ contract RollupChain is Ownable, Pausable {
 
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
+    event RollupBlockReverted(uint256 blockNumber);
     event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
@@ -498,7 +496,7 @@ contract RollupChain is Ownable, Pausable {
         // If not success something went wrong with the decoding...
         if (!ok) {
             // Prune the block if it has an incorrectly encoded transition!
-            pruneBlocksAfter(blockId);
+            revertBlock(blockId);
             return;
         }
 
@@ -551,7 +549,7 @@ contract RollupChain is Ownable, Pausable {
 
         // Check if it was successful. If not, we've got to prune.
         if (!ok) {
-            pruneBlocksAfter(blockId);
+            revertBlock(blockId);
             return;
         }
 
@@ -565,7 +563,7 @@ contract RollupChain is Ownable, Pausable {
         /********* #8: DETERMINE_FRAUD *********/
         if (!ok) {
             // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
-            pruneBlocksAfter(blockId);
+            revertBlock(blockId);
             return;
         }
 
@@ -723,9 +721,28 @@ contract RollupChain is Ownable, Pausable {
             );
     }
 
-    function pruneBlocksAfter(uint256 _blockNumber) private {
+    function revertBlock(uint256 _blockNumber) private {
+        // pause contract
+        _pause();
+
+        // revert blocks and pending states
         for (uint256 i = _blockNumber; i < blocks.length; i++) {
             delete blocks[i];
+            delete pendingWithdrawCommits[i];
         }
+        for (uint256 i = pendingDepositsExecuteHead; i < pendingDepositsTail; i++) {
+            if (pendingDeposits[i].blockId > _blockNumber) {
+                pendingDeposits[i].blockId = _blockNumber;
+                pendingDeposits[i].status = PendingDepositStatus.Pending;
+            }
+        }
+        for (uint256 i = pendingBalanceSyncsExecuteHead; i < pendingBalanceSyncsTail; i++) {
+            if (pendingBalanceSyncs[i].blockId > _blockNumber) {
+                pendingBalanceSyncs[i].blockId = _blockNumber;
+                pendingBalanceSyncs[i].status = PendingBalanceSyncStatus.Pending;
+            }
+        }
+
+        emit RollupBlockReverted(_blockNumber);
     }
 }
