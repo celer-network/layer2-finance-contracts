@@ -597,6 +597,7 @@ contract RollupChain is Ownable, Pausable {
         if (_tp0.blockNumber == _tp1.blockNumber) {
             // If the blocknumber is the same, check that tp0 preceeds tp1
             require(_tp0.index + 1 == _tp1.index, "Transitions must be sequential");
+            require(_tp1.index < blocks[_tp1.blockNumber].blockSize, "_tp1 outside block range");
         } else {
             // If not in the same block, check that:
             // 0) the blocks are one after another
