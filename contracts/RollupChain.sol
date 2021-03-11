@@ -503,8 +503,9 @@ contract RollupChain is Ownable, Pausable {
         }
 
         /********* #3: VERIFY_TRANSITION_ACCOUNT_INDEX *********/
-        require(_accountProof.index == accountId, "Supplied account index is incorrect");
-
+        if (accountId > 0) {
+            require(_accountProof.index == accountId, "Supplied account index is incorrect");
+        }
         if (strategyId > 0) {
             require(_strategyProof.index == strategyId, "Supplied strategy index is incorrect");
         }
@@ -518,7 +519,7 @@ contract RollupChain is Ownable, Pausable {
         );
 
         /********* #5: ACCOUNT_AND_STRATEGY_INCLUSION_PROOFS *********/
-        if (_accountProof.value.account != address(0)) {
+        if (accountId > 0) {
             verifyProofInclusion(
                 _accountProof.stateRoot,
                 keccak256(getAccountInfoBytes(_accountProof.value)),
