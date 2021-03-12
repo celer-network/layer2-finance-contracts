@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import {DataTypes as dt} from "./DataTypes.sol";
 import {TransitionEvaluator} from "./TransitionEvaluator.sol";
 import {Registry} from "./Registry.sol";
-import {IStrategy} from "./interfaces/IStrategy.sol";
+import {IStrategy} from "./strategies/interfaces/IStrategy.sol";
 import "./lib/Lib_MerkleTree.sol";
 
 contract RollupChain is Ownable, Pausable {

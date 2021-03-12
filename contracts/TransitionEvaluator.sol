@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 /* Internal Imports */
 import {DataTypes} from "./DataTypes.sol";
 import {Registry} from "./Registry.sol";
-import {IStrategy} from "./interfaces/IStrategy.sol";
+import {IStrategy} from "./strategies/interfaces/IStrategy.sol";
 
 contract TransitionEvaluator {
     using SafeMath for uint256;
