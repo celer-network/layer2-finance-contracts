@@ -34,7 +34,7 @@ interface IStrategy {
      *
      * @param commitAmount The aggregated amount to commit.
      */
-    function aggregateCommit(uint256 commitAmount) external;
+    function aggregateCommit(uint256 commitAmount) external payable;
 
     /**
      * @dev Uncommits from strategies per instructions from L2.

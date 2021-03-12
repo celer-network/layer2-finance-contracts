@@ -107,7 +107,7 @@ contract StrategyCurve3PoolDAI is IStrategy {
         }
     }
 
-    function aggregateCommit(uint256 _daiAmount) external override {
+    function aggregateCommit(uint256 _daiAmount) external payable override {
         require(msg.sender == controller, "Not controller");
         require(_daiAmount > 0, "Nothing to commit");
 

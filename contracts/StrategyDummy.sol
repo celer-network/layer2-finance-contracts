@@ -36,7 +36,7 @@ contract StrategyDummy is IStrategy {
         return asset;
     }
 
-    function aggregateCommit(uint256 _commitAmount) external override {
+    function aggregateCommit(uint256 _commitAmount) external payable override {
         require(msg.sender == controller, "Not controller");
         require(_commitAmount > 0, "Nothing to commit");
         IERC20(asset).safeTransferFrom(controller, address(this), _commitAmount);

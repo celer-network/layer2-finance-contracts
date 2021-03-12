@@ -160,7 +160,12 @@ contract RollupChain is Ownable, Pausable {
         if (_receiver == address(0)) {
             _receiver = msg.sender;
         }
-        IERC20(_asset).safeTransfer(_receiver, _amount);
+        if (_asset == address(0)) {
+            address payable receiver = address(uint160(_receiver));
+            receiver.transfer(_amount);
+        } else {
+            IERC20(_asset).safeTransfer(_receiver, _amount);
+        }
     }
 
     /**
@@ -191,13 +196,16 @@ contract RollupChain is Ownable, Pausable {
         netDepositLimits[_asset] = _limit;
     }
 
-    function deposit(address _asset, uint256 _amount) external whenNotPaused {
+    function deposit(address _asset, uint256 _amount) external payable whenNotPaused {
         address account = msg.sender;
         uint32 assetId = registry.assetAddressToIndex(_asset);
 
         require(assetId != 0, "Unknown asset");
 
-        if (_asset != address(0)) {
+        if (_asset == address(0)) {
+            _amount = msg.value;
+        } else {
+            require(msg.value == 0, "ETH sent for ERC20 asset deposit");
             IERC20(_asset).safeTransferFrom(account, address(this), _amount);
         }
 
@@ -367,8 +375,13 @@ contract RollupChain is Ownable, Pausable {
 
             if (cs.pendingCommitAmount > cs.pendingUncommitAmount) {
                 uint256 commitAmount = cs.pendingCommitAmount.sub(cs.pendingUncommitAmount);
-                IERC20(strategy.getAssetAddress()).safeIncreaseAllowance(stAddr, commitAmount);
-                strategy.aggregateCommit(commitAmount);
+                address stAsset = strategy.getAssetAddress();
+                if (stAsset == address(0)) {
+                    strategy.aggregateCommit{value: commitAmount}(commitAmount);
+                } else {
+                    IERC20(stAsset).safeIncreaseAllowance(stAddr, commitAmount);
+                    strategy.aggregateCommit(commitAmount);
+                }
                 strategyAssetBalances[cs.strategyId] = strategyAssetBalances[cs.strategyId].add(commitAmount);
             } else if (cs.pendingCommitAmount < cs.pendingUncommitAmount) {
                 uint256 uncommitAmount = cs.pendingUncommitAmount.sub(cs.pendingCommitAmount);
