@@ -33,7 +33,7 @@ run_solc() {
   for f in ${solFiles[@]}; do
     solc --allow-paths contracts --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/$OPENZEPPELIN/ contracts/$f.sol
   done
-  for f in ${solFiles[@]}; do
+  for f in ${solFilesStrategy[@]}; do
     solc --allow-paths contracts --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/strategies/$OPENZEPPELIN/ contracts/strategies/$f.sol
   done
 }
