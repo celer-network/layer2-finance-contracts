@@ -34,7 +34,7 @@ run_solc() {
     solc --allow-paths contracts --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/$OPENZEPPELIN/ contracts/$f.sol
   done
   for f in ${solFilesStrategy[@]}; do
-    solc --allow-paths *, --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/strategies/$OPENZEPPELIN/ contracts/strategies/$f.sol
+    solc --allow-paths contracts --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/strategies/$OPENZEPPELIN/ contracts/strategies/$f.sol
   done
 }
 
