@@ -15,8 +15,8 @@ solFiles=(
   Registry
   TransitionEvaluator
   RollupChain
-  StrategyDummy
-  StrategyCurve3PoolDAI
+  strategies/StrategyDummy
+  strategies/StrategyCurve3PoolDAI
 )
 
 dld_solc() {
