@@ -5,14 +5,15 @@
 # BRANCH: ${{ github.head_ref }}
 # GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-SOLC_VER="v0.7.6+commit.7338295f" # our .sol has < 0.8.0 due to OPENZEPPELIN isn't up to date
-OPENZEPPELIN="openzeppelin-contracts-3.4.0" # if change, also need to change the url in dld_solc
+SOLC_VER="v0.7.6+commit.7338295f"                    # our .sol has < 0.8.0 due to OPENZEPPELIN isn't up to date
+OPENZEPPELIN="openzeppelin-contracts-3.4.0"          # if change, also need to change the url in dld_solc
 GETH_VER="geth-alltools-linux-amd64-1.9.25-e7872729" # for abigen
 GO_REPO=https://${GH_TOKEN}@github.com/celer-network/defi-rollup
 
 # xx.sol under contracts/, no need for .sol suffix
 solFiles=(
   Registry
+  TransitionDisputer
   TransitionEvaluator
   RollupChain
 )
@@ -44,7 +45,7 @@ dld_abigen() {
 }
 
 run_abigen() {
-  PR_COMMIT_ID=`git rev-parse --short HEAD`
+  PR_COMMIT_ID=$(git rev-parse --short HEAD)
   git clone $GO_REPO
   pushd defi-rollup
   git fetch
@@ -56,7 +57,14 @@ run_abigen() {
   for f in ${solFilesStrategy[@]}; do
     abigen_one $f
   done
+
   # delete duplicated struct defs, add here if new dup appears
+  del_dup_structs contracts/transitiondisputer.go DataTypesAccountInfo
+  del_dup_structs contracts/transitiondisputer.go DataTypesAccountProof
+  del_dup_structs contracts/transitiondisputer.go DataTypesStrategyInfo
+  del_dup_structs contracts/transitiondisputer.go DataTypesStrategyProof
+  del_dup_structs contracts/transitiondisputer.go DataTypesTransitionProof
+
   del_dup_structs contracts/transitionevaluator.go DataTypesAccountInfo
   del_dup_structs contracts/transitionevaluator.go DataTypesStrategyInfo
   del_dup_structs contracts/transitionevaluator.go DataTypesDepositTransition
@@ -70,7 +78,7 @@ run_abigen() {
   go build # make sure contracts pkg can build
   popd
 
-  if [[ `git status --porcelain` ]]; then
+  if [[ $(git status --porcelain) ]]; then
     echo "Sync-ing go binding"
     git add .
     git commit -m "Sync go binding based on rollup contract PR $PRID" -m "defi-rollup-contract commit: $PR_COMMIT_ID"
@@ -81,7 +89,7 @@ run_abigen() {
 
 # all contracts go binding are under defi-rollup/contracts/ folder and has `package contracts`
 abigen_one() {
-  gofile=`echo $1|tr '[:upper:]' '[:lower:]'`
+  gofile=$(echo $1 | tr '[:upper:]' '[:lower:]')
   mkdir -p contracts
   abigen -abi ../genfiles/$1.abi -bin ../genfiles/$1.bin -pkg contracts -type $1 -out contracts/$gofile.go
 }
@@ -89,7 +97,7 @@ abigen_one() {
 # $1 is go file path, $2 is struct name
 # will delete type $2 struct {...} from $1
 del_dup_structs() {
- sed -i -e "/type $2 struct {/,/}/d" $1
+  sed -i -e "/type $2 struct {/,/}/d" $1
 }
 
 setup_git() {

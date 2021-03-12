@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity >=0.6.0 <0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "./DataTypes.sol";
+import "../libraries/DataTypes.sol";
 
-contract Transitions {
+library Transitions {
     // Transition Types
     uint8 public constant TRANSITION_TYPE_INVALID = 0;
     uint8 public constant TRANSITION_TYPE_DEPOSIT = 1;
@@ -22,11 +23,11 @@ contract Transitions {
         return transitionType;
     }
 
-    function getTransitionType(bytes memory _bytes) external pure returns (uint8) {
-        return extractTransitionType(_bytes);
-    }
-
-    function decodeDepositTransition(bytes memory _rawBytes) public pure returns (DataTypes.DepositTransition memory) {
+    function decodeDepositTransition(bytes memory _rawBytes)
+        internal
+        pure
+        returns (DataTypes.DepositTransition memory)
+    {
         (uint8 transitionType, bytes32 stateRoot, address account, uint32 accountId, uint32 assetId, uint256 amount) =
             abi.decode((_rawBytes), (uint8, bytes32, address, uint32, uint32, uint256));
         DataTypes.DepositTransition memory transition =
@@ -35,7 +36,7 @@ contract Transitions {
     }
 
     function decodeWithdrawTransition(bytes memory _rawBytes)
-        public
+        internal
         pure
         returns (DataTypes.WithdrawTransition memory)
     {
@@ -63,7 +64,7 @@ contract Transitions {
         return transition;
     }
 
-    function decodeCommitTransition(bytes memory _rawBytes) public pure returns (DataTypes.CommitTransition memory) {
+    function decodeCommitTransition(bytes memory _rawBytes) internal pure returns (DataTypes.CommitTransition memory) {
         (
             uint8 transitionType,
             bytes32 stateRoot,
@@ -87,7 +88,7 @@ contract Transitions {
     }
 
     function decodeUncommitTransition(bytes memory _rawBytes)
-        public
+        internal
         pure
         returns (DataTypes.UncommitTransition memory)
     {
@@ -114,7 +115,7 @@ contract Transitions {
     }
 
     function decodeCommitmentSyncTransition(bytes memory _rawBytes)
-        public
+        internal
         pure
         returns (DataTypes.CommitmentSyncTransition memory)
     {
@@ -137,7 +138,7 @@ contract Transitions {
     }
 
     function decodeBalanceSyncTransition(bytes memory _rawBytes)
-        public
+        internal
         pure
         returns (DataTypes.BalanceSyncTransition memory)
     {

@@ -33,19 +33,19 @@ describe('Admin', function () {
   });
 
   it('should fail to drain token when not paused', async function () {
-    const { admin, rollupChain, testERC20 } = await loadFixture(fixture);
+    const { rollupChain, testERC20 } = await loadFixture(fixture);
     const tokenAddress = testERC20.address;
     await rollupChain.deposit(tokenAddress, 10);
-    await expect(
-      rollupChain.drainToken(tokenAddress, 10, admin.address)
-    ).to.be.revertedWith('Pausable: not paused');
+    await expect(rollupChain.drainToken(tokenAddress, 10)).to.be.revertedWith(
+      'Pausable: not paused'
+    );
   });
 
   it('should drainToken successfully when paused', async function () {
-    const { admin, rollupChain, testERC20 } = await loadFixture(fixture);
+    const { rollupChain, testERC20 } = await loadFixture(fixture);
     const tokenAddress = testERC20.address;
     await rollupChain.deposit(tokenAddress, 10);
     await rollupChain.pause();
-    await rollupChain.drainToken(tokenAddress, 10, admin.address);
+    await rollupChain.drainToken(tokenAddress, 10);
   });
 });
