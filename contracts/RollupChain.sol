@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import {DataTypes as dt} from "./DataTypes.sol";
 import {TransitionEvaluator} from "./TransitionEvaluator.sol";
 import {Registry} from "./Registry.sol";
-import {IStrategy} from "./interfaces/IStrategy.sol";
+import {IStrategy} from "./strategies/interfaces/IStrategy.sol";
 import "./lib/Lib_MerkleTree.sol";
 
 contract RollupChain is Ownable, Pausable {
@@ -441,47 +441,6 @@ contract RollupChain is Ownable, Pausable {
      * Proving Invalidity *
      *********************/
 
-    function getStateRootsAndIds(bytes memory _preStateTransition, bytes memory _invalidTransition)
-        public
-        returns (
-            bool,
-            bytes32,
-            bytes32,
-            uint32,
-            uint32
-        )
-    {
-        bool success;
-        bytes memory returnData;
-        bytes32 preStateRoot;
-        bytes32 postStateRoot;
-        uint32 accountId;
-        uint32 strategyId;
-
-        // First decode the prestate root
-        (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(
-                transitionEvaluator.getTransitionStateRootAndAccessList.selector,
-                _preStateTransition
-            )
-        );
-
-        // Make sure the call was successful
-        require(success, "If the preStateRoot is invalid, then prove that invalid instead!");
-        (preStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
-
-        // Now that we have the prestateRoot, let's decode the postState
-        (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(transitionEvaluator.getTransitionStateRootAndAccessList.selector, _invalidTransition)
-        );
-
-        // If the call was successful let's decode!
-        if (success) {
-            (postStateRoot, accountId, strategyId) = abi.decode((returnData), (bytes32, uint32, uint32));
-        }
-        return (success, preStateRoot, postStateRoot, accountId, strategyId);
-    }
-
     /**
      * Dispute a transition in a block.  Provide the transition proofs of the previous (valid) transition
      * and the disputed transition, the account proof, and the strategy proof.  Both the account proof and
@@ -584,6 +543,99 @@ contract RollupChain is Ownable, Pausable {
         revert("No fraud detected!");
     }
 
+    function getStateRootsAndIds(bytes memory _preStateTransition, bytes memory _invalidTransition)
+        public
+        returns (
+            bool,
+            bytes32,
+            bytes32,
+            uint32,
+            uint32
+        )
+    {
+        bool success;
+        bytes memory returnData;
+        bytes32 preStateRoot;
+        bytes32 postStateRoot;
+        uint32 accountId;
+        uint32 strategyId;
+
+        // First decode the prestate root
+        (success, returnData) = address(transitionEvaluator).call(
+            abi.encodeWithSelector(
+                transitionEvaluator.getTransitionStateRootAndAccessList.selector,
+                _preStateTransition
+            )
+        );
+
+        // Make sure the call was successful
+        require(success, "If the preStateRoot is invalid, then prove that invalid instead!");
+        (preStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
+
+        // Now that we have the prestateRoot, let's decode the postState
+        (success, returnData) = address(transitionEvaluator).call(
+            abi.encodeWithSelector(transitionEvaluator.getTransitionStateRootAndAccessList.selector, _invalidTransition)
+        );
+
+        // If the call was successful let's decode!
+        if (success) {
+            (postStateRoot, accountId, strategyId) = abi.decode((returnData), (bytes32, uint32, uint32));
+        }
+        return (success, preStateRoot, postStateRoot, accountId, strategyId);
+    }
+
+    /**
+     * Get the bytes value for this account.
+     */
+    function getAccountInfoBytes(dt.AccountInfo memory _accountInfo) public pure returns (bytes memory) {
+        // If it's an empty storage slot, return 32 bytes of zeros (empty value)
+        if (
+            _accountInfo.account == 0x0000000000000000000000000000000000000000 &&
+            _accountInfo.accountId == 0 &&
+            _accountInfo.idleAssets.length == 0 &&
+            _accountInfo.stTokens.length == 0 &&
+            _accountInfo.timestamp == 0
+        ) {
+            return abi.encodePacked(uint256(0));
+        }
+        // Here we don't use `abi.encode([struct])` because it's not clear
+        // how to generate that encoding client-side.
+        return
+            abi.encode(
+                _accountInfo.account,
+                _accountInfo.accountId,
+                _accountInfo.idleAssets,
+                _accountInfo.stTokens,
+                _accountInfo.timestamp
+            );
+    }
+
+    /**
+     * Get the bytes value for this strategy.
+     */
+    function getStrategyInfoBytes(dt.StrategyInfo memory _strategyInfo) public pure returns (bytes memory) {
+        // If it's an empty storage slot, return 32 bytes of zeros (empty value)
+        if (
+            _strategyInfo.assetId == 0 &&
+            _strategyInfo.assetBalance == 0 &&
+            _strategyInfo.stTokenSupply == 0 &&
+            _strategyInfo.pendingCommitAmount == 0 &&
+            _strategyInfo.pendingUncommitAmount == 0
+        ) {
+            return abi.encodePacked(uint256(0));
+        }
+        // Here we don't use `abi.encode([struct])` because it's not clear
+        // how to generate that encoding client-side.
+        return
+            abi.encode(
+                _strategyInfo.assetId,
+                _strategyInfo.assetBalance,
+                _strategyInfo.stTokenSupply,
+                _strategyInfo.pendingCommitAmount,
+                _strategyInfo.pendingUncommitAmount
+            );
+    }
+
     /**
      * Verifies that two transitions were included one after another.
      * This is used to make sure we are comparing the correct prestate & poststate.
@@ -681,58 +733,6 @@ contract RollupChain is Ownable, Pausable {
         }
 
         return checkTwoTreeStateRoot(_stateRoot, accountStateRoot, strategyStateRoot);
-    }
-
-    /**
-     * Get the bytes value for this account.
-     */
-    function getAccountInfoBytes(dt.AccountInfo memory _accountInfo) public pure returns (bytes memory) {
-        // If it's an empty storage slot, return 32 bytes of zeros (empty value)
-        if (
-            _accountInfo.account == 0x0000000000000000000000000000000000000000 &&
-            _accountInfo.accountId == 0 &&
-            _accountInfo.idleAssets.length == 0 &&
-            _accountInfo.stTokens.length == 0 &&
-            _accountInfo.timestamp == 0
-        ) {
-            return abi.encodePacked(uint256(0));
-        }
-        // Here we don't use `abi.encode([struct])` because it's not clear
-        // how to generate that encoding client-side.
-        return
-            abi.encode(
-                _accountInfo.account,
-                _accountInfo.accountId,
-                _accountInfo.idleAssets,
-                _accountInfo.stTokens,
-                _accountInfo.timestamp
-            );
-    }
-
-    /**
-     * Get the bytes value for this strategy.
-     */
-    function getStrategyInfoBytes(dt.StrategyInfo memory _strategyInfo) public pure returns (bytes memory) {
-        // If it's an empty storage slot, return 32 bytes of zeros (empty value)
-        if (
-            _strategyInfo.assetId == 0 &&
-            _strategyInfo.assetBalance == 0 &&
-            _strategyInfo.stTokenSupply == 0 &&
-            _strategyInfo.pendingCommitAmount == 0 &&
-            _strategyInfo.pendingUncommitAmount == 0
-        ) {
-            return abi.encodePacked(uint256(0));
-        }
-        // Here we don't use `abi.encode([struct])` because it's not clear
-        // how to generate that encoding client-side.
-        return
-            abi.encode(
-                _strategyInfo.assetId,
-                _strategyInfo.assetBalance,
-                _strategyInfo.stTokenSupply,
-                _strategyInfo.pendingCommitAmount,
-                _strategyInfo.pendingUncommitAmount
-            );
     }
 
     function revertBlock(uint256 _blockNumber) private {

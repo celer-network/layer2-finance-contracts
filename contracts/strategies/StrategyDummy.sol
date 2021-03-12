@@ -26,7 +26,7 @@ contract StrategyDummy is IStrategy {
         address _controller,
         address _funder,
         address _asset
-    ) {
+    ) public {
         controller = _controller;
         funder = _funder;
         asset = _asset;
