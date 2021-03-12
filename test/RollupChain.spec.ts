@@ -57,9 +57,9 @@ describe('RollupChain', function () {
     const tokenAddress = testERC20.address;
     await testERC20.approve(rollupChain.address, ethers.utils.parseEther('1'));
     await rollupChain.deposit(tokenAddress, ethers.utils.parseEther('1'));
-    await expect(rollupChain.withdraw(admin.address)).to.be.revertedWith(
-      'No assets available to withdraw'
-    );
+    await expect(
+      rollupChain.withdraw(admin.address, tokenAddress)
+    ).to.be.revertedWith('Nothing to withdraw');
 
     const txs = [
       // Deposit
@@ -79,16 +79,16 @@ describe('RollupChain', function () {
 
     await rollupChain.executeBlock([]);
 
-    let totalAmount;
-    [assetID, totalAmount] = await rollupChain.pendingWithdraws(
+    let totalAmount = await rollupChain.pendingWithdraws(
       admin.address,
-      0
+      assetID
     );
     expect(assetID).to.equal(1);
     expect(totalAmount).to.equal(ethers.utils.parseEther('1'));
 
     const balanceBefore = await testERC20.balanceOf(admin.address);
-    expect(await rollupChain.withdraw(admin.address)).to.not.throw;
+    expect(await rollupChain.withdraw(admin.address, tokenAddress)).to.not
+      .throw;
     const balanceAfter = await testERC20.balanceOf(admin.address);
     expect(balanceAfter.sub(balanceBefore)).to.equal(
       ethers.utils.parseEther('1')

@@ -65,11 +65,7 @@ contract RollupChain is Ownable, Pausable {
     }
     mapping(uint256 => PendingWithdrawCommit[]) public pendingWithdrawCommits;
 
-    struct PendingWithdraw {
-        uint32 assetId;
-        uint256 totalAmount;
-    }
-    mapping(address => PendingWithdraw[]) public pendingWithdraws;
+    mapping(address => mapping(uint32 => uint256)) public pendingWithdraws;
 
     // Track pending L1-to-L2 balance sync roundrip across L1->L2->L1.
     // Each balance sync record ID is a count++ (i.e. it's a queue).
@@ -197,8 +193,9 @@ contract RollupChain is Ownable, Pausable {
 
         require(assetId != 0, "Unknown asset");
 
-        // TODO: native ETH not yet supported; need if/else on asset address.
-        IERC20(_asset).safeTransferFrom(account, address(this), _amount);
+        uint256 netDeposit = netDeposits[_asset].add(_amount);
+        require(netDeposit <= netDepositLimits[_asset], "net deposit exceeds limit");
+        netDeposits[_asset] = netDeposit;
 
         // Add a pending deposit record.
         uint256 depositId = pendingDepositsTail++;
@@ -210,38 +207,32 @@ contract RollupChain is Ownable, Pausable {
             status: PendingDepositStatus.Pending
         });
 
-        uint256 netDeposit = netDeposits[_asset].add(_amount);
-        require(netDeposit <= netDepositLimits[_asset], "net deposit exceeds limit");
-        netDeposits[_asset] = netDeposit;
-
+        IERC20(_asset).safeTransferFrom(account, address(this), _amount);
         emit AssetDeposited(account, assetId, _amount, depositId);
     }
 
     /**
-     * @notice Executes all pending withdraws to an account.
+     * @notice Executes pending withdraw of an asset to an account.
      *
      * @param _account The destination account.
+     * @param _asset The asset address;
      */
-    function withdraw(address _account) external whenNotPaused {
-        require(pendingWithdraws[_account].length > 0, "No assets available to withdraw");
+    function withdraw(address _account, address _asset) external whenNotPaused {
+        uint32 assetId = registry.assetAddressToIndex(_asset);
+        require(assetId > 0, "Asset not registered");
 
-        // Transfer all withdrawable assets for this account.
-        // TODO: native ETH not yet supported; need if/else on asset address.
-        for (uint256 i = 0; i < pendingWithdraws[_account].length; i++) {
-            PendingWithdraw memory pw = pendingWithdraws[_account][i];
-            address asset = registry.assetIndexToAddress(pw.assetId);
-            require(asset != address(0), "BUG: invalid asset in pending withdraws");
-            IERC20(asset).safeTransfer(_account, pw.totalAmount);
+        uint256 amount = pendingWithdraws[_account][assetId];
+        require(amount > 0, "Nothing to withdraw");
 
-            if (netDeposits[asset] < pw.totalAmount) {
-                netDeposits[asset] = 0;
-            } else {
-                netDeposits[asset] = netDeposits[asset].sub(pw.totalAmount);
-            }
-            emit AssetWithdrawn(_account, pw.assetId, pw.totalAmount);
+        if (netDeposits[_asset] < amount) {
+            netDeposits[_asset] = 0;
+        } else {
+            netDeposits[_asset] = netDeposits[_asset].sub(amount);
         }
+        pendingWithdraws[_account][assetId] = 0;
 
-        delete pendingWithdraws[_account];
+        IERC20(_asset).safeTransfer(_account, amount);
+        emit AssetWithdrawn(_account, assetId, amount);
     }
 
     /**
@@ -388,20 +379,8 @@ contract RollupChain is Ownable, Pausable {
         for (uint256 i = 0; i < pendingWithdrawCommits[blockId].length; i++) {
             PendingWithdrawCommit memory pwc = pendingWithdrawCommits[blockId][i];
 
-            // Find and increment this account's assetId total amount, or create a new entry.
-            // Note: the per-asset entries are in an array to allow L1-withdraw to iterate
-            // over them, which is why this is an O(n) lookup (very small "n").
-            bool found = false;
-            for (uint256 j = 0; j < pendingWithdraws[pwc.account].length; j++) {
-                if (pendingWithdraws[pwc.account][j].assetId == pwc.assetId) {
-                    pendingWithdraws[pwc.account][j].totalAmount += pwc.amount;
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                pendingWithdraws[pwc.account].push(PendingWithdraw({assetId: pwc.assetId, totalAmount: pwc.amount}));
-            }
+            // Find and increment this account's assetId total amount
+            pendingWithdraws[pwc.account][pwc.assetId] += pwc.amount;
         }
 
         delete pendingWithdrawCommits[blockId];
