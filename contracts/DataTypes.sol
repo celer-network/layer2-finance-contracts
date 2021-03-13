@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.0 <0.8.0;
 
-contract DataTypes {
+library DataTypes {
     struct Block {
         bytes32 rootHash;
         bytes32 intentHash; // hash of L2-to-L1 commitment sync transitions
