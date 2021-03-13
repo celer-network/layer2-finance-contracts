@@ -100,6 +100,7 @@ contract RollupChain is Ownable, Pausable {
 
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
+    event RollupBlockExecuted(uint256 blockNumber);
     event RollupBlockReverted(uint256 blockNumber);
     event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
@@ -394,6 +395,8 @@ contract RollupChain is Ownable, Pausable {
             delete pendingBalanceSyncs[pendingBalanceSyncsExecuteHead];
             pendingBalanceSyncsExecuteHead++;
         }
+
+        emit RollupBlockExecuted(blockId);
     }
 
     function syncBalance(uint32 _strategyId) external whenNotPaused onlyOperator {
@@ -416,21 +419,20 @@ contract RollupChain is Ownable, Pausable {
         emit BalanceSync(_strategyId, delta, syncId);
     }
 
-    function disputeDepositDelay() external {
-        uint256 firstPendingBlockId = pendingDeposits[pendingDepositsCommitHead].blockId;
-        if (firstPendingBlockId > 0) {
-            if (getCurrentBlockNumber().sub(firstPendingBlockId) > maxPriorityTxDelay) {
+    function disputeBalanceSyncDelay() external {
+        uint256 pendingCommitHead = pendingDeposits[pendingDepositsCommitHead].blockId;
+        uint256 pendingTail = pendingDeposits[pendingDepositsTail].blockId;
+        if (pendingCommitHead < pendingTail) {
+            if (getCurrentBlockNumber().sub(pendingCommitHead) > maxPriorityTxDelay) {
                 _pause();
                 return;
             }
         }
-        revert("Not exceed max priority tx delay");
-    }
 
-    function disputeBalanceSyncDelay() external {
-        uint256 firstPendingBlockId = pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId;
-        if (firstPendingBlockId > 0) {
-            if (getCurrentBlockNumber().sub(firstPendingBlockId) > maxPriorityTxDelay) {
+        pendingCommitHead = pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId;
+        pendingTail = pendingDeposits[pendingDepositsTail].blockId;
+        if (pendingCommitHead < pendingTail) {
+            if (getCurrentBlockNumber().sub(pendingCommitHead) > maxPriorityTxDelay) {
                 _pause();
                 return;
             }
