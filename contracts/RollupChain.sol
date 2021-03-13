@@ -27,7 +27,7 @@ contract RollupChain is Ownable, Pausable {
 
     // All the blocks (prepared and/or executed).
     dt.Block[] public blocks;
-    uint256 countExecuted = 0;
+    uint256 public countExecuted = 0;
 
     // Track pending deposits roundtrip status across L1->L2->L1.
     // Each deposit record ID is a count++ (i.e. it's a queue).
