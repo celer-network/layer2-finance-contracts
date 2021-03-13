@@ -104,7 +104,6 @@ contract RollupChain is Ownable, Pausable {
     event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
-    event RollupBlockReverted(uint256 blockNumber);
 
     modifier onlyOperator() {
         require(msg.sender == operator, "caller is not operator");
@@ -418,26 +417,25 @@ contract RollupChain is Ownable, Pausable {
     }
 
     function disputeDepositDelay() external {
-        if (pendingDeposits[pendingDepositsCommitHead].blockId > 0) {
-            if (getCurrentBlockNumber().sub(pendingDeposits[pendingDepositsCommitHead].blockId) > maxPriorityTxDelay) {
+        uint256 firstPendingBlockId = pendingDeposits[pendingDepositsCommitHead].blockId;
+        if (firstPendingBlockId > 0) {
+            if (getCurrentBlockNumber().sub(firstPendingBlockId) > maxPriorityTxDelay) {
                 _pause();
                 return;
             }
         }
-        revert("No fraud detected!");
+        revert("Not exceed max priority tx delay");
     }
 
     function disputeBalanceSyncDelay() external {
-        if (pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId > 0) {
-            if (
-                getCurrentBlockNumber().sub(pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId) >
-                maxPriorityTxDelay
-            ) {
+        uint256 firstPendingBlockId = pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId;
+        if (firstPendingBlockId > 0) {
+            if (getCurrentBlockNumber().sub(firstPendingBlockId) > maxPriorityTxDelay) {
                 _pause();
                 return;
             }
         }
-        revert("No fraud detected!");
+        revert("Not exceed max priority tx delay");
     }
 
     /**
