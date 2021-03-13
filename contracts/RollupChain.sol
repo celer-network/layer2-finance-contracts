@@ -27,7 +27,7 @@ contract RollupChain is Ownable, Pausable {
 
     // All the blocks (prepared and/or executed).
     dt.Block[] public blocks;
-    uint256 countExecuted = 0;
+    uint256 public countExecuted = 0;
 
     // Track pending deposits roundtrip status across L1->L2->L1.
     // Each deposit record ID is a count++ (i.e. it's a queue).
@@ -44,9 +44,9 @@ contract RollupChain is Ownable, Pausable {
         PendingDepositStatus status;
     }
     mapping(uint256 => PendingDeposit) public pendingDeposits;
-    uint256 pendingDepositsExecuteHead; // moves up inside blockExecute() -- lowest
-    uint256 pendingDepositsCommitHead; // moves up inside blockCommit() -- intermediate
-    uint256 pendingDepositsTail; // moves up inside L1 deposit() -- highest
+    uint256 public pendingDepositsExecuteHead; // moves up inside blockExecute() -- lowest
+    uint256 public pendingDepositsCommitHead; // moves up inside blockCommit() -- intermediate
+    uint256 public pendingDepositsTail; // moves up inside L1 deposit() -- highest
 
     // Track pending withdraws arriving from L2 then done on L1 across 2 phases.
     // A separate mapping is used for each phase:
@@ -81,9 +81,9 @@ contract RollupChain is Ownable, Pausable {
         PendingBalanceSyncStatus status;
     }
     mapping(uint256 => PendingBalanceSync) public pendingBalanceSyncs;
-    uint256 pendingBalanceSyncsExecuteHead; // moves up inside blockExecute() -- lowest
-    uint256 pendingBalanceSyncsCommitHead; // moves up inside blockCommit() -- intermediate
-    uint256 pendingBalanceSyncsTail; // moves up inside L1 Balance Sync -- highest
+    uint256 public pendingBalanceSyncsExecuteHead; // moves up inside blockExecute() -- lowest
+    uint256 public pendingBalanceSyncsCommitHead; // moves up inside blockCommit() -- intermediate
+    uint256 public pendingBalanceSyncsTail; // moves up inside L1 Balance Sync -- highest
 
     // Track the asset balances of strategies to compute deltas after syncBalance() calls.
     mapping(uint32 => uint256) public strategyAssetBalances;
@@ -100,6 +100,7 @@ contract RollupChain is Ownable, Pausable {
 
     /* Events */
     event RollupBlockCommitted(uint256 blockNumber);
+    event RollupBlockExecuted(uint256 blockNumber);
     event RollupBlockReverted(uint256 blockNumber);
     event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
@@ -394,6 +395,8 @@ contract RollupChain is Ownable, Pausable {
             delete pendingBalanceSyncs[pendingBalanceSyncsExecuteHead];
             pendingBalanceSyncsExecuteHead++;
         }
+
+        emit RollupBlockExecuted(blockId);
     }
 
     function syncBalance(uint32 _strategyId) external whenNotPaused onlyOperator {
@@ -416,9 +419,28 @@ contract RollupChain is Ownable, Pausable {
         emit BalanceSync(_strategyId, delta, syncId);
     }
 
-    /**********************
-     * Proving Invalidity *
-     *********************/
+    function disputePriorityTxDelay() external {
+        uint256 currentBlockId = getCurrentBlockNumber();
+
+        uint256 pendingCommitHead = pendingDeposits[pendingDepositsCommitHead].blockId;
+        uint256 pendingTail = pendingDeposits[pendingDepositsTail].blockId;
+        if (pendingCommitHead < pendingTail) {
+            if (currentBlockId.sub(pendingCommitHead) > maxPriorityTxDelay) {
+                _pause();
+                return;
+            }
+        }
+
+        pendingCommitHead = pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId;
+        pendingTail = pendingBalanceSyncs[pendingBalanceSyncsTail].blockId;
+        if (pendingCommitHead < pendingTail) {
+            if (currentBlockId.sub(pendingCommitHead) > maxPriorityTxDelay) {
+                _pause();
+                return;
+            }
+        }
+        revert("Not exceed max priority tx delay");
+    }
 
     /**
      * Dispute a transition in a block.  Provide the transition proofs of the previous (valid) transition

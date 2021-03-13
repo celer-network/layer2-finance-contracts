@@ -76,11 +76,9 @@ contract TransitionEvaluator {
 
     function extractTransitionType(bytes memory _bytes) internal pure returns (uint8) {
         uint8 transitionType;
-
         assembly {
             transitionType := mload(add(_bytes, 0x20))
         }
-
         return transitionType;
     }
 
@@ -302,22 +300,20 @@ contract TransitionEvaluator {
      */
     function applyCommitmentSyncTransition(
         DataTypes.CommitmentSyncTransition memory _transition,
-        DataTypes.StrategyInfo memory // _strategyInfo
+        DataTypes.StrategyInfo memory _strategyInfo
     ) public pure returns (DataTypes.StrategyInfo memory) {
-        DataTypes.StrategyInfo memory strategyInfo; // TODO: tmp variable, remove later
-
         require(
-            _transition.pendingCommitAmount == strategyInfo.pendingCommitAmount,
+            _transition.pendingCommitAmount == _strategyInfo.pendingCommitAmount,
             "pending commitment amount not match"
         );
         require(
-            _transition.pendingUncommitAmount == strategyInfo.pendingUncommitAmount,
+            _transition.pendingUncommitAmount == _strategyInfo.pendingUncommitAmount,
             "pending uncommitment amount not match"
         );
-        strategyInfo.pendingCommitAmount = 0;
-        strategyInfo.pendingUncommitAmount = 0;
+        _strategyInfo.pendingCommitAmount = 0;
+        _strategyInfo.pendingUncommitAmount = 0;
 
-        return strategyInfo;
+        return _strategyInfo;
     }
 
     /**
@@ -325,11 +321,10 @@ contract TransitionEvaluator {
      */
     function applyBalanceSyncTransition(
         DataTypes.BalanceSyncTransition memory _transition,
-        DataTypes.StrategyInfo memory // _strategyInfo
+        DataTypes.StrategyInfo memory _strategyInfo
     ) public pure returns (DataTypes.StrategyInfo memory) {
-        DataTypes.StrategyInfo memory strategyInfo; // TODO:  variable, remove later
-        strategyInfo.assetBalance = strategyInfo.assetBalance.add(_transition.newAssetDelta);
-        return strategyInfo;
+        _strategyInfo.assetBalance = _strategyInfo.assetBalance.add(_transition.newAssetDelta);
+        return _strategyInfo;
     }
 
     /**
