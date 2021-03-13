@@ -2,8 +2,22 @@
 
 Contracts for the Layer 2 Finance DeFi aggregator, powered by optimistic rollup.
 
-## Run unit tests
+### Run unit tests
 
 ```sh
 yarn test
 ```
+
+### Benchmark gas cost
+
+```sh
+yarn report-gas:benchmark
+yarn report-gas:summary
+```
+
+### Check contract size
+
+```sh
+yarn run hardhat size-contracts
+```
+
