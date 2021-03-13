@@ -44,9 +44,9 @@ contract RollupChain is Ownable, Pausable {
         PendingDepositStatus status;
     }
     mapping(uint256 => PendingDeposit) public pendingDeposits;
-    uint256 pendingDepositsExecuteHead; // moves up inside blockExecute() -- lowest
-    uint256 pendingDepositsCommitHead; // moves up inside blockCommit() -- intermediate
-    uint256 pendingDepositsTail; // moves up inside L1 deposit() -- highest
+    uint256 public pendingDepositsExecuteHead; // moves up inside blockExecute() -- lowest
+    uint256 public pendingDepositsCommitHead; // moves up inside blockCommit() -- intermediate
+    uint256 public pendingDepositsTail; // moves up inside L1 deposit() -- highest
 
     // Track pending withdraws arriving from L2 then done on L1 across 2 phases.
     // A separate mapping is used for each phase:
@@ -81,9 +81,9 @@ contract RollupChain is Ownable, Pausable {
         PendingBalanceSyncStatus status;
     }
     mapping(uint256 => PendingBalanceSync) public pendingBalanceSyncs;
-    uint256 pendingBalanceSyncsExecuteHead; // moves up inside blockExecute() -- lowest
-    uint256 pendingBalanceSyncsCommitHead; // moves up inside blockCommit() -- intermediate
-    uint256 pendingBalanceSyncsTail; // moves up inside L1 Balance Sync -- highest
+    uint256 public pendingBalanceSyncsExecuteHead; // moves up inside blockExecute() -- lowest
+    uint256 public pendingBalanceSyncsCommitHead; // moves up inside blockCommit() -- intermediate
+    uint256 public pendingBalanceSyncsTail; // moves up inside L1 Balance Sync -- highest
 
     // Track the asset balances of strategies to compute deltas after syncBalance() calls.
     mapping(uint32 => uint256) public strategyAssetBalances;
