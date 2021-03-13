@@ -26,10 +26,6 @@ contract Transitions {
         return extractTransitionType(_bytes);
     }
 
-    /************
-     * Decoding *
-     ***********/
-
     function decodeDepositTransition(bytes memory _rawBytes) public pure returns (DataTypes.DepositTransition memory) {
         (uint8 transitionType, bytes32 stateRoot, address account, uint32 accountId, uint32 assetId, uint256 amount) =
             abi.decode((_rawBytes), (uint8, bytes32, address, uint32, uint32, uint256));

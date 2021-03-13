@@ -260,7 +260,9 @@ contract RollupChain is Transitions, Ownable, Pausable {
 
         for (uint256 i = 0; i < _transitions.length; i++) {
             uint8 transitionType = extractTransitionType(_transitions[i]);
-            if (transitionType == TRANSITION_TYPE_DEPOSIT) {
+            if (transitionType == TRANSITION_TYPE_COMMIT || transitionType == TRANSITION_TYPE_UNCOMMIT){
+                continue;
+            } else if (transitionType == TRANSITION_TYPE_DEPOSIT) {
                 // Update the pending deposit record.
                 dt.DepositTransition memory dp = decodeDepositTransition(_transitions[i]);
                 uint256 depositId = pendingDepositsCommitHead;
