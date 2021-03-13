@@ -419,20 +419,22 @@ contract RollupChain is Ownable, Pausable {
         emit BalanceSync(_strategyId, delta, syncId);
     }
 
-    function disputeBalanceSyncDelay() external {
+    function disputePriorityTxDelay() external {
+        uint256 currentBlockId = getCurrentBlockNumber();
+
         uint256 pendingCommitHead = pendingDeposits[pendingDepositsCommitHead].blockId;
         uint256 pendingTail = pendingDeposits[pendingDepositsTail].blockId;
         if (pendingCommitHead < pendingTail) {
-            if (getCurrentBlockNumber().sub(pendingCommitHead) > maxPriorityTxDelay) {
+            if (currentBlockId.sub(pendingCommitHead) > maxPriorityTxDelay) {
                 _pause();
                 return;
             }
         }
 
         pendingCommitHead = pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId;
-        pendingTail = pendingDeposits[pendingDepositsTail].blockId;
+        pendingTail = pendingBalanceSyncs[pendingBalanceSyncsTail].blockId;
         if (pendingCommitHead < pendingTail) {
-            if (getCurrentBlockNumber().sub(pendingCommitHead) > maxPriorityTxDelay) {
+            if (currentBlockId.sub(pendingCommitHead) > maxPriorityTxDelay) {
                 _pause();
                 return;
             }
