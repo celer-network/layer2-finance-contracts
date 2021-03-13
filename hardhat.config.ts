@@ -1,4 +1,5 @@
 import '@nomiclabs/hardhat-waffle';
+import 'hardhat-contract-sizer';
 import 'hardhat-gas-reporter';
 import '@typechain/hardhat';
 
@@ -14,6 +15,11 @@ const config: HardhatUserConfig = {
         runs: 200
       }
     }
+  },
+  contractSizer: {
+    alphaSort: true,
+    runOnCompile: false,
+    disambiguatePaths: false
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS ? true : false,
