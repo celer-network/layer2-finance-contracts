@@ -104,6 +104,7 @@ contract RollupChain is Ownable, Pausable {
     event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
+    event RollupBlockReverted(uint256 blockNumber);
 
     modifier onlyOperator() {
         require(msg.sender == operator, "caller is not operator");
@@ -416,9 +417,28 @@ contract RollupChain is Ownable, Pausable {
         emit BalanceSync(_strategyId, delta, syncId);
     }
 
-    /**********************
-     * Proving Invalidity *
-     *********************/
+    function disputeDepositDelay() external {
+        if (pendingDeposits[pendingDepositsCommitHead].blockId > 0) {
+            if (getCurrentBlockNumber().sub(pendingDeposits[pendingDepositsCommitHead].blockId) > maxPriorityTxDelay) {
+                _pause();
+                return;
+            }
+        }
+        revert("No fraud detected!");
+    }
+
+    function disputeBalanceSyncDelay() external {
+        if (pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId > 0) {
+            if (
+                getCurrentBlockNumber().sub(pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId) >
+                maxPriorityTxDelay
+            ) {
+                _pause();
+                return;
+            }
+        }
+        revert("No fraud detected!");
+    }
 
     /**
      * Dispute a transition in a block.  Provide the transition proofs of the previous (valid) transition
