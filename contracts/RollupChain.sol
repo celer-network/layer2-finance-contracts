@@ -420,19 +420,15 @@ contract RollupChain is Transitions, Ownable, Pausable {
     function disputePriorityTxDelay() external {
         uint256 currentBlockId = getCurrentBlockNumber();
 
-        uint256 pendingCommitHead = pendingDeposits[pendingDepositsCommitHead].blockId;
-        uint256 pendingTail = pendingDeposits[pendingDepositsTail].blockId;
-        if (pendingCommitHead < pendingTail) {
-            if (currentBlockId.sub(pendingCommitHead) > maxPriorityTxDelay) {
+        if (pendingDepositsCommitHead < pendingDepositsTail) {
+            if (currentBlockId.sub(pendingDeposits[pendingDepositsCommitHead].blockId) > maxPriorityTxDelay) {
                 _pause();
                 return;
             }
         }
 
-        pendingCommitHead = pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId;
-        pendingTail = pendingBalanceSyncs[pendingBalanceSyncsTail].blockId;
-        if (pendingCommitHead < pendingTail) {
-            if (currentBlockId.sub(pendingCommitHead) > maxPriorityTxDelay) {
+        if (pendingBalanceSyncsCommitHead < pendingBalanceSyncsTail) {
+            if (currentBlockId.sub(pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId) > maxPriorityTxDelay) {
                 _pause();
                 return;
             }
