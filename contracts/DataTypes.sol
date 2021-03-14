@@ -6,7 +6,7 @@ library DataTypes {
         bytes32 rootHash;
         bytes32 intentHash; // hash of L2-to-L1 commitment sync transitions
         uint256 blockTime; // blockNum when this rollup block is committed
-        uint32 blockSize; // number of transitions in the block
+        uint256 blockSize; // number of transitions in the block
     }
 
     struct DepositTransition {

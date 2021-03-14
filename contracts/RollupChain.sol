@@ -262,6 +262,8 @@ contract RollupChain is Transitions, Ownable, Pausable {
             uint8 transitionType = extractTransitionType(_transitions[i]);
             if (transitionType == TRANSITION_TYPE_COMMIT || transitionType == TRANSITION_TYPE_UNCOMMIT){
                 continue;
+            } else if (transitionType == TRANSITION_TYPE_SYNC_COMMITMENT) {
+                intentIndexes[numIntents++] = i;
             } else if (transitionType == TRANSITION_TYPE_DEPOSIT) {
                 // Update the pending deposit record.
                 dt.DepositTransition memory dp = decodeDepositTransition(_transitions[i]);
@@ -283,8 +285,6 @@ contract RollupChain is Transitions, Ownable, Pausable {
                 pendingWithdrawCommits[_blockId].push(
                     PendingWithdrawCommit({account: wd.account, assetId: wd.assetId, amount: wd.amount})
                 );
-            } else if (transitionType == TRANSITION_TYPE_SYNC_COMMITMENT) {
-                intentIndexes[numIntents++] = i;
             } else if (transitionType == TRANSITION_TYPE_SYNC_BALANCE) {
                 // Update the pending balance sync record.
                 dt.BalanceSyncTransition memory bs = decodeBalanceSyncTransition(_transitions[i]);
@@ -319,7 +319,7 @@ contract RollupChain is Transitions, Ownable, Pausable {
                 rootHash: root,
                 intentHash: intentHash,
                 blockTime: block.number,
-                blockSize: uint32(_transitions.length)
+                blockSize: _transitions.length
             });
         blocks.push(rollupBlock);
 
