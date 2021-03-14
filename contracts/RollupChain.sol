@@ -260,7 +260,7 @@ contract RollupChain is Transitions, Ownable, Pausable {
 
         for (uint256 i = 0; i < _transitions.length; i++) {
             uint8 transitionType = extractTransitionType(_transitions[i]);
-            if (transitionType == TRANSITION_TYPE_COMMIT || transitionType == TRANSITION_TYPE_UNCOMMIT){
+            if (transitionType == TRANSITION_TYPE_COMMIT || transitionType == TRANSITION_TYPE_UNCOMMIT) {
                 continue;
             } else if (transitionType == TRANSITION_TYPE_SYNC_COMMITMENT) {
                 intentIndexes[numIntents++] = i;
@@ -315,12 +315,7 @@ contract RollupChain is Transitions, Ownable, Pausable {
         }
 
         dt.Block memory rollupBlock =
-            dt.Block({
-                rootHash: root,
-                intentHash: intentHash,
-                blockTime: block.number,
-                blockSize: _transitions.length
-            });
+            dt.Block({rootHash: root, intentHash: intentHash, blockTime: block.number, blockSize: _transitions.length});
         blocks.push(rollupBlock);
 
         emit RollupBlockCommitted(_blockId);

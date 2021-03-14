@@ -147,5 +147,4 @@ contract Transitions {
             DataTypes.BalanceSyncTransition(transitionType, stateRoot, strategyId, newAssetDelta);
         return transition;
     }
-
 }
