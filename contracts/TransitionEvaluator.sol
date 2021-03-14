@@ -202,16 +202,16 @@ contract TransitionEvaluator is Transitions {
         );
 
         uint256 newStToken;
-        if (_strategyInfo.assetId == 0) {
-            // first time commit of this strategy
-            require(_strategyInfo.assetBalance == 0, "empty strategy assetBalance must be zero");
+        if (_strategyInfo.assetBalance == 0) {
             require(_strategyInfo.stTokenSupply == 0, "empty strategy stTokenSupply must be zero");
             require(_strategyInfo.pendingCommitAmount == 0, "empty strategy pendingCommitAmount must be zero");
-            require(_strategyInfo.pendingUncommitAmount == 0, "empty strategy pendingUncommitAmount must be zero");
-
-            address strategyAddr = registry.strategyIndexToAddress(_transition.strategyId);
-            address assetAddr = IStrategy(strategyAddr).getAssetAddress();
-            _strategyInfo.assetId = registry.assetAddressToIndex(assetAddr);
+            if (_strategyInfo.assetId == 0) {
+                // first time commit of new strategy
+                require(_strategyInfo.pendingUncommitAmount == 0, "new strategy pendingUncommitAmount must be zero");
+                address strategyAddr = registry.strategyIndexToAddress(_transition.strategyId);
+                address assetAddr = IStrategy(strategyAddr).getAssetAddress();
+                _strategyInfo.assetId = registry.assetAddressToIndex(assetAddr);
+            }
             newStToken = _transition.assetAmount;
         } else {
             newStToken = _transition.assetAmount.mul(_strategyInfo.stTokenSupply).div(_strategyInfo.assetBalance);
