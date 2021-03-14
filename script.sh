@@ -59,6 +59,12 @@ run_abigen() {
   # delete duplicated struct defs, add here if new dup appears
   del_dup_structs contracts/transitionevaluator.go DataTypesAccountInfo
   del_dup_structs contracts/transitionevaluator.go DataTypesStrategyInfo
+  del_dup_structs contracts/transitionevaluator.go DataTypesDepositTransition
+  del_dup_structs contracts/transitionevaluator.go DataTypesWithdrawTransition
+  del_dup_structs contracts/transitionevaluator.go DataTypesUncommitTransition
+  del_dup_structs contracts/transitionevaluator.go DataTypesCommitTransition
+  del_dup_structs contracts/transitionevaluator.go DataTypesBalanceSyncTransition
+  del_dup_structs contracts/transitionevaluator.go DataTypesCommitmentSyncTransition
 
   pushd contracts
   go build # make sure contracts pkg can build

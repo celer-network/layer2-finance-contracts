@@ -6,10 +6,10 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
 /* Internal Imports */
-import {DataTypes} from "./DataTypes.sol";
-import {Registry} from "./Registry.sol";
-import {IStrategy} from "./strategies/interfaces/IStrategy.sol";
+import "./DataTypes.sol";
 import "./Transitions.sol";
+import "./Registry.sol";
+import "./strategies/interfaces/IStrategy.sol";
 
 contract TransitionEvaluator is Transitions {
     using SafeMath for uint256;
