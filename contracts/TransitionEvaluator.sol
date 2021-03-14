@@ -6,21 +6,13 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
 /* Internal Imports */
-import {DataTypes} from "./DataTypes.sol";
-import {Registry} from "./Registry.sol";
-import {IStrategy} from "./strategies/interfaces/IStrategy.sol";
+import "./DataTypes.sol";
+import "./Transitions.sol";
+import "./Registry.sol";
+import "./strategies/interfaces/IStrategy.sol";
 
-contract TransitionEvaluator {
+contract TransitionEvaluator is Transitions {
     using SafeMath for uint256;
-
-    // Transition Types
-    uint8 public constant TRANSITION_TYPE_INVALID = 0;
-    uint8 public constant TRANSITION_TYPE_DEPOSIT = 1;
-    uint8 public constant TRANSITION_TYPE_WITHDRAW = 2;
-    uint8 public constant TRANSITION_TYPE_COMMIT = 3;
-    uint8 public constant TRANSITION_TYPE_UNCOMMIT = 4;
-    uint8 public constant TRANSITION_TYPE_SYNC_COMMITMENT = 5;
-    uint8 public constant TRANSITION_TYPE_SYNC_BALANCE = 6;
 
     Registry registry;
 
@@ -72,18 +64,6 @@ contract TransitionEvaluator {
             revert("Transition type not recognized!");
         }
         return outputs;
-    }
-
-    function extractTransitionType(bytes memory _bytes) internal pure returns (uint8) {
-        uint8 transitionType;
-        assembly {
-            transitionType := mload(add(_bytes, 0x20))
-        }
-        return transitionType;
-    }
-
-    function getTransitionType(bytes memory _bytes) external pure returns (uint8) {
-        return extractTransitionType(_bytes);
     }
 
     /**
@@ -361,131 +341,5 @@ contract TransitionEvaluator {
                     _strategyInfo.pendingUncommitAmount
                 )
             );
-    }
-
-    /************
-     * Decoding *
-     ***********/
-
-    function decodeDepositTransition(bytes memory _rawBytes) public pure returns (DataTypes.DepositTransition memory) {
-        (uint8 transitionType, bytes32 stateRoot, address account, uint32 accountId, uint32 assetId, uint256 amount) =
-            abi.decode((_rawBytes), (uint8, bytes32, address, uint32, uint32, uint256));
-        DataTypes.DepositTransition memory transition =
-            DataTypes.DepositTransition(transitionType, stateRoot, account, accountId, assetId, amount);
-        return transition;
-    }
-
-    function decodeWithdrawTransition(bytes memory _rawBytes)
-        public
-        pure
-        returns (DataTypes.WithdrawTransition memory)
-    {
-        (
-            uint8 transitionType,
-            bytes32 stateRoot,
-            address account,
-            uint32 accountId,
-            uint32 assetId,
-            uint256 amount,
-            uint64 timestamp,
-            bytes memory signature
-        ) = abi.decode((_rawBytes), (uint8, bytes32, address, uint32, uint32, uint256, uint64, bytes));
-        DataTypes.WithdrawTransition memory transition =
-            DataTypes.WithdrawTransition(
-                transitionType,
-                stateRoot,
-                account,
-                accountId,
-                assetId,
-                amount,
-                timestamp,
-                signature
-            );
-        return transition;
-    }
-
-    function decodeCommitTransition(bytes memory _rawBytes) public pure returns (DataTypes.CommitTransition memory) {
-        (
-            uint8 transitionType,
-            bytes32 stateRoot,
-            uint32 accountId,
-            uint32 strategyId,
-            uint256 assetAmount,
-            uint64 timestamp,
-            bytes memory signature
-        ) = abi.decode((_rawBytes), (uint8, bytes32, uint32, uint32, uint256, uint64, bytes));
-        DataTypes.CommitTransition memory transition =
-            DataTypes.CommitTransition(
-                transitionType,
-                stateRoot,
-                accountId,
-                strategyId,
-                assetAmount,
-                timestamp,
-                signature
-            );
-        return transition;
-    }
-
-    function decodeUncommitTransition(bytes memory _rawBytes)
-        public
-        pure
-        returns (DataTypes.UncommitTransition memory)
-    {
-        (
-            uint8 transitionType,
-            bytes32 stateRoot,
-            uint32 accountId,
-            uint32 strategyId,
-            uint256 stTokenAmount,
-            uint64 timestamp,
-            bytes memory signature
-        ) = abi.decode((_rawBytes), (uint8, bytes32, uint32, uint32, uint256, uint64, bytes));
-        DataTypes.UncommitTransition memory transition =
-            DataTypes.UncommitTransition(
-                transitionType,
-                stateRoot,
-                accountId,
-                strategyId,
-                stTokenAmount,
-                timestamp,
-                signature
-            );
-        return transition;
-    }
-
-    function decodeCommitmentSyncTransition(bytes memory _rawBytes)
-        public
-        pure
-        returns (DataTypes.CommitmentSyncTransition memory)
-    {
-        (
-            uint8 transitionType,
-            bytes32 stateRoot,
-            uint32 strategyId,
-            uint256 pendingCommitAmount,
-            uint256 pendingUncommitAmount
-        ) = abi.decode((_rawBytes), (uint8, bytes32, uint32, uint256, uint256));
-        DataTypes.CommitmentSyncTransition memory transition =
-            DataTypes.CommitmentSyncTransition(
-                transitionType,
-                stateRoot,
-                strategyId,
-                pendingCommitAmount,
-                pendingUncommitAmount
-            );
-        return transition;
-    }
-
-    function decodeBalanceSyncTransition(bytes memory _rawBytes)
-        public
-        pure
-        returns (DataTypes.BalanceSyncTransition memory)
-    {
-        (uint8 transitionType, bytes32 stateRoot, uint32 strategyId, uint256 newAssetDelta) =
-            abi.decode((_rawBytes), (uint8, bytes32, uint32, uint256));
-        DataTypes.BalanceSyncTransition memory transition =
-            DataTypes.BalanceSyncTransition(transitionType, stateRoot, strategyId, newAssetDelta);
-        return transition;
     }
 }

@@ -10,12 +10,13 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /* Internal Imports */
 import {DataTypes as dt} from "./DataTypes.sol";
-import {TransitionEvaluator} from "./TransitionEvaluator.sol";
-import {Registry} from "./Registry.sol";
-import {IStrategy} from "./strategies/interfaces/IStrategy.sol";
+import "./Transitions.sol";
+import "./TransitionEvaluator.sol";
+import "./Registry.sol";
+import "./strategies/interfaces/IStrategy.sol";
 import "./lib/Lib_MerkleTree.sol";
 
-contract RollupChain is Ownable, Pausable {
+contract RollupChain is Transitions, Ownable, Pausable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -258,10 +259,14 @@ contract RollupChain is Ownable, Pausable {
         uint32 numIntents = 0;
 
         for (uint256 i = 0; i < _transitions.length; i++) {
-            uint8 transitionType = transitionEvaluator.getTransitionType(_transitions[i]);
-            if (transitionType == transitionEvaluator.TRANSITION_TYPE_DEPOSIT()) {
+            uint8 transitionType = extractTransitionType(_transitions[i]);
+            if (transitionType == TRANSITION_TYPE_COMMIT || transitionType == TRANSITION_TYPE_UNCOMMIT){
+                continue;
+            } else if (transitionType == TRANSITION_TYPE_SYNC_COMMITMENT) {
+                intentIndexes[numIntents++] = i;
+            } else if (transitionType == TRANSITION_TYPE_DEPOSIT) {
                 // Update the pending deposit record.
-                dt.DepositTransition memory dp = transitionEvaluator.decodeDepositTransition(_transitions[i]);
+                dt.DepositTransition memory dp = decodeDepositTransition(_transitions[i]);
                 uint256 depositId = pendingDepositsCommitHead;
                 require(depositId < pendingDepositsTail, "invalid deposit transition, no pending deposits");
 
@@ -274,17 +279,15 @@ contract RollupChain is Ownable, Pausable {
                 pendingDeposits[depositId].status = PendingDepositStatus.Done;
                 pendingDeposits[depositId].blockId = _blockId; // "done": block holding the transition
                 pendingDepositsCommitHead++;
-            } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_WITHDRAW()) {
+            } else if (transitionType == TRANSITION_TYPE_WITHDRAW) {
                 // Append the pending withdraw-commit record for this blockId.
-                dt.WithdrawTransition memory wd = transitionEvaluator.decodeWithdrawTransition(_transitions[i]);
+                dt.WithdrawTransition memory wd = decodeWithdrawTransition(_transitions[i]);
                 pendingWithdrawCommits[_blockId].push(
                     PendingWithdrawCommit({account: wd.account, assetId: wd.assetId, amount: wd.amount})
                 );
-            } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_SYNC_COMMITMENT()) {
-                intentIndexes[numIntents++] = i;
-            } else if (transitionType == transitionEvaluator.TRANSITION_TYPE_SYNC_BALANCE()) {
+            } else if (transitionType == TRANSITION_TYPE_SYNC_BALANCE) {
                 // Update the pending balance sync record.
-                dt.BalanceSyncTransition memory bs = transitionEvaluator.decodeBalanceSyncTransition(_transitions[i]);
+                dt.BalanceSyncTransition memory bs = decodeBalanceSyncTransition(_transitions[i]);
                 uint256 syncId = pendingBalanceSyncsCommitHead;
                 require(syncId < pendingBalanceSyncsTail, "invalid balance sync transition, no pending balance syncs");
 
@@ -316,7 +319,7 @@ contract RollupChain is Ownable, Pausable {
                 rootHash: root,
                 intentHash: intentHash,
                 blockTime: block.number,
-                blockSize: uint32(_transitions.length)
+                blockSize: _transitions.length
             });
         blocks.push(rollupBlock);
 
@@ -345,7 +348,7 @@ contract RollupChain is Ownable, Pausable {
 
         // Decode the intent transitions and execute the strategy updates.
         for (uint256 i = 0; i < _intents.length; i++) {
-            dt.CommitmentSyncTransition memory cs = transitionEvaluator.decodeCommitmentSyncTransition(_intents[i]);
+            dt.CommitmentSyncTransition memory cs = decodeCommitmentSyncTransition(_intents[i]);
 
             address stAddr = registry.strategyIndexToAddress(cs.strategyId);
             require(stAddr != address(0), "Unknown strategy ID");
