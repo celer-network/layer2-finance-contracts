@@ -103,9 +103,9 @@ contract RollupChain is Ownable, Pausable {
     address public operator;
 
     /* Events */
-    event RollupBlockCommitted(uint256 blockNumber);
-    event RollupBlockExecuted(uint256 blockNumber);
-    event RollupBlockReverted(uint256 blockNumber);
+    event RollupBlockCommitted(uint256 blockId);
+    event RollupBlockExecuted(uint256 blockId);
+    event RollupBlockReverted(uint256 blockId);
     event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
@@ -171,7 +171,7 @@ contract RollupChain is Ownable, Pausable {
         maxPriorityTxDelay = _maxPriorityTxDelay;
     }
 
-    function getCurrentBlockNumber() public view returns (uint256) {
+    function getCurrentBlockId() public view returns (uint256) {
         return blocks.length - 1;
     }
 
@@ -462,7 +462,7 @@ contract RollupChain is Ownable, Pausable {
     }
 
     function disputePriorityTxDelay() external {
-        uint256 currentBlockId = getCurrentBlockNumber();
+        uint256 currentBlockId = getCurrentBlockId();
 
         if (pendingDepositsCommitHead < pendingDepositsTail) {
             if (currentBlockId.sub(pendingDeposits[pendingDepositsCommitHead].blockId) > maxPriorityTxDelay) {
@@ -480,39 +480,39 @@ contract RollupChain is Ownable, Pausable {
         revert("Not exceed max priority tx delay");
     }
 
-    function revertBlock(uint256 _blockNumber) private {
+    function revertBlock(uint256 _blockId) private {
         // pause contract
         _pause();
 
         // revert blocks and pending states
-        while (blocks.length > _blockNumber) {
+        while (blocks.length > _blockId) {
             pendingWithdrawCommits[blocks.length - 1];
             blocks.pop();
         }
         bool first;
         for (uint256 i = pendingDepositsExecuteHead; i < pendingDepositsTail; i++) {
-            if (pendingDeposits[i].blockId >= _blockNumber) {
+            if (pendingDeposits[i].blockId >= _blockId) {
                 if (!first) {
                     pendingDepositsCommitHead = i;
                     first = true;
                 }
-                pendingDeposits[i].blockId = _blockNumber;
+                pendingDeposits[i].blockId = _blockId;
                 pendingDeposits[i].status = PendingDepositStatus.Pending;
             }
         }
         first = false;
         for (uint256 i = pendingBalanceSyncsExecuteHead; i < pendingBalanceSyncsTail; i++) {
-            if (pendingBalanceSyncs[i].blockId >= _blockNumber) {
+            if (pendingBalanceSyncs[i].blockId >= _blockId) {
                 if (!first) {
                     pendingBalanceSyncsCommitHead = i;
                     first = true;
                 }
-                pendingBalanceSyncs[i].blockId = _blockNumber;
+                pendingBalanceSyncs[i].blockId = _blockId;
                 pendingBalanceSyncs[i].status = PendingBalanceSyncStatus.Pending;
             }
         }
 
-        emit RollupBlockReverted(_blockNumber);
+        emit RollupBlockReverted(_blockId);
     }
 
     /**
@@ -533,7 +533,7 @@ contract RollupChain is Ownable, Pausable {
         dt.AccountProof memory _accountProof,
         dt.StrategyProof memory _strategyProof
     ) public {
-        uint256 secondBlockId = _invalidTransitionProof.blockNumber;
+        uint256 secondBlockId = _invalidTransitionProof.blockId;
         dt.Block memory secondBlock = blocks[secondBlockId];
         require(secondBlock.blockTime + blockChallengePeriod > block.number, "Block challenge period is over");
 
@@ -546,7 +546,7 @@ contract RollupChain is Ownable, Pausable {
                 _invalidTransitionProof,
                 _accountProof,
                 _strategyProof,
-                blocks[_prevTransitionProof.blockNumber],
+                blocks[_prevTransitionProof.blockId],
                 secondBlock,
                 registry
             )

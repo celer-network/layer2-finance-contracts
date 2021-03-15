@@ -226,14 +226,14 @@ contract TransitionDisputer {
         dt.Block memory _secondBlock
     ) private pure returns (bool) {
         // Start by checking if they are in the same block
-        if (_tp0.blockNumber == _tp1.blockNumber) {
+        if (_tp0.blockId == _tp1.blockId) {
             // If the blocknumber is the same, check that tp0 preceeds tp1
             require(_tp0.index + 1 == _tp1.index, "Transitions must be sequential");
             require(_tp1.index < _secondBlock.blockSize, "_tp1 outside block range");
         } else {
             // If not in the same block, check that:
             // 0) the blocks are one after another
-            require(_tp0.blockNumber + 1 == _tp1.blockNumber, "Blocks must be sequential or equal");
+            require(_tp0.blockId + 1 == _tp1.blockId, "Blocks must be sequential or equal");
 
             // 1) the index of tp0 is the last in its block
             require(_tp0.index == _firstBlock.blockSize - 1, "_tp0 must be last in its block");
