@@ -280,7 +280,7 @@ contract TransitionDisputer {
     function verifyProofInclusion(
         bytes32 _stateRoot,
         bytes32 _leafHash,
-        uint256 _index,
+        uint32 _index,
         bytes32[] memory _siblings
     ) private pure {
         bool ok = MerkleTree.verify(_stateRoot, _leafHash, _index, _siblings);
