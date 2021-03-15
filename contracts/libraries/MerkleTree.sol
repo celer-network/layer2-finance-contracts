@@ -27,10 +27,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 pragma solidity >0.5.0 <0.8.0;
 
 /**
- * @title Lib_MerkleTree
+ * @title MerkleTree
  * @author River Keefer
  */
-library Lib_MerkleTree {
+library MerkleTree {
     /**********************
      * Internal Functions *
      **********************/
@@ -44,7 +44,7 @@ library Lib_MerkleTree {
      * @return Merkle root of the leaves, with zero hashes for non-powers-of-two (see above).
      */
     function getMerkleRoot(bytes32[] memory _elements) internal pure returns (bytes32) {
-        require(_elements.length > 0, "Lib_MerkleTree: Must provide at least one leaf hash.");
+        require(_elements.length > 0, "MerkleTree: Must provide at least one leaf hash.");
 
         if (_elements.length == 0) {
             return _elements[0];

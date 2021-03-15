@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity >=0.6.0 <0.8.0;
 pragma experimental ABIEncoderV2;
 
@@ -6,58 +7,59 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
 /* Internal Imports */
-import "./DataTypes.sol";
-import "./Transitions.sol";
+import "./libraries/DataTypes.sol";
 import "./Registry.sol";
 import "./strategies/interfaces/IStrategy.sol";
+import "./libraries/Transitions.sol";
 
-contract TransitionEvaluator is Transitions {
+contract TransitionEvaluator {
     using SafeMath for uint256;
 
-    Registry registry;
-
-    constructor(address _registryAddress) public {
-        registry = Registry(_registryAddress);
-    }
-
     function evaluateTransition(
-        bytes calldata _transition,
-        DataTypes.AccountInfo calldata _accountInfo,
-        DataTypes.StrategyInfo calldata _strategyInfo
+        bytes memory _transition,
+        DataTypes.AccountInfo memory _accountInfo,
+        DataTypes.StrategyInfo memory _strategyInfo,
+        Registry _registry
     ) external view returns (bytes32[2] memory) {
         // Convert our inputs to memory
         bytes memory transition = _transition;
 
         // Extract the transition type
-        uint8 transitionType = extractTransitionType(transition);
+        uint8 transitionType = Transitions.extractTransitionType(transition);
         bytes32[2] memory outputs;
         DataTypes.AccountInfo memory updatedAccountInfo;
         DataTypes.StrategyInfo memory updatedStrategyInfo;
         // Apply the transition and record the resulting storage slots
-        if (transitionType == TRANSITION_TYPE_DEPOSIT) {
-            DataTypes.DepositTransition memory deposit = decodeDepositTransition(transition);
+        if (transitionType == Transitions.TRANSITION_TYPE_DEPOSIT) {
+            DataTypes.DepositTransition memory deposit = Transitions.decodeDepositTransition(transition);
             updatedAccountInfo = applyDepositTransition(deposit, _accountInfo);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
-        } else if (transitionType == TRANSITION_TYPE_WITHDRAW) {
-            DataTypes.WithdrawTransition memory withdraw = decodeWithdrawTransition(transition);
+        } else if (transitionType == Transitions.TRANSITION_TYPE_WITHDRAW) {
+            DataTypes.WithdrawTransition memory withdraw = Transitions.decodeWithdrawTransition(transition);
             updatedAccountInfo = applyWithdrawTransition(withdraw, _accountInfo);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
-        } else if (transitionType == TRANSITION_TYPE_COMMIT) {
-            DataTypes.CommitTransition memory commit = decodeCommitTransition(transition);
-            (updatedAccountInfo, updatedStrategyInfo) = applyCommitTransition(commit, _accountInfo, _strategyInfo);
+        } else if (transitionType == Transitions.TRANSITION_TYPE_COMMIT) {
+            DataTypes.CommitTransition memory commit = Transitions.decodeCommitTransition(transition);
+            (updatedAccountInfo, updatedStrategyInfo) = applyCommitTransition(
+                commit,
+                _accountInfo,
+                _strategyInfo,
+                _registry
+            );
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
             outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
-        } else if (transitionType == TRANSITION_TYPE_UNCOMMIT) {
-            DataTypes.UncommitTransition memory uncommit = decodeUncommitTransition(transition);
+        } else if (transitionType == Transitions.TRANSITION_TYPE_UNCOMMIT) {
+            DataTypes.UncommitTransition memory uncommit = Transitions.decodeUncommitTransition(transition);
             (updatedAccountInfo, updatedStrategyInfo) = applyUncommitTransition(uncommit, _accountInfo, _strategyInfo);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
             outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
-        } else if (transitionType == TRANSITION_TYPE_SYNC_COMMITMENT) {
-            DataTypes.CommitmentSyncTransition memory commitmentSync = decodeCommitmentSyncTransition(transition);
+        } else if (transitionType == Transitions.TRANSITION_TYPE_SYNC_COMMITMENT) {
+            DataTypes.CommitmentSyncTransition memory commitmentSync =
+                Transitions.decodeCommitmentSyncTransition(transition);
             updatedStrategyInfo = applyCommitmentSyncTransition(commitmentSync, _strategyInfo);
             outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
-        } else if (transitionType == TRANSITION_TYPE_SYNC_BALANCE) {
-            DataTypes.BalanceSyncTransition memory balanceSync = decodeBalanceSyncTransition(transition);
+        } else if (transitionType == Transitions.TRANSITION_TYPE_SYNC_BALANCE) {
+            DataTypes.BalanceSyncTransition memory balanceSync = Transitions.decodeBalanceSyncTransition(transition);
             updatedStrategyInfo = applyBalanceSyncTransition(balanceSync, _strategyInfo);
             outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
         } else {
@@ -84,31 +86,32 @@ contract TransitionEvaluator is Transitions {
         bytes32 stateRoot;
         uint32 accountId;
         uint32 strategyId;
-        uint8 transitionType = extractTransitionType(rawTransition);
-        if (transitionType == TRANSITION_TYPE_DEPOSIT) {
-            DataTypes.DepositTransition memory transition = decodeDepositTransition(rawTransition);
+        uint8 transitionType = Transitions.extractTransitionType(rawTransition);
+        if (transitionType == Transitions.TRANSITION_TYPE_DEPOSIT) {
+            DataTypes.DepositTransition memory transition = Transitions.decodeDepositTransition(rawTransition);
             stateRoot = transition.stateRoot;
             accountId = transition.accountId;
-        } else if (transitionType == TRANSITION_TYPE_WITHDRAW) {
-            DataTypes.WithdrawTransition memory transition = decodeWithdrawTransition(rawTransition);
+        } else if (transitionType == Transitions.TRANSITION_TYPE_WITHDRAW) {
+            DataTypes.WithdrawTransition memory transition = Transitions.decodeWithdrawTransition(rawTransition);
             stateRoot = transition.stateRoot;
             accountId = transition.accountId;
-        } else if (transitionType == TRANSITION_TYPE_COMMIT) {
-            DataTypes.CommitTransition memory transition = decodeCommitTransition(rawTransition);
-            stateRoot = transition.stateRoot;
-            accountId = transition.accountId;
-            strategyId = transition.strategyId;
-        } else if (transitionType == TRANSITION_TYPE_UNCOMMIT) {
-            DataTypes.UncommitTransition memory transition = decodeUncommitTransition(rawTransition);
+        } else if (transitionType == Transitions.TRANSITION_TYPE_COMMIT) {
+            DataTypes.CommitTransition memory transition = Transitions.decodeCommitTransition(rawTransition);
             stateRoot = transition.stateRoot;
             accountId = transition.accountId;
             strategyId = transition.strategyId;
-        } else if (transitionType == TRANSITION_TYPE_SYNC_COMMITMENT) {
-            DataTypes.CommitmentSyncTransition memory transition = decodeCommitmentSyncTransition(rawTransition);
+        } else if (transitionType == Transitions.TRANSITION_TYPE_UNCOMMIT) {
+            DataTypes.UncommitTransition memory transition = Transitions.decodeUncommitTransition(rawTransition);
+            stateRoot = transition.stateRoot;
+            accountId = transition.accountId;
+            strategyId = transition.strategyId;
+        } else if (transitionType == Transitions.TRANSITION_TYPE_SYNC_COMMITMENT) {
+            DataTypes.CommitmentSyncTransition memory transition =
+                Transitions.decodeCommitmentSyncTransition(rawTransition);
             stateRoot = transition.stateRoot;
             strategyId = transition.strategyId;
-        } else if (transitionType == TRANSITION_TYPE_SYNC_BALANCE) {
-            DataTypes.BalanceSyncTransition memory transition = decodeBalanceSyncTransition(rawTransition);
+        } else if (transitionType == Transitions.TRANSITION_TYPE_SYNC_BALANCE) {
+            DataTypes.BalanceSyncTransition memory transition = Transitions.decodeBalanceSyncTransition(rawTransition);
             stateRoot = transition.stateRoot;
             strategyId = transition.strategyId;
         } else {
@@ -123,7 +126,7 @@ contract TransitionEvaluator is Transitions {
     function applyDepositTransition(
         DataTypes.DepositTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo
-    ) public pure returns (DataTypes.AccountInfo memory) {
+    ) internal pure returns (DataTypes.AccountInfo memory) {
         if (_accountInfo.account == address(0)) {
             // first time deposit of this account
             require(_accountInfo.accountId == 0, "empty account id must be zero");
@@ -150,7 +153,7 @@ contract TransitionEvaluator is Transitions {
     function applyWithdrawTransition(
         DataTypes.WithdrawTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo
-    ) public pure returns (DataTypes.AccountInfo memory) {
+    ) internal pure returns (DataTypes.AccountInfo memory) {
         bytes32 txHash =
             keccak256(
                 abi.encodePacked(
@@ -184,8 +187,9 @@ contract TransitionEvaluator is Transitions {
     function applyCommitTransition(
         DataTypes.CommitTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo,
-        DataTypes.StrategyInfo memory _strategyInfo
-    ) public view returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
+        DataTypes.StrategyInfo memory _strategyInfo,
+        Registry _registry
+    ) internal view returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
         bytes32 txHash =
             keccak256(
                 abi.encodePacked(
@@ -208,9 +212,9 @@ contract TransitionEvaluator is Transitions {
             if (_strategyInfo.assetId == 0) {
                 // first time commit of new strategy
                 require(_strategyInfo.pendingUncommitAmount == 0, "new strategy pendingUncommitAmount must be zero");
-                address strategyAddr = registry.strategyIndexToAddress(_transition.strategyId);
+                address strategyAddr = _registry.strategyIndexToAddress(_transition.strategyId);
                 address assetAddr = IStrategy(strategyAddr).getAssetAddress();
-                _strategyInfo.assetId = registry.assetAddressToIndex(assetAddr);
+                _strategyInfo.assetId = _registry.assetAddressToIndex(assetAddr);
             }
             newStToken = _transition.assetAmount;
         } else {
@@ -239,7 +243,7 @@ contract TransitionEvaluator is Transitions {
         DataTypes.UncommitTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo,
         DataTypes.StrategyInfo memory _strategyInfo
-    ) public pure returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
+    ) internal pure returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
         bytes32 txHash =
             keccak256(
                 abi.encodePacked(
@@ -281,7 +285,7 @@ contract TransitionEvaluator is Transitions {
     function applyCommitmentSyncTransition(
         DataTypes.CommitmentSyncTransition memory _transition,
         DataTypes.StrategyInfo memory _strategyInfo
-    ) public pure returns (DataTypes.StrategyInfo memory) {
+    ) internal pure returns (DataTypes.StrategyInfo memory) {
         require(
             _transition.pendingCommitAmount == _strategyInfo.pendingCommitAmount,
             "pending commitment amount not match"
@@ -302,7 +306,7 @@ contract TransitionEvaluator is Transitions {
     function applyBalanceSyncTransition(
         DataTypes.BalanceSyncTransition memory _transition,
         DataTypes.StrategyInfo memory _strategyInfo
-    ) public pure returns (DataTypes.StrategyInfo memory) {
+    ) internal pure returns (DataTypes.StrategyInfo memory) {
         _strategyInfo.assetBalance = _strategyInfo.assetBalance.add(_transition.newAssetDelta);
         return _strategyInfo;
     }
@@ -310,7 +314,7 @@ contract TransitionEvaluator is Transitions {
     /**
      * Get the hash of the AccountInfo.
      */
-    function getAccountInfoHash(DataTypes.AccountInfo memory _accountInfo) public pure returns (bytes32) {
+    function getAccountInfoHash(DataTypes.AccountInfo memory _accountInfo) internal pure returns (bytes32) {
         // Here we don't use `abi.encode([struct])` because it's not clear
         // how to generate that encoding client-side.
         return
@@ -328,7 +332,7 @@ contract TransitionEvaluator is Transitions {
     /**
      * Get the hash of the StrategyInfo.
      */
-    function getStrategyInfoHash(DataTypes.StrategyInfo memory _strategyInfo) public pure returns (bytes32) {
+    function getStrategyInfoHash(DataTypes.StrategyInfo memory _strategyInfo) internal pure returns (bytes32) {
         // Here we don't use `abi.encode([struct])` because it's not clear
         // how to generate that encoding client-side.
         return

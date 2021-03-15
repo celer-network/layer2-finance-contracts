@@ -8,7 +8,7 @@ import { Wallet } from '@ethersproject/wallet';
 
 import { deployContracts, loadFixture } from '../test/common';
 
-const GAS_USAGE_DIR = 'gas_usage/';
+const GAS_USAGE_DIR = 'reports/gas_usage/';
 const GAS_USAGE_LOG = path.join(GAS_USAGE_DIR, 'commit_block.txt');
 
 describe('Benchmark commitBlock', async function () {

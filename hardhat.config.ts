@@ -24,7 +24,7 @@ const config: HardhatUserConfig = {
   gasReporter: {
     enabled: process.env.REPORT_GAS ? true : false,
     noColors: true,
-    outputFile: 'gas_usage/summary.txt'
+    outputFile: 'reports/gas_usage/summary.txt'
   },
   typechain: {
     outDir: 'typechain',

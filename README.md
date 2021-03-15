@@ -15,9 +15,12 @@ yarn report-gas:benchmark
 yarn report-gas:summary
 ```
 
-### Check contract size
+Check `reports/gas_usage`.
+
+### Update contract sizes
 
 ```sh
-yarn run hardhat size-contracts
+yarn size-contracts
 ```
 
+Check `reports/contract_sizes.txt`.

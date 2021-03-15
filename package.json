@@ -3,10 +3,11 @@
   "version": "0.0.1",
   "description": "Layer 2 Finance Contracts",
   "scripts": {
-    "report-gas:benchmark": "hardhat test benchmark/*.ts",
-    "report-gas:summary": "REPORT_GAS=true yarn test",
     "clean": "hardhat clean",
     "compile": "hardhat compile",
+    "report-gas:benchmark": "hardhat test benchmark/*.ts",
+    "report-gas:summary": "REPORT_GAS=true yarn test",
+    "size-contracts": "hardhat size-contracts > reports/contract_sizes.txt",
     "test": "([ -d typechain ] || hardhat compile) && hardhat test",
     "typechain": "hardhat typechain"
   },
