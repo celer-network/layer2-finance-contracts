@@ -83,7 +83,7 @@ library DataTypes {
 
     struct TransitionProof {
         bytes transition;
-        uint256 blockNumber;
+        uint256 blockId;
         uint32 index;
         bytes32[] siblings;
     }
