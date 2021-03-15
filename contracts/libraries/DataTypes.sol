@@ -96,14 +96,14 @@ library DataTypes {
     struct AccountProof {
         bytes32 stateRoot; // for the account Merkle tree
         AccountInfo value;
-        uint256 index;
+        uint32 index;
         bytes32[] siblings;
     }
 
     struct StrategyProof {
         bytes32 stateRoot; // for the strategy Merkle tree
         StrategyInfo value;
-        uint256 index;
+        uint32 index;
         bytes32[] siblings;
     }
 }
