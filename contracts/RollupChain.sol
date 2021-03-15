@@ -354,7 +354,12 @@ contract RollupChain is Ownable, Pausable {
         }
 
         dt.Block memory rollupBlock =
-            dt.Block({rootHash: root, intentHash: intentHash, blockTime: block.number, blockSize: _transitions.length});
+            dt.Block({
+                rootHash: root,
+                intentHash: intentHash,
+                blockTime: uint128(block.number),
+                blockSize: uint128(_transitions.length)
+            });
         blocks.push(rollupBlock);
 
         emit RollupBlockCommitted(_blockId);
