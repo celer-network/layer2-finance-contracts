@@ -11,7 +11,7 @@ import { TransitionEvaluator__factory } from '../typechain/factories/TransitionE
 
 // Workaround for https://github.com/nomiclabs/hardhat/issues/849
 // TODO: Remove once fixed upstream.
-export function loadFixture<T>(fixture: Fixture<T>) {
+export function loadFixture<T>(fixture: Fixture<T>): Promise<T> {
   const provider = waffle.provider;
   return waffle.createFixtureLoader(provider.getWallets(), provider)(fixture);
 }
