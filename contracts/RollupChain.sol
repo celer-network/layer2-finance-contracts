@@ -532,20 +532,23 @@ contract RollupChain is Ownable, Pausable {
         dt.AccountProof memory _accountProof,
         dt.StrategyProof memory _strategyProof
     ) public {
-        uint256 secondBlockId = _invalidTransitionProof.blockId;
-        dt.Block memory secondBlock = blocks[secondBlockId];
-        require(secondBlock.blockTime + blockChallengePeriod > block.number, "Block challenge period is over");
+        uint256 invalidTransitionBlockId = _invalidTransitionProof.blockId;
+        dt.Block memory invalidTransitionBlock = blocks[invalidTransitionBlockId];
+        require(
+            invalidTransitionBlock.blockTime + blockChallengePeriod > block.number,
+            "Block challenge period is over"
+        );
 
         bool success;
         bytes memory returnData;
 
-        if (_prevTransitionProof.transition.length == 0) {
-            // dispute first transition of block zero 
+        if (invalidTransitionBlockId == 0 && _prevTransitionProof.transition.length == 0) {
+            // dispute first transition of block zero
             (success, returnData) = address(transitionDisputer).call(
                 abi.encodeWithSelector(
                     transitionDisputer.disputeFirstTransition.selector,
                     _invalidTransitionProof,
-                    secondBlock,
+                    invalidTransitionBlock,
                     registry
                 )
             );
@@ -558,13 +561,13 @@ contract RollupChain is Ownable, Pausable {
                     _accountProof,
                     _strategyProof,
                     blocks[_prevTransitionProof.blockId],
-                    secondBlock,
+                    invalidTransitionBlock,
                     registry
                 )
             );
         }
         if (success) {
-            revertBlock(secondBlockId);
+            revertBlock(invalidTransitionBlockId);
         } else {
             revert("No fraud detected!");
         }

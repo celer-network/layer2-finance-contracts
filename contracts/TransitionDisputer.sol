@@ -26,8 +26,8 @@ contract TransitionDisputer {
      * @param _invalidTransitionProof The inclusion proof of the fraudulent transition.
      * @param _accountProof The inclusion proof of the account involved.
      * @param _strategyProof The inclusion proof of the strategy involved.
-     * @param _firstBlock The block containing the previous transition.
-     * @param _secondBlock The block containing the fraudulent transition.
+     * @param _prevTransitionBlock The block containing the previous transition.
+     * @param _invalidTransitionBlock The block containing the fraudulent transition.
      * @param _registry The address of the Registry contract.
      */
     function disputeTransition(
@@ -35,13 +35,18 @@ contract TransitionDisputer {
         dt.TransitionProof calldata _invalidTransitionProof,
         dt.AccountProof memory _accountProof,
         dt.StrategyProof memory _strategyProof,
-        dt.Block memory _firstBlock,
-        dt.Block memory _secondBlock,
+        dt.Block memory _prevTransitionBlock,
+        dt.Block memory _invalidTransitionBlock,
         Registry _registry
     ) public {
         // ------ #1: verify sequential transitions
         // First verify that the transitions are sequential and in their respective block root hashes.
-        verifySequentialTransitions(_prevTransitionProof, _invalidTransitionProof, _firstBlock, _secondBlock);
+        verifySequentialTransitions(
+            _prevTransitionProof,
+            _invalidTransitionProof,
+            _prevTransitionBlock,
+            _invalidTransitionBlock
+        );
 
         // ------ #2: decode transitions to get post- and pre-StateRoot, and ids of account and strategy
         bool ok;
@@ -237,29 +242,29 @@ contract TransitionDisputer {
     function verifySequentialTransitions(
         dt.TransitionProof memory _tp0,
         dt.TransitionProof memory _tp1,
-        dt.Block memory _firstBlock,
-        dt.Block memory _secondBlock
+        dt.Block memory _prevTransitionBlock,
+        dt.Block memory _invalidTransitionBlock
     ) private pure returns (bool) {
         // Start by checking if they are in the same block
         if (_tp0.blockId == _tp1.blockId) {
             // If the blocknumber is the same, check that tp0 preceeds tp1
             require(_tp0.index + 1 == _tp1.index, "Transitions must be sequential");
-            require(_tp1.index < _secondBlock.blockSize, "_tp1 outside block range");
+            require(_tp1.index < _invalidTransitionBlock.blockSize, "_tp1 outside block range");
         } else {
             // If not in the same block, check that:
             // 0) the blocks are one after another
             require(_tp0.blockId + 1 == _tp1.blockId, "Blocks must be sequential or equal");
 
             // 1) the index of tp0 is the last in its block
-            require(_tp0.index == _firstBlock.blockSize - 1, "_tp0 must be last in its block");
+            require(_tp0.index == _prevTransitionBlock.blockSize - 1, "_tp0 must be last in its block");
 
             // 2) the index of tp1 is the first in its block
             require(_tp1.index == 0, "_tp1 must be first in its block");
         }
 
         // Verify inclusion
-        require(checkTransitionInclusion(_tp0, _firstBlock), "_tp0 must be included in its block");
-        require(checkTransitionInclusion(_tp1, _secondBlock), "_tp1 must be included in its block");
+        require(checkTransitionInclusion(_tp0, _prevTransitionBlock), "_tp0 must be included in its block");
+        require(checkTransitionInclusion(_tp1, _invalidTransitionBlock), "_tp1 must be included in its block");
 
         return true;
     }
