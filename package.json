@@ -5,11 +5,11 @@
   "scripts": {
     "clean": "hardhat clean",
     "compile": "hardhat compile",
+    "generate:typechain": "hardhat typechain",
     "report-gas:benchmark": "hardhat test benchmark/*.ts",
     "report-gas:summary": "REPORT_GAS=true yarn test",
     "size-contracts": "hardhat size-contracts > reports/contract_sizes.txt",
-    "test": "([ -d typechain ] || hardhat compile) && hardhat test",
-    "typechain": "hardhat typechain"
+    "test": "([ -d typechain ] || hardhat compile) && hardhat test"
   },
   "repository": {
     "type": "git",
