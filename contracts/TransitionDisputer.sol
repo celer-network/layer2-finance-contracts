@@ -224,7 +224,7 @@ contract TransitionDisputer {
         dt.TransitionProof memory _tp1,
         dt.Block memory _firstBlock,
         dt.Block memory _secondBlock
-    ) private pure returns (bool) {
+    ) private view returns (bool) {
         // Start by checking if they are in the same block
         if (_tp0.blockId == _tp1.blockId) {
             // If the blocknumber is the same, check that tp0 preceeds tp1
@@ -254,7 +254,7 @@ contract TransitionDisputer {
      */
     function checkTransitionInclusion(dt.TransitionProof memory _tp, dt.Block memory _block)
         private
-        pure
+        view
         returns (bool)
     {
         bytes32 rootHash = _block.rootHash;
@@ -282,7 +282,7 @@ contract TransitionDisputer {
         bytes32 _leafHash,
         uint32 _index,
         bytes32[] memory _siblings
-    ) private pure {
+    ) private view {
         bool ok = MerkleTree.verify(_stateRoot, _leafHash, _index, _siblings);
         require(ok, "Failed proof inclusion verification check");
     }
@@ -295,7 +295,7 @@ contract TransitionDisputer {
         bytes32[2] memory _leafHashes,
         dt.AccountProof memory _accountProof,
         dt.StrategyProof memory _strategyProof
-    ) private pure returns (bool) {
+    ) private view returns (bool) {
         if (_leafHashes[0] == bytes32(0) && _leafHashes[1] == bytes32(0)) {
             return false;
         }
