@@ -562,10 +562,11 @@ contract RollupChain is Ownable, Pausable {
                 registry
             )
         );
+
         if (success) {
             revertBlock(secondBlockId);
         } else {
-            revert("No fraud detected!");
+            revert("Failed to dispute");
         }
     }
 

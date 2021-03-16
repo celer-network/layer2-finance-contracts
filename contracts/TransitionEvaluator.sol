@@ -63,7 +63,7 @@ contract TransitionEvaluator {
             updatedStrategyInfo = applyBalanceSyncTransition(balanceSync, _strategyInfo);
             outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
         } else {
-            revert("Transition type not recognized!");
+            revert("Transition type not recognized");
         }
         return outputs;
     }
@@ -115,7 +115,7 @@ contract TransitionEvaluator {
             stateRoot = transition.stateRoot;
             strategyId = transition.strategyId;
         } else {
-            revert("Transition type not recognized!");
+            revert("Transition type not recognized");
         }
         return (stateRoot, accountId, strategyId);
     }
@@ -167,7 +167,7 @@ contract TransitionEvaluator {
         bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
         require(
             ECDSA.recover(prefixedHash, _transition.signature) == _accountInfo.account,
-            "Withdraw signature is invalid!"
+            "Withdraw signature is invalid"
         );
 
         require(_accountInfo.accountId == _transition.accountId, "account id not match");
@@ -202,7 +202,7 @@ contract TransitionEvaluator {
         bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
         require(
             ECDSA.recover(prefixedHash, _transition.signature) == _accountInfo.account,
-            "Commit signature is invalid!"
+            "Commit signature is invalid"
         );
 
         uint256 newStToken;
@@ -256,7 +256,7 @@ contract TransitionEvaluator {
         bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(txHash);
         require(
             ECDSA.recover(prefixedHash, _transition.signature) == _accountInfo.account,
-            "Uncommit signature is invalid!"
+            "Uncommit signature is invalid"
         );
 
         uint256 newIdleAsset =

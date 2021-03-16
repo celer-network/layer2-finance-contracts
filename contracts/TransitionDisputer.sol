@@ -50,7 +50,7 @@ contract TransitionDisputer {
         // If not success something went wrong with the decoding...
         if (!ok) {
             // Prune the block if it has an incorrectly encoded transition!
-            revert("Failed to decode transition");
+            return;
         }
 
         /********* #3: VERIFY_TRANSITION_ACCOUNT_INDEX *********/
@@ -103,7 +103,7 @@ contract TransitionDisputer {
 
         // Check if it was successful. If not, we've got to prune.
         if (!ok) {
-            revert("Failed to evaluate transition");
+            return;
         }
 
         // It was successful so let's decode the outputs to get the new leaf nodes we'll have to insert
@@ -116,10 +116,11 @@ contract TransitionDisputer {
         /********* #8: DETERMINE_FRAUD *********/
         if (!ok) {
             // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
-            revert("Failed to verify state roots");
+            return;
         }
 
         // Woah! Looks like there's no fraud!
+        revert("No fraud detected");
     }
 
     function getStateRootsAndIds(bytes memory _preStateTransition, bytes memory _invalidTransition)
@@ -148,7 +149,7 @@ contract TransitionDisputer {
         );
 
         // Make sure the call was successful
-        require(success, "If the preStateRoot is invalid, then prove that invalid instead!");
+        require(success, "If the preStateRoot is invalid, then prove that invalid instead");
         (preStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
 
         // Now that we have the prestateRoot, let's decode the postState
