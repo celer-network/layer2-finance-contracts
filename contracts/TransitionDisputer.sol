@@ -39,6 +39,17 @@ contract TransitionDisputer {
         dt.Block memory _invalidTransitionBlock,
         Registry _registry
     ) public {
+        if (_invalidTransitionProof.blockId == 0 && _prevTransitionProof.transition.length == 0) {
+            disputeFirstTransition(
+                _invalidTransitionProof,
+                _accountProof,
+                _strategyProof,
+                _invalidTransitionBlock,
+                _registry
+            );
+            return;
+        }
+
         // ------ #1: verify sequential transitions
         // First verify that the transitions are sequential and in their respective block root hashes.
         verifySequentialTransitions(
@@ -140,6 +151,8 @@ contract TransitionDisputer {
 
     function disputeFirstTransition(
         dt.TransitionProof calldata _firstTransitionProof,
+        dt.AccountProof memory _accountProof,
+        dt.StrategyProof memory _strategyProof,
         dt.Block memory _block,
         Registry _registry
     ) public {

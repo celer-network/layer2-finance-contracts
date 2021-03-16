@@ -541,31 +541,18 @@ contract RollupChain is Ownable, Pausable {
 
         bool success;
         bytes memory returnData;
-
-        if (invalidTransitionBlockId == 0 && _prevTransitionProof.transition.length == 0) {
-            // dispute first transition of block zero
-            (success, returnData) = address(transitionDisputer).call(
-                abi.encodeWithSelector(
-                    transitionDisputer.disputeFirstTransition.selector,
-                    _invalidTransitionProof,
-                    invalidTransitionBlock,
-                    registry
-                )
-            );
-        } else {
-            (success, returnData) = address(transitionDisputer).call(
-                abi.encodeWithSelector(
-                    transitionDisputer.disputeTransition.selector,
-                    _prevTransitionProof,
-                    _invalidTransitionProof,
-                    _accountProof,
-                    _strategyProof,
-                    blocks[_prevTransitionProof.blockId],
-                    invalidTransitionBlock,
-                    registry
-                )
-            );
-        }
+        (success, returnData) = address(transitionDisputer).call(
+            abi.encodeWithSelector(
+                transitionDisputer.disputeTransition.selector,
+                _prevTransitionProof,
+                _invalidTransitionProof,
+                _accountProof,
+                _strategyProof,
+                blocks[_prevTransitionProof.blockId],
+                invalidTransitionBlock,
+                registry
+            )
+        );
         if (success) {
             revertBlock(invalidTransitionBlockId);
         } else {
