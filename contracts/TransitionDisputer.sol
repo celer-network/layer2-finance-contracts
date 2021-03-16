@@ -32,28 +32,43 @@ contract TransitionDisputer {
      */
     function disputeTransition(
         dt.TransitionProof calldata _prevTransitionProof,
-        dt.TransitionProof memory _invalidTransitionProof,
+        dt.TransitionProof calldata _invalidTransitionProof,
         dt.AccountProof memory _accountProof,
         dt.StrategyProof memory _strategyProof,
         dt.Block memory _firstBlock,
         dt.Block memory _secondBlock,
         Registry _registry
     ) public {
-        /********* #1: CHECK_SEQUENTIAL_TRANSITIONS *********/
+        // ------ #1: verify sequential transitions
         // First verify that the transitions are sequential and in their respective block root hashes.
         verifySequentialTransitions(_prevTransitionProof, _invalidTransitionProof, _firstBlock, _secondBlock);
 
-        /********* #2: DECODE_TRANSITIONS *********/
-        // Decode our transitions and determine the account and strategy IDs needed to validate the transition
-        (bool ok, bytes32 preStateRoot, bytes32 postStateRoot, uint32 accountId, uint32 strategyId) =
-            getStateRootsAndIds(_prevTransitionProof.transition, _invalidTransitionProof.transition);
-        // If not success something went wrong with the decoding...
+        // ------ #2: decode transitions to get post- and pre-StateRoot, and ids of account and strategy
+        bool ok;
+        bytes memory returnData;
+        (ok, returnData) = address(transitionEvaluator).call(
+            abi.encodeWithSelector(
+                transitionEvaluator.getTransitionStateRootAndAccessList.selector,
+                _prevTransitionProof.transition
+            )
+        );
+        require(ok, "If the preStateRoot is invalid, then prove that invalid instead!");
+        (bytes32 preStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
+
+        (ok, returnData) = address(transitionEvaluator).call(
+            abi.encodeWithSelector(
+                TransitionEvaluator.getTransitionStateRootAndAccessList.selector,
+                _invalidTransitionProof.transition
+            )
+        );
         if (!ok) {
             // Prune the block if it has an incorrectly encoded transition!
             revert("Failed to decode transition");
         }
+        (bytes32 postStateRoot, uint32 accountId, uint32 strategyId) =
+            abi.decode((returnData), (bytes32, uint32, uint32));
 
-        /********* #3: VERIFY_TRANSITION_ACCOUNT_INDEX *********/
+        // ------ #3: verify transition account and strategy indexes
         if (accountId > 0) {
             require(_accountProof.index == accountId, "Supplied account index is incorrect");
         }
@@ -61,15 +76,14 @@ contract TransitionDisputer {
             require(_strategyProof.index == strategyId, "Supplied strategy index is incorrect");
         }
 
-        /********* #4: CHECK_TWO_TREE_STATE_ROOTS *********/
-        // Verify that transition stateRoot == hash(accountStateRoot, strategyStateRoot).
+        // ------ #4: verify transition stateRoot == hash(accountStateRoot, strategyStateRoot)
         // The account and strategy stateRoots must always be given irrespective of what is being disputed.
         require(
             checkTwoTreeStateRoot(preStateRoot, _accountProof.stateRoot, _strategyProof.stateRoot),
             "Failed combined two-tree stateRoot verification check"
         );
 
-        /********* #5: ACCOUNT_AND_STRATEGY_INCLUSION_PROOFS *********/
+        // ------ #5: verify account and strategy inclusion
         if (accountId > 0) {
             verifyProofInclusion(
                 _accountProof.stateRoot,
@@ -87,9 +101,8 @@ contract TransitionDisputer {
             );
         }
 
-        /********* #6: EVALUATE_TRANSITION *********/
+        // ------ #6: evaluate transition
         // Apply the transaction and verify the state root after that.
-        bytes memory returnData;
         // Make the external call
         (ok, returnData) = address(transitionEvaluator).call(
             abi.encodeWithSelector(
@@ -109,58 +122,60 @@ contract TransitionDisputer {
         // It was successful so let's decode the outputs to get the new leaf nodes we'll have to insert
         bytes32[2] memory outputs = abi.decode((returnData), (bytes32[2]));
 
-        /********* #7: UPDATE_STATE_ROOT *********/
+        // ------ #7: verify post state root
         // Now we need to check if the combined new stateRoots of account and strategy Merkle trees is incorrect.
         ok = updateAndVerify(postStateRoot, outputs, _accountProof, _strategyProof);
 
-        /********* #8: DETERMINE_FRAUD *********/
+        // ------ #8: determine fraud
         if (!ok) {
             // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
             revert("Failed to verify state roots");
         }
-
-        // Woah! Looks like there's no fraud!
     }
 
-    function getStateRootsAndIds(bytes memory _preStateTransition, bytes memory _invalidTransition)
-        public
-        returns (
-            bool,
-            bytes32,
-            bytes32,
-            uint32,
-            uint32
-        )
-    {
-        bool success;
+    function disputeFirstTransition(
+        dt.TransitionProof calldata _firstTransitionProof,
+        dt.Block memory _block,
+        Registry _registry
+    ) public {
+        require(_firstTransitionProof.blockId == 0, "first transition blockId must be zero");
+        require(_firstTransitionProof.index == 0, "first transition index must be zero");
+        require(checkTransitionInclusion(_firstTransitionProof, _block), "transition must be included in its block");
+        bool ok;
         bytes memory returnData;
-        bytes32 preStateRoot;
-        bytes32 postStateRoot;
-        uint32 accountId;
-        uint32 strategyId;
-
-        // First decode the prestate root
-        (success, returnData) = address(transitionEvaluator).call(
+        (ok, returnData) = address(transitionEvaluator).call(
             abi.encodeWithSelector(
-                transitionEvaluator.getTransitionStateRootAndAccessList.selector,
-                _preStateTransition
+                TransitionEvaluator.getTransitionStateRootAndAccessList.selector,
+                _firstTransitionProof.transition
             )
         );
-
-        // Make sure the call was successful
-        require(success, "If the preStateRoot is invalid, then prove that invalid instead!");
-        (preStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
-
-        // Now that we have the prestateRoot, let's decode the postState
-        (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(TransitionEvaluator.getTransitionStateRootAndAccessList.selector, _invalidTransition)
-        );
-
-        // If the call was successful let's decode!
-        if (success) {
-            (postStateRoot, accountId, strategyId) = abi.decode((returnData), (bytes32, uint32, uint32));
+        if (!ok) {
+            // Prune the block if it has an incorrectly encoded transition!
+            revert("Failed to decode transition");
         }
-        return (success, preStateRoot, postStateRoot, accountId, strategyId);
+        (bytes32 postStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
+
+        dt.AccountInfo memory accountInfo;
+        dt.StrategyInfo memory strategyInfo;
+        (ok, returnData) = address(transitionEvaluator).call(
+            abi.encodeWithSelector(
+                transitionEvaluator.evaluateTransition.selector,
+                _firstTransitionProof.transition,
+                accountInfo,
+                strategyInfo,
+                _registry
+            )
+        );
+        if (!ok) {
+            revert("Failed to evaluate transition");
+        }
+
+        bytes32[2] memory outputs = abi.decode((returnData), (bytes32[2]));
+        require(outputs[1] == bytes32(0), "first transition should only create account");
+        require(
+            checkTwoTreeStateRoot(postStateRoot, outputs[0], bytes32(0)),
+            "Failed combined two-tree stateRoot verification check"
+        );
     }
 
     /**

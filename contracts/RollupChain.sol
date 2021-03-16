@@ -349,7 +349,6 @@ contract RollupChain is Ownable, Pausable {
             for (uint256 i = 0; i < numIntents; i++) {
                 intents[i] = keccak256(_transitions[intentIndexes[i]]);
             }
-
             intentHash = keccak256(abi.encodePacked(intents));
         }
 
@@ -539,18 +538,31 @@ contract RollupChain is Ownable, Pausable {
 
         bool success;
         bytes memory returnData;
-        (success, returnData) = address(transitionDisputer).call(
-            abi.encodeWithSelector(
-                transitionDisputer.disputeTransition.selector,
-                _prevTransitionProof,
-                _invalidTransitionProof,
-                _accountProof,
-                _strategyProof,
-                blocks[_prevTransitionProof.blockId],
-                secondBlock,
-                registry
-            )
-        );
+
+        if (_prevTransitionProof.transition.length == 0) {
+            // dispute first transition of block zero 
+            (success, returnData) = address(transitionDisputer).call(
+                abi.encodeWithSelector(
+                    transitionDisputer.disputeFirstTransition.selector,
+                    _invalidTransitionProof,
+                    secondBlock,
+                    registry
+                )
+            );
+        } else {
+            (success, returnData) = address(transitionDisputer).call(
+                abi.encodeWithSelector(
+                    transitionDisputer.disputeTransition.selector,
+                    _prevTransitionProof,
+                    _invalidTransitionProof,
+                    _accountProof,
+                    _strategyProof,
+                    blocks[_prevTransitionProof.blockId],
+                    secondBlock,
+                    registry
+                )
+            );
+        }
         if (success) {
             revertBlock(secondBlockId);
         } else {
