@@ -14,6 +14,7 @@ library Transitions {
     uint8 public constant TRANSITION_TYPE_UNCOMMIT = 4;
     uint8 public constant TRANSITION_TYPE_SYNC_COMMITMENT = 5;
     uint8 public constant TRANSITION_TYPE_SYNC_BALANCE = 6;
+    uint8 public constant TRANSITION_TYPE_INIT = 7;
 
     function extractTransitionType(bytes memory _bytes) internal pure returns (uint8) {
         uint8 transitionType;
@@ -146,6 +147,12 @@ library Transitions {
             abi.decode((_rawBytes), (uint8, bytes32, uint32, uint256));
         DataTypes.BalanceSyncTransition memory transition =
             DataTypes.BalanceSyncTransition(transitionType, stateRoot, strategyId, newAssetDelta);
+        return transition;
+    }
+
+    function decodeInitTransition(bytes memory _rawBytes) internal pure returns (DataTypes.InitTransition memory) {
+        (uint8 transitionType, bytes32 stateRoot) = abi.decode((_rawBytes), (uint8, bytes32));
+        DataTypes.InitTransition memory transition = DataTypes.InitTransition(transitionType, stateRoot);
         return transition;
     }
 }

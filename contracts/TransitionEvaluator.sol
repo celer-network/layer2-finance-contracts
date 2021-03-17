@@ -114,6 +114,9 @@ contract TransitionEvaluator {
             DataTypes.BalanceSyncTransition memory transition = Transitions.decodeBalanceSyncTransition(rawTransition);
             stateRoot = transition.stateRoot;
             strategyId = transition.strategyId;
+        } else if (transitionType == Transitions.TRANSITION_TYPE_INIT) {
+            DataTypes.InitTransition memory transition = Transitions.decodeInitTransition(rawTransition);
+            stateRoot = transition.stateRoot;
         } else {
             revert("Transition type not recognized!");
         }

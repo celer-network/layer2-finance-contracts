@@ -39,14 +39,8 @@ contract TransitionDisputer {
         dt.Block memory _invalidTransitionBlock,
         Registry _registry
     ) public {
-        if (_invalidTransitionProof.blockId == 0 && _prevTransitionProof.transition.length == 0) {
-            disputeFirstTransition(
-                _invalidTransitionProof,
-                _accountProof,
-                _strategyProof,
-                _invalidTransitionBlock,
-                _registry
-            );
+        if (_invalidTransitionProof.blockId == 0 && _invalidTransitionProof.index == 0) {
+            disputeInitTransition(_invalidTransitionProof, _invalidTransitionBlock);
             return;
         }
 
@@ -149,16 +143,13 @@ contract TransitionDisputer {
         }
     }
 
-    function disputeFirstTransition(
-        dt.TransitionProof calldata _firstTransitionProof,
-        dt.AccountProof memory _accountProof,
-        dt.StrategyProof memory _strategyProof,
-        dt.Block memory _block,
-        Registry _registry
-    ) public {
-        require(_firstTransitionProof.blockId == 0, "first transition blockId must be zero");
-        require(_firstTransitionProof.index == 0, "first transition index must be zero");
-        require(checkTransitionInclusion(_firstTransitionProof, _block), "transition must be included in its block");
+    function disputeInitTransition(dt.TransitionProof calldata _initTransitionProof, dt.Block memory _firstBlock)
+        private
+    {
+        require(
+            checkTransitionInclusion(_firstTransitionProof, _firstBlock),
+            "init transition must be included in first block"
+        );
         bool ok;
         bytes memory returnData;
         (ok, returnData) = address(transitionEvaluator).call(
@@ -173,27 +164,7 @@ contract TransitionDisputer {
         }
         (bytes32 postStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
 
-        dt.AccountInfo memory accountInfo;
-        dt.StrategyInfo memory strategyInfo;
-        (ok, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(
-                transitionEvaluator.evaluateTransition.selector,
-                _firstTransitionProof.transition,
-                accountInfo,
-                strategyInfo,
-                _registry
-            )
-        );
-        if (!ok) {
-            revert("Failed to evaluate transition");
-        }
-
-        bytes32[2] memory outputs = abi.decode((returnData), (bytes32[2]));
-        require(outputs[1] == bytes32(0), "first transition should only create account");
-        require(
-            checkTwoTreeStateRoot(postStateRoot, outputs[0], bytes32(0)),
-            "Failed combined two-tree stateRoot verification check"
-        );
+        // TODO: reequire postStateRoot == initHash
     }
 
     /**
