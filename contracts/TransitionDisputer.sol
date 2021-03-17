@@ -72,8 +72,7 @@ contract TransitionDisputer {
             )
         );
         if (!ok) {
-            // Prune the block if it has an incorrectly encoded transition!
-            revert("Failed to decode transition");
+            return;
         }
         (bytes32 postStateRoot, uint32 accountId, uint32 strategyId) =
             abi.decode((returnData), (bytes32, uint32, uint32));
@@ -126,7 +125,7 @@ contract TransitionDisputer {
 
         // Check if it was successful. If not, we've got to prune.
         if (!ok) {
-            revert("Failed to evaluate transition");
+            return;
         }
 
         // It was successful so let's decode the outputs to get the new leaf nodes we'll have to insert
@@ -139,15 +138,18 @@ contract TransitionDisputer {
         // ------ #8: determine fraud
         if (!ok) {
             // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
-            revert("Failed to verify state roots");
+            return;
         }
+
+        // Woah! Looks like there's no fraud!
+        revert("No fraud detected");
     }
 
     function disputeInitTransition(dt.TransitionProof calldata _initTransitionProof, dt.Block memory _firstBlock)
         private
     {
         require(
-            checkTransitionInclusion(_firstTransitionProof, _firstBlock),
+            checkTransitionInclusion(_initTransitionProof, _firstBlock),
             "init transition must be included in first block"
         );
         bool ok;
@@ -155,13 +157,9 @@ contract TransitionDisputer {
         (ok, returnData) = address(transitionEvaluator).call(
             abi.encodeWithSelector(
                 TransitionEvaluator.getTransitionStateRootAndAccessList.selector,
-                _firstTransitionProof.transition
+                _initTransitionProof.transition
             )
         );
-        if (!ok) {
-            // Prune the block if it has an incorrectly encoded transition!
-            revert("Failed to decode transition");
-        }
         (bytes32 postStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
 
         // TODO: reequire postStateRoot == initHash

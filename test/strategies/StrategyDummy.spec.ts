@@ -38,7 +38,7 @@ describe('StrategyDummy', function () {
       strategyDummy.address,
       ethers.utils.parseEther('1')
     );
-    expect(await strategyDummy.updateBalance()).to.not.throw;
+    await strategyDummy.updateBalance();
     expect(await strategyDummy.getBalance()).to.equal(
       ethers.utils.parseEther('1')
     );
@@ -50,7 +50,7 @@ describe('StrategyDummy', function () {
       strategyDummy.address,
       ethers.utils.parseEther('2')
     );
-    expect(await strategyDummy.aggregateCommit(ethers.utils.parseEther('1'))).to.not.throw;
+    await strategyDummy.aggregateCommit(ethers.utils.parseEther('1'));
     await strategyDummy.updateBalance();
     expect(await strategyDummy.getBalance()).to.equal(
       ethers.utils.parseEther('2')
@@ -63,8 +63,9 @@ describe('StrategyDummy', function () {
       strategyDummy.address,
       ethers.utils.parseEther('4')
     );
-    expect(await strategyDummy.aggregateCommit(ethers.utils.parseEther('3'))).to.not.throw;
-    expect(await strategyDummy.aggregateUncommit(ethers.utils.parseEther('1'))).to.not.throw;
+    expect(await strategyDummy.aggregateCommit(ethers.utils.parseEther('3'))).to
+      .not.throw;
+    await strategyDummy.aggregateUncommit(ethers.utils.parseEther('1'));
     await strategyDummy.updateBalance();
     expect(await strategyDummy.getBalance()).to.equal(
       ethers.utils.parseEther('3')

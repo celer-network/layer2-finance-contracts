@@ -177,7 +177,6 @@ library MerkleTree {
             } else {
                 computedRoot = keccak256(abi.encodePacked(computedRoot, _siblings[i]));
             }
-
             _index >>= 1;
         }
 

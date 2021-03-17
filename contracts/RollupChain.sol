@@ -158,6 +158,17 @@ contract RollupChain is Ownable, Pausable {
     }
 
     /**
+     * @notice Owner drains ETH when the contract is paused
+     * @dev This is for emergency situations.
+     *
+     * @param _amount drained ETH amount
+     */
+    function drainETH(uint256 _amount) external whenPaused onlyOwner {
+        (bool sent, ) = msg.sender.call{value: _amount}("");
+        require(sent, "Failed to drain ETH");
+    }
+
+    /**
      * @dev Called by the owner to set blockChallengePeriod
      */
     function setBlockChallengePeriod(uint256 _blockChallengePeriod) external onlyOwner {
@@ -553,10 +564,11 @@ contract RollupChain is Ownable, Pausable {
                 registry
             )
         );
+
         if (success) {
             revertBlock(invalidTransitionBlockId);
         } else {
-            revert("No fraud detected!");
+            revert("Failed to dispute");
         }
     }
 

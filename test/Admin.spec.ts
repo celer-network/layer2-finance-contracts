@@ -1,4 +1,5 @@
 import { expect } from 'chai';
+import { ethers } from 'hardhat';
 
 import { Wallet } from '@ethersproject/wallet';
 
@@ -42,10 +43,41 @@ describe('Admin', function () {
   });
 
   it('should drainToken successfully when paused', async function () {
-    const { rollupChain, testERC20 } = await loadFixture(fixture);
+    const { admin, rollupChain, testERC20 } = await loadFixture(fixture);
     const tokenAddress = testERC20.address;
     await rollupChain.deposit(tokenAddress, 10);
     await rollupChain.pause();
-    await rollupChain.drainToken(tokenAddress, 10);
+
+    const balanceBefore = await testERC20.balanceOf(admin.address);
+    expect(await rollupChain.drainToken(tokenAddress, 10)).to.not.throw;
+    const balanceAfter = await testERC20.balanceOf(admin.address);
+    expect(balanceAfter.sub(balanceBefore)).to.equal(10);
+  });
+
+  it('should fail to drain ETH when not paused', async function () {
+    const { admin, rollupChain } = await loadFixture(fixture);
+    await admin.sendTransaction({
+      to: rollupChain.address,
+      value: ethers.utils.parseEther('1.0')
+    });
+    await expect(rollupChain.drainETH(10)).to.be.revertedWith(
+      'Pausable: not paused'
+    );
+  });
+
+  it('should drain ETH successfully when paused', async function () {
+    const { admin, rollupChain } = await loadFixture(fixture);
+    await admin.sendTransaction({
+      to: rollupChain.address,
+      value: ethers.utils.parseEther('1.0')
+    });
+    await rollupChain.pause();
+
+    const balanceBefore = await ethers.provider.getBalance(admin.address);
+    const drainTx = await rollupChain.drainETH(10);
+    expect(drainTx).to.not.throw;
+    const gasSpent = (await drainTx.wait()).gasUsed.mul(drainTx.gasPrice);
+    const balanceAfter = await ethers.provider.getBalance(admin.address);
+    expect(balanceAfter.sub(balanceBefore).add(gasSpent)).to.equal(10);
   });
 });
