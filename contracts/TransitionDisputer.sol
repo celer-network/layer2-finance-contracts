@@ -185,7 +185,7 @@ contract TransitionDisputer {
             return true; // transition is invalid
         }
         (bytes32 postStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
-        // Rransition is invalid if stateRoot not match the expected init root
+        // Transition is invalid if stateRoot not match the expected init root
         // It's OK that other fields of the transition are incorrect.
         // TODO: change bytes32(0) to hash of two empty tree state roots
         return postStateRoot != bytes32(0);
