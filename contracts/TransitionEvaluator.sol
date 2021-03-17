@@ -209,7 +209,7 @@ contract TransitionEvaluator {
         );
 
         uint256 newStToken;
-        if (_strategyInfo.assetBalance == 0 || _strategyInfo.stTokenSupply ==0) {
+        if (_strategyInfo.assetBalance == 0 || _strategyInfo.stTokenSupply == 0) {
             require(_strategyInfo.stTokenSupply == 0, "empty strategy stTokenSupply must be zero");
             require(_strategyInfo.pendingCommitAmount == 0, "empty strategy pendingCommitAmount must be zero");
             if (_strategyInfo.assetId == 0) {
