@@ -54,28 +54,13 @@ contract TransitionDisputer {
         );
 
         // ------ #2: decode transitions to get post- and pre-StateRoot, and ids of account and strategy
-        bool ok;
-        bytes memory returnData;
-        (ok, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(
-                transitionEvaluator.getTransitionStateRootAndAccessList.selector,
-                _prevTransitionProof.transition
-            )
-        );
-        require(ok, "If the preStateRoot is invalid, then prove that invalid instead!");
-        (bytes32 preStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
-
-        (ok, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(
-                TransitionEvaluator.getTransitionStateRootAndAccessList.selector,
-                _invalidTransitionProof.transition
-            )
-        );
+        (bool ok, bytes32 preStateRoot, bytes32 postStateRoot, uint32 accountId, uint32 strategyId) =
+            getStateRootsAndIds(_prevTransitionProof.transition, _invalidTransitionProof.transition);
+        // If not success something went wrong with the decoding...
         if (!ok) {
+            // Prune the block if it has an incorrectly encoded transition!
             return;
         }
-        (bytes32 postStateRoot, uint32 accountId, uint32 strategyId) =
-            abi.decode((returnData), (bytes32, uint32, uint32));
 
         // ------ #3: verify transition account and strategy indexes
         if (accountId > 0) {
@@ -112,6 +97,7 @@ contract TransitionDisputer {
 
         // ------ #6: evaluate transition
         // Apply the transaction and verify the state root after that.
+        bytes memory returnData;
         // Make the external call
         (ok, returnData) = address(transitionEvaluator).call(
             abi.encodeWithSelector(
@@ -143,6 +129,47 @@ contract TransitionDisputer {
 
         // Woah! Looks like there's no fraud!
         revert("No fraud detected");
+    }
+
+    function getStateRootsAndIds(bytes memory _preStateTransition, bytes memory _invalidTransition)
+        public
+        returns (
+            bool,
+            bytes32,
+            bytes32,
+            uint32,
+            uint32
+        )
+    {
+        bool success;
+        bytes memory returnData;
+        bytes32 preStateRoot;
+        bytes32 postStateRoot;
+        uint32 accountId;
+        uint32 strategyId;
+
+        // First decode the prestate root
+        (success, returnData) = address(transitionEvaluator).call(
+            abi.encodeWithSelector(
+                transitionEvaluator.getTransitionStateRootAndAccessList.selector,
+                _preStateTransition
+            )
+        );
+
+        // Make sure the call was successful
+        require(success, "If the preStateRoot is invalid, then prove that invalid instead");
+        (preStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
+
+        // Now that we have the prestateRoot, let's decode the postState
+        (success, returnData) = address(transitionEvaluator).call(
+            abi.encodeWithSelector(TransitionEvaluator.getTransitionStateRootAndAccessList.selector, _invalidTransition)
+        );
+
+        // If the call was successful let's decode!
+        if (success) {
+            (postStateRoot, accountId, strategyId) = abi.decode((returnData), (bytes32, uint32, uint32));
+        }
+        return (success, preStateRoot, postStateRoot, accountId, strategyId);
     }
 
     function disputeInitTransition(dt.TransitionProof calldata _initTransitionProof, dt.Block memory _firstBlock)
