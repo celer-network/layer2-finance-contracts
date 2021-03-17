@@ -151,7 +151,7 @@ library MerkleTree {
         bytes32 _leaf,
         uint256 _index,
         bytes32[] memory _siblings
-    ) internal view returns (bool) {
+    ) internal pure returns (bool) {
         return (_root == computeRoot(_leaf, _index, _siblings));
     }
 
@@ -168,7 +168,7 @@ library MerkleTree {
         bytes32 _leaf,
         uint256 _index,
         bytes32[] memory _siblings
-    ) internal view returns (bytes32) {
+    ) internal pure returns (bytes32) {
         bytes32 computedRoot = _leaf;
 
         for (uint256 i = 0; i < _siblings.length; i++) {
@@ -177,7 +177,6 @@ library MerkleTree {
             } else {
                 computedRoot = keccak256(abi.encodePacked(computedRoot, _siblings[i]));
             }
-
             _index >>= 1;
         }
 
