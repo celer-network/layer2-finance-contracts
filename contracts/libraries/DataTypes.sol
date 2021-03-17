@@ -10,6 +10,11 @@ library DataTypes {
         uint128 blockSize; // number of transitions in the block
     }
 
+    struct InitTransition {
+        uint8 transitionType;
+        bytes32 stateRoot;
+    }
+
     struct DepositTransition {
         uint8 transitionType;
         bytes32 stateRoot;

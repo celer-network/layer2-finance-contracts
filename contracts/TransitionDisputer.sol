@@ -26,25 +26,34 @@ contract TransitionDisputer {
      * @param _invalidTransitionProof The inclusion proof of the fraudulent transition.
      * @param _accountProof The inclusion proof of the account involved.
      * @param _strategyProof The inclusion proof of the strategy involved.
-     * @param _firstBlock The block containing the previous transition.
-     * @param _secondBlock The block containing the fraudulent transition.
+     * @param _prevTransitionBlock The block containing the previous transition.
+     * @param _invalidTransitionBlock The block containing the fraudulent transition.
      * @param _registry The address of the Registry contract.
      */
     function disputeTransition(
         dt.TransitionProof calldata _prevTransitionProof,
-        dt.TransitionProof memory _invalidTransitionProof,
+        dt.TransitionProof calldata _invalidTransitionProof,
         dt.AccountProof memory _accountProof,
         dt.StrategyProof memory _strategyProof,
-        dt.Block memory _firstBlock,
-        dt.Block memory _secondBlock,
+        dt.Block memory _prevTransitionBlock,
+        dt.Block memory _invalidTransitionBlock,
         Registry _registry
     ) public {
-        /********* #1: CHECK_SEQUENTIAL_TRANSITIONS *********/
-        // First verify that the transitions are sequential and in their respective block root hashes.
-        verifySequentialTransitions(_prevTransitionProof, _invalidTransitionProof, _firstBlock, _secondBlock);
+        if (_invalidTransitionProof.blockId == 0 && _invalidTransitionProof.index == 0) {
+            require(invalidInitTransition(_invalidTransitionProof, _invalidTransitionBlock), "no fraud detected");
+            return;
+        }
 
-        /********* #2: DECODE_TRANSITIONS *********/
-        // Decode our transitions and determine the account and strategy IDs needed to validate the transition
+        // ------ #1: verify sequential transitions
+        // First verify that the transitions are sequential and in their respective block root hashes.
+        verifySequentialTransitions(
+            _prevTransitionProof,
+            _invalidTransitionProof,
+            _prevTransitionBlock,
+            _invalidTransitionBlock
+        );
+
+        // ------ #2: decode transitions to get post- and pre-StateRoot, and ids of account and strategy
         (bool ok, bytes32 preStateRoot, bytes32 postStateRoot, uint32 accountId, uint32 strategyId) =
             getStateRootsAndIds(_prevTransitionProof.transition, _invalidTransitionProof.transition);
         // If not success something went wrong with the decoding...
@@ -53,7 +62,7 @@ contract TransitionDisputer {
             return;
         }
 
-        /********* #3: VERIFY_TRANSITION_ACCOUNT_INDEX *********/
+        // ------ #3: verify transition account and strategy indexes
         if (accountId > 0) {
             require(_accountProof.index == accountId, "Supplied account index is incorrect");
         }
@@ -61,15 +70,14 @@ contract TransitionDisputer {
             require(_strategyProof.index == strategyId, "Supplied strategy index is incorrect");
         }
 
-        /********* #4: CHECK_TWO_TREE_STATE_ROOTS *********/
-        // Verify that transition stateRoot == hash(accountStateRoot, strategyStateRoot).
+        // ------ #4: verify transition stateRoot == hash(accountStateRoot, strategyStateRoot)
         // The account and strategy stateRoots must always be given irrespective of what is being disputed.
         require(
             checkTwoTreeStateRoot(preStateRoot, _accountProof.stateRoot, _strategyProof.stateRoot),
             "Failed combined two-tree stateRoot verification check"
         );
 
-        /********* #5: ACCOUNT_AND_STRATEGY_INCLUSION_PROOFS *********/
+        // ------ #5: verify account and strategy inclusion
         if (accountId > 0) {
             verifyProofInclusion(
                 _accountProof.stateRoot,
@@ -87,7 +95,7 @@ contract TransitionDisputer {
             );
         }
 
-        /********* #6: EVALUATE_TRANSITION *********/
+        // ------ #6: evaluate transition
         // Apply the transaction and verify the state root after that.
         bytes memory returnData;
         // Make the external call
@@ -109,11 +117,11 @@ contract TransitionDisputer {
         // It was successful so let's decode the outputs to get the new leaf nodes we'll have to insert
         bytes32[2] memory outputs = abi.decode((returnData), (bytes32[2]));
 
-        /********* #7: UPDATE_STATE_ROOT *********/
+        // ------ #7: verify post state root
         // Now we need to check if the combined new stateRoots of account and strategy Merkle trees is incorrect.
         ok = updateAndVerify(postStateRoot, outputs, _accountProof, _strategyProof);
 
-        /********* #8: DETERMINE_FRAUD *********/
+        // ------ #8: determine fraud
         if (!ok) {
             // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
             return;
@@ -142,10 +150,7 @@ contract TransitionDisputer {
 
         // First decode the prestate root
         (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(
-                transitionEvaluator.getTransitionStateRootAndAccessList.selector,
-                _preStateTransition
-            )
+            abi.encodeWithSelector(transitionEvaluator.getTransitionStateRootAndAccessIds.selector, _preStateTransition)
         );
 
         // Make sure the call was successful
@@ -154,7 +159,7 @@ contract TransitionDisputer {
 
         // Now that we have the prestateRoot, let's decode the postState
         (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(TransitionEvaluator.getTransitionStateRootAndAccessList.selector, _invalidTransition)
+            abi.encodeWithSelector(TransitionEvaluator.getTransitionStateRootAndAccessIds.selector, _invalidTransition)
         );
 
         // If the call was successful let's decode!
@@ -162,6 +167,28 @@ contract TransitionDisputer {
             (postStateRoot, accountId, strategyId) = abi.decode((returnData), (bytes32, uint32, uint32));
         }
         return (success, preStateRoot, postStateRoot, accountId, strategyId);
+    }
+
+    function invalidInitTransition(dt.TransitionProof calldata _initTransitionProof, dt.Block memory _firstBlock)
+        private
+        returns (bool)
+    {
+        require(checkTransitionInclusion(_initTransitionProof, _firstBlock), "transition not included in block");
+        (bool success, bytes memory returnData) =
+            address(transitionEvaluator).call(
+                abi.encodeWithSelector(
+                    TransitionEvaluator.getTransitionStateRootAndAccessIds.selector,
+                    _initTransitionProof.transition
+                )
+            );
+        if (!success) {
+            return true; // transition is invalid
+        }
+        (bytes32 postStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
+        // Transition is invalid if stateRoot not match the expected init root
+        // It's OK that other fields of the transition are incorrect.
+        // TODO: change bytes32(0) to hash of two empty tree state roots
+        return postStateRoot != bytes32(0);
     }
 
     /**
@@ -223,29 +250,29 @@ contract TransitionDisputer {
     function verifySequentialTransitions(
         dt.TransitionProof memory _tp0,
         dt.TransitionProof memory _tp1,
-        dt.Block memory _firstBlock,
-        dt.Block memory _secondBlock
-    ) private view returns (bool) {
+        dt.Block memory _prevTransitionBlock,
+        dt.Block memory _invalidTransitionBlock
+    ) private pure returns (bool) {
         // Start by checking if they are in the same block
         if (_tp0.blockId == _tp1.blockId) {
             // If the blocknumber is the same, check that tp0 preceeds tp1
             require(_tp0.index + 1 == _tp1.index, "Transitions must be sequential");
-            require(_tp1.index < _secondBlock.blockSize, "_tp1 outside block range");
+            require(_tp1.index < _invalidTransitionBlock.blockSize, "_tp1 outside block range");
         } else {
             // If not in the same block, check that:
             // 0) the blocks are one after another
             require(_tp0.blockId + 1 == _tp1.blockId, "Blocks must be sequential or equal");
 
             // 1) the index of tp0 is the last in its block
-            require(_tp0.index == _firstBlock.blockSize - 1, "_tp0 must be last in its block");
+            require(_tp0.index == _prevTransitionBlock.blockSize - 1, "_tp0 must be last in its block");
 
             // 2) the index of tp1 is the first in its block
             require(_tp1.index == 0, "_tp1 must be first in its block");
         }
 
         // Verify inclusion
-        require(checkTransitionInclusion(_tp0, _firstBlock), "_tp0 must be included in its block");
-        require(checkTransitionInclusion(_tp1, _secondBlock), "_tp1 must be included in its block");
+        require(checkTransitionInclusion(_tp0, _prevTransitionBlock), "_tp0 must be included in its block");
+        require(checkTransitionInclusion(_tp1, _invalidTransitionBlock), "_tp1 must be included in its block");
 
         return true;
     }
@@ -255,7 +282,7 @@ contract TransitionDisputer {
      */
     function checkTransitionInclusion(dt.TransitionProof memory _tp, dt.Block memory _block)
         private
-        view
+        pure
         returns (bool)
     {
         bytes32 rootHash = _block.rootHash;
@@ -283,7 +310,7 @@ contract TransitionDisputer {
         bytes32 _leafHash,
         uint32 _index,
         bytes32[] memory _siblings
-    ) private view {
+    ) private pure {
         bool ok = MerkleTree.verify(_stateRoot, _leafHash, _index, _siblings);
         require(ok, "Failed proof inclusion verification check");
     }
@@ -296,7 +323,7 @@ contract TransitionDisputer {
         bytes32[2] memory _leafHashes,
         dt.AccountProof memory _accountProof,
         dt.StrategyProof memory _strategyProof
-    ) private view returns (bool) {
+    ) private pure returns (bool) {
         if (_leafHashes[0] == bytes32(0) && _leafHashes[1] == bytes32(0)) {
             return false;
         }

@@ -360,7 +360,6 @@ contract RollupChain is Ownable, Pausable {
             for (uint256 i = 0; i < numIntents; i++) {
                 intents[i] = keccak256(_transitions[intentIndexes[i]]);
             }
-
             intentHash = keccak256(abi.encodePacked(intents));
         }
 
@@ -544,9 +543,12 @@ contract RollupChain is Ownable, Pausable {
         dt.AccountProof memory _accountProof,
         dt.StrategyProof memory _strategyProof
     ) public {
-        uint256 secondBlockId = _invalidTransitionProof.blockId;
-        dt.Block memory secondBlock = blocks[secondBlockId];
-        require(secondBlock.blockTime + blockChallengePeriod > block.number, "Block challenge period is over");
+        uint256 invalidTransitionBlockId = _invalidTransitionProof.blockId;
+        dt.Block memory invalidTransitionBlock = blocks[invalidTransitionBlockId];
+        require(
+            invalidTransitionBlock.blockTime + blockChallengePeriod > block.number,
+            "Block challenge period is over"
+        );
 
         bool success;
         bytes memory returnData;
@@ -558,13 +560,13 @@ contract RollupChain is Ownable, Pausable {
                 _accountProof,
                 _strategyProof,
                 blocks[_prevTransitionProof.blockId],
-                secondBlock,
+                invalidTransitionBlock,
                 registry
             )
         );
 
         if (success) {
-            revertBlock(secondBlockId);
+            revertBlock(invalidTransitionBlockId);
         } else {
             revert("Failed to dispute");
         }
