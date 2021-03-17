@@ -71,7 +71,7 @@ contract TransitionEvaluator {
     /**
      * Return the access list for this transition.
      */
-    function getTransitionStateRootAndAccessList(bytes calldata _rawTransition)
+    function getTransitionStateRootAndAccessIds(bytes calldata _rawTransition)
         external
         pure
         returns (

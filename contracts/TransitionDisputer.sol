@@ -40,7 +40,7 @@ contract TransitionDisputer {
         Registry _registry
     ) public {
         if (_invalidTransitionProof.blockId == 0 && _invalidTransitionProof.index == 0) {
-            disputeInitTransition(_invalidTransitionProof, _invalidTransitionBlock);
+            require(invalidInitTransition(_invalidTransitionProof, _invalidTransitionBlock), "no fraud detected");
             return;
         }
 
@@ -150,10 +150,7 @@ contract TransitionDisputer {
 
         // First decode the prestate root
         (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(
-                transitionEvaluator.getTransitionStateRootAndAccessList.selector,
-                _preStateTransition
-            )
+            abi.encodeWithSelector(transitionEvaluator.getTransitionStateRootAndAccessIds.selector, _preStateTransition)
         );
 
         // Make sure the call was successful
@@ -162,7 +159,7 @@ contract TransitionDisputer {
 
         // Now that we have the prestateRoot, let's decode the postState
         (success, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(TransitionEvaluator.getTransitionStateRootAndAccessList.selector, _invalidTransition)
+            abi.encodeWithSelector(TransitionEvaluator.getTransitionStateRootAndAccessIds.selector, _invalidTransition)
         );
 
         // If the call was successful let's decode!
@@ -172,24 +169,26 @@ contract TransitionDisputer {
         return (success, preStateRoot, postStateRoot, accountId, strategyId);
     }
 
-    function disputeInitTransition(dt.TransitionProof calldata _initTransitionProof, dt.Block memory _firstBlock)
+    function invalidInitTransition(dt.TransitionProof calldata _initTransitionProof, dt.Block memory _firstBlock)
         private
+        returns (bool)
     {
-        require(
-            checkTransitionInclusion(_initTransitionProof, _firstBlock),
-            "init transition must be included in first block"
-        );
-        bool ok;
-        bytes memory returnData;
-        (ok, returnData) = address(transitionEvaluator).call(
-            abi.encodeWithSelector(
-                TransitionEvaluator.getTransitionStateRootAndAccessList.selector,
-                _initTransitionProof.transition
-            )
-        );
+        require(checkTransitionInclusion(_initTransitionProof, _firstBlock), "transition not included in block");
+        (bool success, bytes memory returnData) =
+            address(transitionEvaluator).call(
+                abi.encodeWithSelector(
+                    TransitionEvaluator.getTransitionStateRootAndAccessIds.selector,
+                    _initTransitionProof.transition
+                )
+            );
+        if (!success) {
+            return true; // transition is invalid
+        }
         (bytes32 postStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
-
-        // TODO: reequire postStateRoot == initHash
+        // Rransition is invalid if stateRoot not match the expected init root
+        // It's OK that other fields of the transition are incorrect.
+        // TODO: change bytes32(0) to hash of two empty tree state roots
+        return postStateRoot != bytes32(0);
     }
 
     /**
