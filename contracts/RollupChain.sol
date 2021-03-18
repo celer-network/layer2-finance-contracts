@@ -80,7 +80,7 @@ contract RollupChain is Ownable, Pausable {
     enum PendingBalanceSyncStatus {Pending, Done}
     struct PendingBalanceSync {
         uint32 strategyId;
-        uint256 delta;
+        int256 delta;
         uint256 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
         PendingBalanceSyncStatus status;
     }
@@ -106,7 +106,7 @@ contract RollupChain is Ownable, Pausable {
     event RollupBlockCommitted(uint256 blockId);
     event RollupBlockExecuted(uint256 blockId);
     event RollupBlockReverted(uint256 blockId);
-    event BalanceSync(uint32 strategyId, uint256 delta, uint256 syncId);
+    event BalanceSync(uint32 strategyId, int256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
 
@@ -456,7 +456,13 @@ contract RollupChain is Ownable, Pausable {
         require(stAddr != address(0), "Unknown strategy ID");
 
         uint256 newBalance = IStrategy(stAddr).getBalance();
-        uint256 delta = newBalance.sub(strategyAssetBalances[_strategyId]);
+        uint256 oldBalance = strategyAssetBalances[_strategyId];
+        int256 delta;
+        if (newBalance >= oldBalance) {
+            delta = int256(newBalance.sub(oldBalance));
+        } else {
+            delta = -int256(oldBalance.sub(newBalance));
+        }
         strategyAssetBalances[_strategyId] = newBalance;
 
         // Add a pending balance sync record.

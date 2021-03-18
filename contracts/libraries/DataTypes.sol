@@ -59,7 +59,7 @@ library DataTypes {
         uint8 transitionType;
         bytes32 stateRoot;
         uint32 strategyId;
-        uint256 newAssetDelta;
+        int256 newAssetDelta;
     }
 
     struct CommitmentSyncTransition {
