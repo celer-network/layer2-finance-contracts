@@ -35,8 +35,13 @@ describe('Dispute', function () {
     });
     await testERC20.transfer(user.address, ethers.utils.parseEther('10000'));
 
+    const disputeSuccessData =
+      DISPUTE_METHOD_SIG +
+      fs.readFileSync('test/data/dispute_success.txt').toString().trim();
+
     return {
       admin,
+      disputeSuccessData,
       registry,
       rollupChain,
       strategyDummy,
@@ -46,7 +51,13 @@ describe('Dispute', function () {
   }
 
   it('should dispute successfully', async function () {
-    const { admin, rollupChain, testERC20, user } = await loadFixture(fixture);
+    const {
+      admin,
+      disputeSuccessData,
+      rollupChain,
+      testERC20,
+      user
+    } = await loadFixture(fixture);
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
     await testERC20
@@ -65,14 +76,10 @@ describe('Dispute', function () {
     ];
     await rollupChain.commitBlock(0, txs);
 
-    const disputeData =
-      DISPUTE_METHOD_SIG +
-      fs.readFileSync('test/data/dispute_success.txt').toString();
-
     await expect(
       admin.sendTransaction({
         to: rollupChain.address,
-        data: disputeData
+        data: disputeSuccessData
       })
     )
       .to.emit(rollupChain, 'RollupBlockReverted')
@@ -80,7 +87,13 @@ describe('Dispute', function () {
   });
 
   it('should fail to dispute past challenge period', async function () {
-    const { admin, rollupChain, testERC20, user } = await loadFixture(fixture);
+    const {
+      admin,
+      disputeSuccessData,
+      rollupChain,
+      testERC20,
+      user
+    } = await loadFixture(fixture);
 
     await rollupChain.setBlockChallengePeriod(0);
 
@@ -102,14 +115,10 @@ describe('Dispute', function () {
     ];
     await rollupChain.commitBlock(0, txs);
 
-    const disputeData =
-      DISPUTE_METHOD_SIG +
-      fs.readFileSync('test/data/dispute_success.txt').toString();
-
     await expect(
       admin.sendTransaction({
         to: rollupChain.address,
-        data: disputeData
+        data: disputeSuccessData
       })
     ).to.be.revertedWith('Block challenge period is over');
   });
