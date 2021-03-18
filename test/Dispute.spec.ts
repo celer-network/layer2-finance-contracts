@@ -35,13 +35,8 @@ describe('Dispute', function () {
     });
     await testERC20.transfer(user.address, ethers.utils.parseEther('10000'));
 
-    const disputeSuccessData =
-      DISPUTE_METHOD_SIG +
-      fs.readFileSync('test/data/dispute_success.txt').toString().trim();
-
     return {
       admin,
-      disputeSuccessData,
       registry,
       rollupChain,
       strategyDummy,
@@ -50,14 +45,17 @@ describe('Dispute', function () {
     };
   }
 
-  it('should dispute successfully', async function () {
+  it('should dispute successfully for invalid state root', async function () {
     const {
       admin,
-      disputeSuccessData,
       rollupChain,
       testERC20,
       user
     } = await loadFixture(fixture);
+    const disputeSuccessData =
+      DISPUTE_METHOD_SIG +
+      fs.readFileSync('test/dispute-data/deposit-invalid-root.txt').toString().trim();
+
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
     await testERC20
@@ -86,14 +84,55 @@ describe('Dispute', function () {
       .withArgs(0);
   });
 
-  it('should fail to dispute past challenge period', async function () {
+  it('should dispute successfully for commit transition with invalid amount', async function () {
     const {
       admin,
-      disputeSuccessData,
       rollupChain,
       testERC20,
       user
     } = await loadFixture(fixture);
+    const disputeSuccessData =
+      DISPUTE_METHOD_SIG +
+      fs.readFileSync('test/dispute-data/commit-invalid-amt.txt').toString().trim();
+
+    const tokenAddress = testERC20.address;
+    const depositAmount = ethers.utils.parseEther('1');
+    await testERC20
+      .connect(user)
+      .approve(rollupChain.address, depositAmount.mul(2));
+    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
+
+    const txs = [
+      // Deposit 1e18
+      '0x00000000000000000000000000000000000000000000000000000000000000019fb5a689aebc1bd3284518a480af0976f2c8d5048e32fd3c249352ab8af11b88000000000000000000000000c1699e89639adda8f39faefc0fc294ee5c3b462d000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a7640000',
+      // Commit 1e18
+      '0x000000000000000000000000000000000000000000000000000000000000000387e6eb5e4a8720b8cba0195e2ce5341d70a0df0ddbd81648897c954fd242bcf0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000417cfdd37eccf7b5f43a8cbefb375bc371756691d4fbe3031e0c0622d2118265e735e5acea6c6c07eedd0a825d23e56ce65f1c8ad88b8e3eface09efeb4d8188890000000000000000000000000000000000000000000000000000000000000000',
+      // Commit 1e18, invalid
+      '0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a764000000000000000000000000000000000000000000000000000000000000000000c800000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000415b6af1d3ad182b9325a8f2bf18b15ae4a8e6b20d16acd456ed9ac2e633fd1ecc0c4c65ba71d10e5b121625f85d051acfd4ab6fbf01d013157ed2907509091b220000000000000000000000000000000000000000000000000000000000000000'
+    ];
+    await rollupChain.commitBlock(0, txs);
+
+    await expect(
+      admin.sendTransaction({
+        to: rollupChain.address,
+        data: disputeSuccessData
+      })
+    )
+      .to.emit(rollupChain, 'RollupBlockReverted')
+      .withArgs(0);
+  });
+  
+  it('should fail to dispute past challenge period', async function () {
+    const {
+      admin,
+      rollupChain,
+      testERC20,
+      user
+    } = await loadFixture(fixture);
+    const disputeSuccessData =
+      DISPUTE_METHOD_SIG +
+      fs.readFileSync('test/dispute-data/deposit-invalid-root.txt').toString().trim();
 
     await rollupChain.setBlockChallengePeriod(0);
 
