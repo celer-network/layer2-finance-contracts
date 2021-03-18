@@ -310,7 +310,13 @@ contract TransitionEvaluator {
         DataTypes.BalanceSyncTransition memory _transition,
         DataTypes.StrategyInfo memory _strategyInfo
     ) internal pure returns (DataTypes.StrategyInfo memory) {
-        _strategyInfo.assetBalance = _strategyInfo.assetBalance.add(_transition.newAssetDelta);
+        if (_transition.newAssetDelta >= 0) {
+            uint256 delta = uint256(_transition.newAssetDelta);
+            _strategyInfo.assetBalance = _strategyInfo.assetBalance.add(delta);
+        } else {
+            uint256 delta = uint256(-_transition.newAssetDelta);
+            _strategyInfo.assetBalance = _strategyInfo.assetBalance.sub(delta);
+        }
         return _strategyInfo;
     }
 
