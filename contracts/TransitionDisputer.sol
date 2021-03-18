@@ -11,6 +11,9 @@ import "./TransitionEvaluator.sol";
 import "./Registry.sol";
 
 contract TransitionDisputer {
+    bytes32 public constant INIT_TRANSITION_STATE_ROOT =
+        bytes32(0xcf277fb80a82478460e8988570b718f1e083ceb76f7e271a1a1497e5975f53ae);
+
     using SafeMath for uint256;
 
     TransitionEvaluator transitionEvaluator;
@@ -185,10 +188,10 @@ contract TransitionDisputer {
             return true; // transition is invalid
         }
         (bytes32 postStateRoot, , ) = abi.decode((returnData), (bytes32, uint32, uint32));
+
         // Transition is invalid if stateRoot not match the expected init root
         // It's OK that other fields of the transition are incorrect.
-        // TODO: change bytes32(0) to hash of two empty tree state roots
-        return postStateRoot != bytes32(0);
+        return postStateRoot != INIT_TRANSITION_STATE_ROOT;
     }
 
     /**
