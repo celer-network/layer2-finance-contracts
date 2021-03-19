@@ -54,7 +54,7 @@ describe('Dispute', function () {
     } = await loadFixture(fixture);
     const disputeSuccessData =
       DISPUTE_METHOD_SIG +
-      fs.readFileSync('test/dispute-data/deposit-invalid-root.txt').toString().trim();
+      fs.readFileSync('test/dispute-data/deposit-root.txt').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -93,7 +93,7 @@ describe('Dispute', function () {
     } = await loadFixture(fixture);
     const disputeSuccessData =
       DISPUTE_METHOD_SIG +
-      fs.readFileSync('test/dispute-data/commit-invalid-amt.txt').toString().trim();
+      fs.readFileSync('test/dispute-data/commit-amt.txt').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -132,7 +132,7 @@ describe('Dispute', function () {
     } = await loadFixture(fixture);
     const disputeSuccessData =
       DISPUTE_METHOD_SIG +
-      fs.readFileSync('test/dispute-data/commit-invalid-sig.txt').toString().trim();
+      fs.readFileSync('test/dispute-data/commit-sig.txt').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -169,7 +169,7 @@ describe('Dispute', function () {
     } = await loadFixture(fixture);
     const disputeSuccessData =
       DISPUTE_METHOD_SIG +
-      fs.readFileSync('test/dispute-data/deposit-invalid-root.txt').toString().trim();
+      fs.readFileSync('test/dispute-data/deposit-root.txt').toString().trim();
 
     await rollupChain.setBlockChallengePeriod(0);
 
@@ -186,7 +186,7 @@ describe('Dispute', function () {
       '0x00000000000000000000000000000000000000000000000000000000000000019fb5a689aebc1bd3284518a480af0976f2c8d5048e32fd3c249352ab8af11b88000000000000000000000000c1699e89639adda8f39faefc0fc294ee5c3b462d000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a7640000',
       // Commit
       '0x000000000000000000000000000000000000000000000000000000000000000387e6eb5e4a8720b8cba0195e2ce5341d70a0df0ddbd81648897c954fd242bcf0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000000000000bc614e00000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000412dfd0ec493f9f8125b4d2f5d7b56db8d43abfe9df5ce6da3d6343c39c48d8c102a088a80d95bb5dedeb3905472a0dc320f372e9c7a028fc1003b640e3f183b140000000000000000000000000000000000000000000000000000000000000000',
-      // Deposit (bad)
+      // Deposit (invalid root)
       '0x000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000062616420737461746520726f6f74000000000000000000000000c1699e89639adda8f39faefc0fc294ee5c3b462d000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a7640000'
     ];
     await rollupChain.commitBlock(0, txs);
