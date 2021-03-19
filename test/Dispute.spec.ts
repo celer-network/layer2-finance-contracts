@@ -6,8 +6,13 @@ import { Wallet } from '@ethersproject/wallet';
 
 import { deployContracts, loadFixture } from './common';
 
-const USER_KEY =
+const USER_NUM = 3;
+const USER_KEY_1 =
   '0x36f2243a51a0f879b1859fff1a663ac04aeebca1bcff4d7dc5a8b38e53211199';
+const USER_KEY_2 =
+  '0xc0bf10873ddb6d554838f5e4f0c000e85d3307754151add9813ff331b746390d';
+const USER_KEY_3 =
+  '0x68888cc706520c4d5049d38933e0b502e2863781d75de09c499cf0e4e00ba2de';
 const DISPUTE_METHOD_SIG = '0x8bdc6232';
 
 describe('Dispute', function () {
@@ -28,12 +33,19 @@ describe('Dispute', function () {
     );
     await rollupChain.setBlockChallengePeriod(10);
 
-    const user = new ethers.Wallet(USER_KEY).connect(ethers.provider);
-    await admin.sendTransaction({
-      to: user.address,
-      value: ethers.utils.parseEther('10')
-    });
-    await testERC20.transfer(user.address, ethers.utils.parseEther('10000'));
+    const users = [
+      new ethers.Wallet(USER_KEY_1).connect(ethers.provider),
+      new ethers.Wallet(USER_KEY_2).connect(ethers.provider),
+      new ethers.Wallet(USER_KEY_3).connect(ethers.provider)];
+
+    for (var i = 0; i < USER_NUM; i++) {
+      await admin.sendTransaction({
+        to: users[i].address,
+        value: ethers.utils.parseEther('10')
+      });
+      await testERC20.transfer(users[i].address, ethers.utils.parseEther('10000'));
+    }
+
 
     return {
       admin,
@@ -41,7 +53,7 @@ describe('Dispute', function () {
       rollupChain,
       strategyDummy,
       testERC20,
-      user
+      users
     };
   }
 
@@ -50,7 +62,7 @@ describe('Dispute', function () {
       admin,
       rollupChain,
       testERC20,
-      user
+      users
     } = await loadFixture(fixture);
     const disputeSuccessData =
       DISPUTE_METHOD_SIG +
@@ -59,10 +71,10 @@ describe('Dispute', function () {
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
     await testERC20
-      .connect(user)
+      .connect(users[0])
       .approve(rollupChain.address, depositAmount.mul(2));
-    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
-    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
     const txs = [
       // Deposit
@@ -83,13 +95,53 @@ describe('Dispute', function () {
       .to.emit(rollupChain, 'RollupBlockReverted')
       .withArgs(0);
   });
+  
+  it('should dispute successfully for invalid state root of first deposit of an account', async function () {
+    const {
+      admin,
+      rollupChain,
+      testERC20,
+      users
+    } = await loadFixture(fixture);
+    const disputeSuccessData =
+      DISPUTE_METHOD_SIG +
+      fs.readFileSync('test/dispute-data/deposit-create.txt').toString().trim();
+
+    const tokenAddress = testERC20.address;
+    const depositAmount = ethers.utils.parseEther('1');
+    await testERC20
+      .connect(users[0])
+      .approve(rollupChain.address, depositAmount.mul(2));
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
+    await testERC20
+      .connect(users[1])
+      .approve(rollupChain.address, depositAmount.mul(2));
+    await rollupChain.connect(users[1]).deposit(tokenAddress, depositAmount);
+
+    const txs = [
+      // Deposit accnt 1
+      '0x00000000000000000000000000000000000000000000000000000000000000010071cbf8ea36415996e331fd50d10dd2aa8cc2bde30e4012f9adf88884dcf3c7000000000000000000000000c1699e89639adda8f39faefc0fc294ee5c3b462d000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a7640000',
+      // Deposit accnt 2 (bad)
+      '0x000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000062616420737461746520726f6f74000000000000000000000000c22c304660d5f1d2a7a459ceefc0c2cb30f5cfe4000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a7640000',
+    ];
+    await rollupChain.commitBlock(0, txs);
+
+    await expect(
+      admin.sendTransaction({
+        to: rollupChain.address,
+        data: disputeSuccessData
+      })
+    )
+      .to.emit(rollupChain, 'RollupBlockReverted')
+      .withArgs(0);
+  });
 
   it('should dispute successfully for commit transition with invalid amount', async function () {
     const {
       admin,
       rollupChain,
       testERC20,
-      user
+      users
     } = await loadFixture(fixture);
     const disputeSuccessData =
       DISPUTE_METHOD_SIG +
@@ -98,10 +150,10 @@ describe('Dispute', function () {
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
     await testERC20
-      .connect(user)
+      .connect(users[0])
       .approve(rollupChain.address, depositAmount.mul(2));
-    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
-    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
     const txs = [
       // Deposit 1e18
@@ -128,7 +180,7 @@ describe('Dispute', function () {
       admin,
       rollupChain,
       testERC20,
-      user
+      users
     } = await loadFixture(fixture);
     const disputeSuccessData =
       DISPUTE_METHOD_SIG +
@@ -137,10 +189,10 @@ describe('Dispute', function () {
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
     await testERC20
-      .connect(user)
+      .connect(users[0])
       .approve(rollupChain.address, depositAmount.mul(2));
-    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
-    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
     const txs = [
       // Deposit
@@ -165,7 +217,7 @@ describe('Dispute', function () {
       admin,
       rollupChain,
       testERC20,
-      user
+      users
     } = await loadFixture(fixture);
     const disputeSuccessData =
       DISPUTE_METHOD_SIG +
@@ -176,10 +228,10 @@ describe('Dispute', function () {
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
     await testERC20
-      .connect(user)
+      .connect(users[0])
       .approve(rollupChain.address, depositAmount.mul(2));
-    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
-    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
     const txs = [
       // Deposit
@@ -200,14 +252,14 @@ describe('Dispute', function () {
   });
 
   it('should fail to dispute with invalid empty input', async function () {
-    const { rollupChain, testERC20, user } = await loadFixture(fixture);
+    const { rollupChain, testERC20, users } = await loadFixture(fixture);
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
     await testERC20
-      .connect(user)
+      .connect(users[0])
       .approve(rollupChain.address, depositAmount.mul(2));
-    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
-    await rollupChain.connect(user).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
     const txs = [
       // Deposit
@@ -241,7 +293,7 @@ describe('Dispute', function () {
           stateRoot:
             '0x0000000000000000000000000000000000000000000000000000000000000000',
           value: {
-            account: user.address,
+            account: users[0].address,
             accountId: 0,
             idleAssets: [0],
             stTokens: [0],
