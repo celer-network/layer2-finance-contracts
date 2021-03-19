@@ -233,6 +233,14 @@ contract TransitionEvaluator {
         _accountInfo.idleAssets[_strategyInfo.assetId] = _accountInfo.idleAssets[_strategyInfo.assetId].sub(
             _transition.assetAmount
         );
+
+        if (_transition.strategyId >= _accountInfo.stTokens.length) {
+            uint256[] memory stTokens = new uint256[](_transition.strategyId + 1);
+            for (uint256 i = 0; i < _accountInfo.stTokens.length; i++) {
+                stTokens[i] = _accountInfo.stTokens[i];
+            }
+            _accountInfo.stTokens = stTokens;
+        }
         _accountInfo.stTokens[_transition.strategyId] = _accountInfo.stTokens[_transition.strategyId].add(newStToken);
         require(_accountInfo.accountId == _transition.accountId, "account id not match");
         require(_accountInfo.timestamp < _transition.timestamp, "timestamp should monotonically increasing");

@@ -144,7 +144,7 @@ contract TransitionDisputer {
         );
         // Check if it was successful. If not, we've got to revert.
         if (!ok) {
-            return "evaluate failure";
+            return "failed to evaluate";
         }
         // It was successful so let's decode the outputs to get the new leaf nodes we'll have to insert
         bytes32[2] memory outputs = abi.decode((returnData), (bytes32[2]));
@@ -153,7 +153,7 @@ contract TransitionDisputer {
         ok = updateAndVerify(postStateRoot, outputs, _accountProof, _strategyProof);
         if (!ok) {
             // revert the block because we found an invalid post state root
-            return "invalid new root";
+            return "invalid post-state root";
         }
 
         revert("No fraud detected");

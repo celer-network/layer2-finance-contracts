@@ -49,6 +49,8 @@ describe('Dispute', function () {
         ethers.utils.parseEther('10000')
       );
     }
+    const stAddress = strategyDummy.address;
+    await registry.registerStrategy(stAddress);
 
     return {
       admin,
@@ -91,7 +93,7 @@ describe('Dispute', function () {
       })
     )
       .to.emit(rollupChain, 'RollupBlockReverted')
-      .withArgs(0, 'invalid new root');
+      .withArgs(0, 'invalid post-state root');
   });
 
   it('should dispute successfully for invalid account id mapping', async function () {
@@ -158,7 +160,7 @@ describe('Dispute', function () {
       })
     )
       .to.emit(rollupChain, 'RollupBlockReverted')
-      .withArgs(0, 'invalid new root');
+      .withArgs(0, 'invalid post-state root');
   });
 
   it('should dispute successfully for commit transition with invalid amount', async function () {
@@ -192,7 +194,7 @@ describe('Dispute', function () {
       })
     )
       .to.emit(rollupChain, 'RollupBlockReverted')
-      .withArgs(0, 'evaluate failure');
+      .withArgs(0, 'failed to evaluate');
   });
 
   it('should dispute successfully for commit transition with invalid signature', async function () {
@@ -224,7 +226,7 @@ describe('Dispute', function () {
       })
     )
       .to.emit(rollupChain, 'RollupBlockReverted')
-      .withArgs(0, 'evaluate failure');
+      .withArgs(0, 'failed to evaluate');
   });
 
   it('should fail to dispute past challenge period', async function () {
@@ -261,11 +263,11 @@ describe('Dispute', function () {
     ).to.be.revertedWith('Block challenge period is over');
   });
 
-  it('should fail to dispute valid transition', async function () {
+  it('should fail to dispute valid deposit transition', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs.readFileSync('test/dispute-data/deposit-root.txt').toString().trim();
+      fs.readFileSync('test/dispute-data/deposit-valid.txt').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -364,4 +366,5 @@ describe('Dispute', function () {
       )
     ).to.be.revertedWith('Failed to dispute');
   });
+
 });
