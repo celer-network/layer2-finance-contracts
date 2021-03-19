@@ -27,19 +27,20 @@ interface IStrategy {
     /**
      * @dev Returns the asset balance.
      */
-    function getBalance() external view returns (uint256);
+    function getBalance() external returns (uint256);
 
     /**
      * @dev Commits to strategies per instructions from L2.
+     *      The aggregated ETH amount to commit is represented by msg.value.
      *
-     * @param commitAmount The aggregated amount to commit.
+     * @param commitAmount The aggregated erc20 token amount to commit.
      */
-    function aggregateCommit(uint256 commitAmount) external;
+    function aggregateCommit(uint256 commitAmount) external payable;
 
     /**
      * @dev Uncommits from strategies per instructions from L2.
      *
-     * @param uncommitAmount The aggregated amount to uncommit.
+     * @param uncommitAmount The aggregated erc20 token or ETH amount to uncommit.
      */
     function aggregateUncommit(uint256 uncommitAmount) external;
 }

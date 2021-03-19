@@ -10,4 +10,12 @@ interface IUniswapV2 {
         address,
         uint256
     ) external;
+
+    function swapExactTokensForETH(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata paths,
+        address to,
+        uint256 deadline
+    ) external;
 }

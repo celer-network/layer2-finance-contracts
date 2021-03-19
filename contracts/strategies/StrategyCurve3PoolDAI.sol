@@ -65,7 +65,7 @@ contract StrategyCurve3PoolDAI is IStrategy {
         return dai;
     }
 
-    function getBalance() external view override returns (uint256) {
+    function getBalance() external override returns (uint256) {
         uint256 triCrvBalance = IGauge(gauge).balanceOf(address(this));
         uint256 daiBalance = triCrvBalance.mul(ICurveFi(triPool).calc_withdraw_one_coin(triCrvBalance, 0));
         return daiBalance;
@@ -107,8 +107,9 @@ contract StrategyCurve3PoolDAI is IStrategy {
         }
     }
 
-    function aggregateCommit(uint256 _daiAmount) external override {
+    function aggregateCommit(uint256 _daiAmount) external payable override {
         require(msg.sender == controller, "Not controller");
+        require(msg.value == 0, "Curve3PoolDAI contract can't supply ETH");
         require(_daiAmount > 0, "Nothing to commit");
 
         // Pull DAI from Controller

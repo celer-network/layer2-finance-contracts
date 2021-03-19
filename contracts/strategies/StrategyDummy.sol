@@ -36,8 +36,9 @@ contract StrategyDummy is IStrategy {
         return asset;
     }
 
-    function aggregateCommit(uint256 _commitAmount) external override {
+    function aggregateCommit(uint256 _commitAmount) external payable override {
         require(msg.sender == controller, "Not controller");
+        require(msg.value == 0, "Dummy contract can't supply ETH");
         require(_commitAmount > 0, "Nothing to commit");
         IERC20(asset).safeTransferFrom(controller, address(this), _commitAmount);
     }
@@ -48,7 +49,7 @@ contract StrategyDummy is IStrategy {
         IERC20(asset).safeTransfer(controller, _uncommitAmount);
     }
 
-    function getBalance() external view override returns (uint256) {
+    function getBalance() external override returns (uint256) {
         return IERC20(asset).balanceOf(address(this));
     }
 
