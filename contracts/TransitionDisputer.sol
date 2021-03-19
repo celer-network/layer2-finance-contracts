@@ -42,10 +42,10 @@ contract TransitionDisputer {
         dt.Block memory _prevTransitionBlock,
         dt.Block memory _invalidTransitionBlock,
         Registry _registry
-    ) public {
+    ) public returns (string memory) {
         if (_invalidTransitionProof.blockId == 0 && _invalidTransitionProof.index == 0) {
             require(invalidInitTransition(_invalidTransitionProof, _invalidTransitionBlock), "no fraud detected");
-            return;
+            return "invalid init transition";
         }
 
         // ------ #1: verify sequential transitions
@@ -62,8 +62,8 @@ contract TransitionDisputer {
             getStateRootsAndIds(_prevTransitionProof.transition, _invalidTransitionProof.transition);
         // If not success something went wrong with the decoding...
         if (!ok) {
-            // Prune the block if it has an incorrectly encoded transition!
-            return;
+            // revert the block if it has an incorrectly encoded transition!
+            return "invalid encoding";
         }
 
         // ------ #3: verify transition stateRoot == hash(accountStateRoot, strategyStateRoot)
@@ -98,7 +98,7 @@ contract TransitionDisputer {
                 Transitions.decodeDepositTransition(_invalidTransitionProof.transition);
             if (_accountProof.value.account == transition.account && _accountProof.value.accountId != accountId) {
                 // same account address with different id
-                return;
+                return "invalid account id";
             }
         }
 
@@ -110,39 +110,52 @@ contract TransitionDisputer {
             require(_strategyProof.index == strategyId, "Supplied strategy index is incorrect");
         }
 
-        // ------ #7: evaluate transition
+        // ------ #7: evaluate transition and verify new state root
+        // split function to address "stack too deep" compiler error
+        return
+            evaluateInvalidTransition(
+                _invalidTransitionProof.transition,
+                _accountProof,
+                _strategyProof,
+                postStateRoot,
+                _registry
+            );
+    }
+
+    function evaluateInvalidTransition(
+        bytes memory _invalidTransition,
+        dt.AccountProof memory _accountProof,
+        dt.StrategyProof memory _strategyProof,
+        bytes32 postStateRoot,
+        Registry _registry
+    ) private returns (string memory) {
         // Apply the transaction and verify the state root after that.
+        bool ok;
         bytes memory returnData;
         // Make the external call
         (ok, returnData) = address(transitionEvaluator).call(
             abi.encodeWithSelector(
                 transitionEvaluator.evaluateTransition.selector,
-                _invalidTransitionProof.transition,
+                _invalidTransition,
                 _accountProof.value,
                 _strategyProof.value,
                 _registry
             )
         );
-
-        // Check if it was successful. If not, we've got to prune.
+        // Check if it was successful. If not, we've got to revert.
         if (!ok) {
-            return;
+            return "evaluate failure";
         }
-
         // It was successful so let's decode the outputs to get the new leaf nodes we'll have to insert
         bytes32[2] memory outputs = abi.decode((returnData), (bytes32[2]));
 
-        // ------ #8: verify post state root
-        // Now we need to check if the combined new stateRoots of account and strategy Merkle trees is incorrect.
+        // Check if the combined new stateRoots of account and strategy Merkle trees is incorrect.
         ok = updateAndVerify(postStateRoot, outputs, _accountProof, _strategyProof);
-
-        // ------ #9: determine fraud
         if (!ok) {
-            // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
-            return;
+            // revert the block because we found an invalid post state root
+            return "invalid new root";
         }
 
-        // Woah! Looks like there's no fraud!
         revert("No fraud detected");
     }
 

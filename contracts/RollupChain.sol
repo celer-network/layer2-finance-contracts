@@ -105,7 +105,7 @@ contract RollupChain is Ownable, Pausable {
     /* Events */
     event RollupBlockCommitted(uint256 blockId);
     event RollupBlockExecuted(uint256 blockId);
-    event RollupBlockReverted(uint256 blockId);
+    event RollupBlockReverted(uint256 blockId, string reason);
     event BalanceSync(uint32 strategyId, int256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
@@ -496,7 +496,7 @@ contract RollupChain is Ownable, Pausable {
         revert("Not exceed max priority tx delay");
     }
 
-    function revertBlock(uint256 _blockId) private {
+    function revertBlock(uint256 _blockId, string memory reason) private {
         // pause contract
         _pause();
 
@@ -528,7 +528,7 @@ contract RollupChain is Ownable, Pausable {
             }
         }
 
-        emit RollupBlockReverted(_blockId);
+        emit RollupBlockReverted(_blockId, reason);
     }
 
     /**
@@ -572,7 +572,8 @@ contract RollupChain is Ownable, Pausable {
         );
 
         if (success) {
-            revertBlock(invalidTransitionBlockId);
+            string memory reason = abi.decode((returnData), (string));
+            revertBlock(invalidTransitionBlockId, reason);
         } else {
             revert("Failed to dispute");
         }
