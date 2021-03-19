@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import {DataTypes as dt} from "./libraries/DataTypes.sol";
 import "./libraries/MerkleTree.sol";
+import "./libraries/Transitions.sol";
 import "./TransitionEvaluator.sol";
 import "./Registry.sol";
 
@@ -65,22 +66,14 @@ contract TransitionDisputer {
             return;
         }
 
-        // ------ #3: verify transition account and strategy indexes
-        if (accountId > 0) {
-            require(_accountProof.index == accountId, "Supplied account index is incorrect");
-        }
-        if (strategyId > 0) {
-            require(_strategyProof.index == strategyId, "Supplied strategy index is incorrect");
-        }
-
-        // ------ #4: verify transition stateRoot == hash(accountStateRoot, strategyStateRoot)
+        // ------ #3: verify transition stateRoot == hash(accountStateRoot, strategyStateRoot)
         // The account and strategy stateRoots must always be given irrespective of what is being disputed.
         require(
             checkTwoTreeStateRoot(preStateRoot, _accountProof.stateRoot, _strategyProof.stateRoot),
             "Failed combined two-tree stateRoot verification check"
         );
 
-        // ------ #5: verify account and strategy inclusion
+        // ------ #4: verify account and strategy inclusion
         if (accountId > 0) {
             verifyProofInclusion(
                 _accountProof.stateRoot,
@@ -98,7 +91,26 @@ contract TransitionDisputer {
             );
         }
 
-        // ------ #6: evaluate transition
+        // ------ #5: verify deposit account id mapping
+        uint8 transitionType = Transitions.extractTransitionType(_invalidTransitionProof.transition);
+        if (transitionType == Transitions.TRANSITION_TYPE_DEPOSIT) {
+            DataTypes.DepositTransition memory transition =
+                Transitions.decodeDepositTransition(_invalidTransitionProof.transition);
+            if (_accountProof.value.account == transition.account && _accountProof.value.accountId != accountId) {
+                // same account address with different id
+                return;
+            }
+        }
+
+        // ------ #6: verify transition account and strategy indexes
+        if (accountId > 0) {
+            require(_accountProof.index == accountId, "Supplied account index is incorrect");
+        }
+        if (strategyId > 0) {
+            require(_strategyProof.index == strategyId, "Supplied strategy index is incorrect");
+        }
+
+        // ------ #7: evaluate transition
         // Apply the transaction and verify the state root after that.
         bytes memory returnData;
         // Make the external call
@@ -120,11 +132,11 @@ contract TransitionDisputer {
         // It was successful so let's decode the outputs to get the new leaf nodes we'll have to insert
         bytes32[2] memory outputs = abi.decode((returnData), (bytes32[2]));
 
-        // ------ #7: verify post state root
+        // ------ #8: verify post state root
         // Now we need to check if the combined new stateRoots of account and strategy Merkle trees is incorrect.
         ok = updateAndVerify(postStateRoot, outputs, _accountProof, _strategyProof);
 
-        // ------ #8: determine fraud
+        // ------ #9: determine fraud
         if (!ok) {
             // Prune the block because we found an invalid post state root! Cryptoeconomic validity ftw!
             return;

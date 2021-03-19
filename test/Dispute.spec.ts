@@ -95,6 +95,43 @@ describe('Dispute', function () {
       .to.emit(rollupChain, 'RollupBlockReverted')
       .withArgs(0);
   });
+
+  it('should dispute successfully for invalid account id mapping', async function () {
+    const {
+      admin,
+      rollupChain,
+      testERC20,
+      users
+    } = await loadFixture(fixture);
+    const disputeSuccessData =
+      DISPUTE_METHOD_SIG +
+      fs.readFileSync('test/dispute-data/deposit-acctid.txt').toString().trim();
+
+    const tokenAddress = testERC20.address;
+    const depositAmount = ethers.utils.parseEther('1');
+    await testERC20
+      .connect(users[0])
+      .approve(rollupChain.address, depositAmount.mul(2));
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
+
+    const txs = [
+      // Deposit to one user
+      '0x00000000000000000000000000000000000000000000000000000000000000010071cbf8ea36415996e331fd50d10dd2aa8cc2bde30e4012f9adf88884dcf3c7000000000000000000000000c1699e89639adda8f39faefc0fc294ee5c3b462d000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a7640000',
+      // Deposit to the same user again, but mapped to another id
+      '0x0000000000000000000000000000000000000000000000000000000000000001c03d7959844a87fbdd29772d3d415492ee70d83f0d706ed57ca55da0f4720579000000000000000000000000c1699e89639adda8f39faefc0fc294ee5c3b462d000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000de0b6b3a7640000',
+    ];
+    await rollupChain.commitBlock(0, txs);
+
+    await expect(
+      admin.sendTransaction({
+        to: rollupChain.address,
+        data: disputeSuccessData
+      })
+    )
+      .to.emit(rollupChain, 'RollupBlockReverted')
+      .withArgs(0);
+  });
   
   it('should dispute successfully for invalid state root of first deposit of an account', async function () {
     const {

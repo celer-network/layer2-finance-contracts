@@ -8,9 +8,9 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
 /* Internal Imports */
 import "./libraries/DataTypes.sol";
+import "./libraries/Transitions.sol";
 import "./Registry.sol";
 import "./strategies/interfaces/IStrategy.sol";
-import "./libraries/Transitions.sol";
 
 contract TransitionEvaluator {
     using SafeMath for uint256;
@@ -69,7 +69,7 @@ contract TransitionEvaluator {
     }
 
     /**
-     * Return the access list for this transition.
+     * Return the (stateRoot, accountId, strategyId) for this transition.
      */
     function getTransitionStateRootAndAccessIds(bytes calldata _rawTransition)
         external
