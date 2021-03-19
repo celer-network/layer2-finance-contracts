@@ -138,12 +138,17 @@ contract TransitionEvaluator {
             require(_accountInfo.timestamp == 0, "empty account timestamp must be zero");
             _accountInfo.account = _transition.account;
             _accountInfo.accountId = _transition.accountId;
-            _accountInfo.idleAssets = new uint256[](_transition.assetId + 1);
         } else {
             require(_accountInfo.account == _transition.account, "account address not match");
             require(_accountInfo.accountId == _transition.accountId, "account id not match");
         }
-
+        if (_transition.assetId >= _accountInfo.idleAssets.length) {
+            uint256[] memory idleAssets = new uint256[](_transition.assetId + 1);
+            for (uint256 i = 0; i < _accountInfo.idleAssets.length; i++) {
+                idleAssets[i] = _accountInfo.idleAssets[i];
+            }
+            _accountInfo.idleAssets = idleAssets;
+        }
         _accountInfo.idleAssets[_transition.assetId] = _accountInfo.idleAssets[_transition.assetId].add(
             _transition.amount
         );
