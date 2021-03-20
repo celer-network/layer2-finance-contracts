@@ -8,9 +8,9 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
 /* Internal Imports */
 import "./libraries/DataTypes.sol";
+import "./libraries/Transitions.sol";
 import "./Registry.sol";
 import "./strategies/interfaces/IStrategy.sol";
-import "./libraries/Transitions.sol";
 
 contract TransitionEvaluator {
     using SafeMath for uint256;
@@ -69,7 +69,7 @@ contract TransitionEvaluator {
     }
 
     /**
-     * Return the access list for this transition.
+     * Return the (stateRoot, accountId, strategyId) for this transition.
      */
     function getTransitionStateRootAndAccessIds(bytes calldata _rawTransition)
         external
@@ -142,7 +142,13 @@ contract TransitionEvaluator {
             require(_accountInfo.account == _transition.account, "account address not match");
             require(_accountInfo.accountId == _transition.accountId, "account id not match");
         }
-
+        if (_transition.assetId >= _accountInfo.idleAssets.length) {
+            uint256[] memory idleAssets = new uint256[](_transition.assetId + 1);
+            for (uint256 i = 0; i < _accountInfo.idleAssets.length; i++) {
+                idleAssets[i] = _accountInfo.idleAssets[i];
+            }
+            _accountInfo.idleAssets = idleAssets;
+        }
         _accountInfo.idleAssets[_transition.assetId] = _accountInfo.idleAssets[_transition.assetId].add(
             _transition.amount
         );
@@ -227,6 +233,14 @@ contract TransitionEvaluator {
         _accountInfo.idleAssets[_strategyInfo.assetId] = _accountInfo.idleAssets[_strategyInfo.assetId].sub(
             _transition.assetAmount
         );
+
+        if (_transition.strategyId >= _accountInfo.stTokens.length) {
+            uint256[] memory stTokens = new uint256[](_transition.strategyId + 1);
+            for (uint256 i = 0; i < _accountInfo.stTokens.length; i++) {
+                stTokens[i] = _accountInfo.stTokens[i];
+            }
+            _accountInfo.stTokens = stTokens;
+        }
         _accountInfo.stTokens[_transition.strategyId] = _accountInfo.stTokens[_transition.strategyId].add(newStToken);
         require(_accountInfo.accountId == _transition.accountId, "account id not match");
         require(_accountInfo.timestamp < _transition.timestamp, "timestamp should monotonically increasing");
