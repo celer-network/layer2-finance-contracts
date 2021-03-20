@@ -101,9 +101,8 @@ contract StrategyCompoundErc20LendingPool is IStrategy {
         }
     }
 
-    function aggregateCommit(uint256 _commitAmount) external payable override {
+    function aggregateCommit(uint256 _commitAmount) external override {
         require(msg.sender == controller, "Not controller");
-        require(msg.value == 0, "CompoundERC20LendingPool can't supply ETH");
         require(_commitAmount > 0, "Nothing to commit");
 
         // Pull supplying token(e.g. DAI, USDT) from Controller

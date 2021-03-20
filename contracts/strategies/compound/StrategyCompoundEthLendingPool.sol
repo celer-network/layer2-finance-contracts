@@ -12,6 +12,7 @@ import "../interfaces/IStrategy.sol";
 import "../interfaces/compound/ICEth.sol";
 import "../interfaces/compound/IComptroller.sol";
 import "../interfaces/uniswap/IUniswapV2.sol";
+import "../../interfaces/IWETH.sol";
 
 /**
  * Deposits ETH into Compound Lending Pool and issues stCompoundLendingETH in L2. Holds cToken (Compound interest-bearing tokens).
@@ -52,11 +53,10 @@ contract StrategyCompoundEthLendingPool is IStrategy {
     }
 
     /**
-     * @dev For convenience, the ETH address is returned as
-     *      `address(0x0000000000000000000000000000000000000001)` in Layer2.finace.
+     * @dev Return WETH address. StrategyCompoundETH contract receive WETH from controller.
      */
     function getAssetAddress() external view override returns (address) {
-        return address(1);
+        return weth;
     }
 
     function getBalance() external override returns (uint256) {
@@ -89,19 +89,23 @@ contract StrategyCompoundEthLendingPool is IStrategy {
 
             // Deposit ETH to Compound ETH Lending Pool and mint cETH.
             uint256 obtainedEthAmount = address(this).balance;
-            ICEth(cEth).mint{value: obtainedEthAmount};
+            ICEth(cEth).mint{value: obtainedEthAmount}();
         }
     }
 
-    function aggregateCommit(uint256 _commitAmount) external payable override {
+    function aggregateCommit(uint256 _commitAmount) external override {
         require(msg.sender == controller, "Not controller");
-        require(msg.value > 0, "Nothing to commit");
-        require(_commitAmount == 0, "CompoundEthLendingPool contract can't supply ERC20 token");
+        require(_commitAmount > 0, "Nothing to commit");
     
-        // Deposit ETH to Compound ETH Lending Pool and mint cETH.
-        ICEth(cEth).mint{value: msg.value};
+        // Pull WETH from Controller
+        IERC20(weth).safeTransferFrom(msg.sender, address(this), _commitAmount);
+        // Convert WETH into ETH
+        IWETH(weth).withdraw(_commitAmount);
 
-        emit Committed(msg.value);
+        // Deposit ETH to Compound ETH Lending Pool and mint cETH.
+        ICEth(cEth).mint{value: _commitAmount}();
+
+        emit Committed(_commitAmount);
     }
 
     function aggregateUncommit(uint256 _uncommitAmount) external override {
@@ -112,14 +116,16 @@ contract StrategyCompoundEthLendingPool is IStrategy {
         uint256 redeemResult = ICEth(cEth).redeemUnderlying(_uncommitAmount);
         require(redeemResult == 0, "Couldn't redeem cToken");
 
-        // Transfer ETH to Controller
+        // Convert ETH into WETH
         uint256 ethBalance = address(this).balance;
-        msg.sender.transfer(ethBalance);
+        IWETH(weth).deposit{value: ethBalance}();
+        // Transfer WETH to Controller
+        IERC20(weth).safeTransfer(msg.sender, ethBalance);
 
         emit UnCommitted(_uncommitAmount);
     }
 
-    // This is needed to receive ETH when calling `redeemCEth`
+    // This is needed to receive ETH when calling `ICEth.redeemUnderlying` and `IWETH.withdraw`
     receive() external payable {}
     fallback() external payable {}
 }

@@ -107,9 +107,8 @@ contract StrategyCurve3PoolDAI is IStrategy {
         }
     }
 
-    function aggregateCommit(uint256 _daiAmount) external payable override {
+    function aggregateCommit(uint256 _daiAmount) external override {
         require(msg.sender == controller, "Not controller");
-        require(msg.value == 0, "Curve3PoolDAI contract can't supply ETH");
         require(_daiAmount > 0, "Nothing to commit");
 
         // Pull DAI from Controller
