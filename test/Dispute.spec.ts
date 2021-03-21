@@ -207,7 +207,6 @@ describe('Dispute', function () {
       .connect(users[0])
       .approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
-    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
     const txs = [
       // Init
@@ -237,7 +236,6 @@ describe('Dispute', function () {
       .connect(users[0])
       .approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
-    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
     const txs = [
       // Init
@@ -255,6 +253,48 @@ describe('Dispute', function () {
     )
       .to.emit(rollupChain, 'RollupBlockReverted')
       .withArgs(0, 'invalid post-state root');
+  });
+
+  it('should fail to dispute valid init transition', async function () {
+    const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
+    const disputeData =
+      DISPUTE_METHOD_SIG +
+      fs.readFileSync('test/dispute-data/init-valid.txt').toString().trim();
+
+    const txs = [
+      // Init
+      '0x0000000000000000000000000000000000000000000000000000000000000007cf277fb80a82478460e8988570b718f1e083ceb76f7e271a1a1497e5975f53ae'
+    ];
+    await rollupChain.commitBlock(0, txs);
+
+    await expect(
+      admin.sendTransaction({
+        to: rollupChain.address,
+        data: disputeData
+      })
+    ).to.be.revertedWith('Failed to dispute');
+  });
+
+  it('should dispute successfully invalid init transition', async function () {
+    const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
+    const disputeData =
+      DISPUTE_METHOD_SIG +
+      fs.readFileSync('test/dispute-data/init-invalid.txt').toString().trim();
+
+    const txs = [
+      // Init (invalid)
+      '0x000000000000000000000000000000000000000000000000000000000000000700000000000000000000000000000000000062616420737461746520726f6f74'
+    ];
+    await rollupChain.commitBlock(0, txs);
+
+    await expect(
+      admin.sendTransaction({
+        to: rollupChain.address,
+        data: disputeData
+      })
+    )
+      .to.emit(rollupChain, 'RollupBlockReverted')
+      .withArgs(0, 'invalid init transition');
   });
 
   it('should dispute successfully for commit transition with invalid amount', async function () {
