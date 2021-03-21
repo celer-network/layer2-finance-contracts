@@ -65,16 +65,12 @@ describe('Dispute', function () {
   it('should dispute successfully for invalid state root', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/deposit-root-tn.txt')
+      .readFileSync('test/dispute-data/deposit-root-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs
-        .readFileSync('test/dispute-data/deposit-root-pf.txt')
-        .toString()
-        .trim();
+      fs.readFileSync('test/dispute-data/deposit-root-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -98,16 +94,12 @@ describe('Dispute', function () {
   it('should dispute successfully for invalid account id mapping', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/deposit-acctid-tn.txt')
+      .readFileSync('test/dispute-data/deposit-acctid-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs
-        .readFileSync('test/dispute-data/deposit-acctid-pf.txt')
-        .toString()
-        .trim();
+      fs.readFileSync('test/dispute-data/deposit-acctid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -131,16 +123,12 @@ describe('Dispute', function () {
   it('should dispute successfully for invalid state root of first deposit of an account', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/deposit-create-tn.txt')
+      .readFileSync('test/dispute-data/deposit-create-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs
-        .readFileSync('test/dispute-data/deposit-create-pf.txt')
-        .toString()
-        .trim();
+      fs.readFileSync('test/dispute-data/deposit-create-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -167,16 +155,12 @@ describe('Dispute', function () {
   it('should fail to dispute valid deposit transition', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/deposit-valid-tn.txt')
+      .readFileSync('test/dispute-data/deposit-valid-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs
-        .readFileSync('test/dispute-data/deposit-valid-pf.txt')
-        .toString()
-        .trim();
+      fs.readFileSync('test/dispute-data/deposit-valid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -198,14 +182,13 @@ describe('Dispute', function () {
   it('should fail to dispute valid deposit after init transition', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/init-deposit-valid-tn.txt')
+      .readFileSync('test/dispute-data/init-deposit-valid-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
       fs
-        .readFileSync('test/dispute-data/init-deposit-valid-pf.txt')
+        .readFileSync('test/dispute-data/init-deposit-valid-pf')
         .toString()
         .trim();
 
@@ -228,14 +211,13 @@ describe('Dispute', function () {
   it('should dispute successfully for invalid deposit after init transition', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/init-deposit-invalid-tn.txt')
+      .readFileSync('test/dispute-data/init-deposit-invalid-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
       fs
-        .readFileSync('test/dispute-data/init-deposit-invalid-pf.txt')
+        .readFileSync('test/dispute-data/init-deposit-invalid-pf')
         .toString()
         .trim();
 
@@ -260,13 +242,12 @@ describe('Dispute', function () {
   it('should fail to dispute valid init transition', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/init-valid-tn.txt')
+      .readFileSync('test/dispute-data/init-valid-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs.readFileSync('test/dispute-data/init-valid-pf.txt').toString().trim();
+      fs.readFileSync('test/dispute-data/init-valid-pf').toString().trim();
 
     await rollupChain.commitBlock(0, tnData);
     await expect(
@@ -280,16 +261,12 @@ describe('Dispute', function () {
   it('should dispute successfully invalid init transition', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/init-invalid-tn.txt')
+      .readFileSync('test/dispute-data/init-invalid-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs
-        .readFileSync('test/dispute-data/init-invalid-pf.txt')
-        .toString()
-        .trim();
+      fs.readFileSync('test/dispute-data/init-invalid-pf').toString().trim();
 
     await rollupChain.commitBlock(0, tnData);
     await expect(
@@ -305,13 +282,12 @@ describe('Dispute', function () {
   it('should dispute successfully for commit transition with invalid amount', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/commit-amt-tn.txt')
+      .readFileSync('test/dispute-data/commit-amt-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs.readFileSync('test/dispute-data/commit-amt-pf.txt').toString().trim();
+      fs.readFileSync('test/dispute-data/commit-amt-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -335,13 +311,12 @@ describe('Dispute', function () {
   it('should dispute successfully for commit transition with invalid signature', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/commit-sig-tn.txt')
+      .readFileSync('test/dispute-data/commit-sig-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs.readFileSync('test/dispute-data/commit-sig-pf.txt').toString().trim();
+      fs.readFileSync('test/dispute-data/commit-sig-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -365,16 +340,12 @@ describe('Dispute', function () {
   it('should fail to dispute valid commit transition', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/commit-valid-tn.txt')
+      .readFileSync('test/dispute-data/commit-valid-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs
-        .readFileSync('test/dispute-data/commit-valid-pf.txt')
-        .toString()
-        .trim();
+      fs.readFileSync('test/dispute-data/commit-valid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -395,16 +366,12 @@ describe('Dispute', function () {
   it('should dispute successfully for withdraw transition with invalid amount', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/withdraw-amt-tn.txt')
+      .readFileSync('test/dispute-data/withdraw-amt-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs
-        .readFileSync('test/dispute-data/withdraw-amt-pf.txt')
-        .toString()
-        .trim();
+      fs.readFileSync('test/dispute-data/withdraw-amt-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -427,16 +394,12 @@ describe('Dispute', function () {
   it('should fail to dispute valid withdraw transition', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/withdraw-valid-tn.txt')
+      .readFileSync('test/dispute-data/withdraw-valid-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs
-        .readFileSync('test/dispute-data/withdraw-valid-pf.txt')
-        .toString()
-        .trim();
+      fs.readFileSync('test/dispute-data/withdraw-valid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
     const depositAmount = ethers.utils.parseEther('1');
@@ -457,16 +420,12 @@ describe('Dispute', function () {
   it('should fail to dispute past challenge period', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
-      .readFileSync('test/dispute-data/deposit-root-tn.txt')
+      .readFileSync('test/dispute-data/deposit-root-tn')
       .toString()
-      .trim()
       .split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
-      fs
-        .readFileSync('test/dispute-data/deposit-root-pf.txt')
-        .toString()
-        .trim();
+      fs.readFileSync('test/dispute-data/deposit-root-pf').toString().trim();
 
     await rollupChain.setBlockChallengePeriod(0);
 
@@ -498,9 +457,8 @@ describe('Dispute', function () {
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
     const tnData = fs
-      .readFileSync('test/dispute-data/deposit-root-tn.txt')
+      .readFileSync('test/dispute-data/deposit-root-tn')
       .toString()
-      .trim()
       .split('\n');
     await rollupChain.commitBlock(0, tnData);
 
