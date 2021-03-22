@@ -52,7 +52,7 @@ contract StrategyDummy is IStrategy {
         return IERC20(asset).balanceOf(address(this));
     }
 
-    function updateBalance() external override {
+    function harvest() external override {
         IERC20(asset).safeTransferFrom(funder, address(this), 1e18);
     }
 }

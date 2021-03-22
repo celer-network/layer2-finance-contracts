@@ -71,7 +71,7 @@ contract StrategyCurve3PoolDAI is IStrategy {
         return daiBalance;
     }
 
-    function updateBalance() external override {
+    function harvest() external override {
         // Harvest CRV
         IMintr(mintr).mint(gauge);
         uint256 crvBalance = IERC20(crv).balanceOf(address(this));

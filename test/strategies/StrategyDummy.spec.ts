@@ -33,7 +33,7 @@ describe('StrategyDummy', function () {
   it('should take 1e18 from funder and add to balance', async function () {
     const { strategyDummy, testERC20 } = await loadFixture(fixture);
     await testERC20.approve(strategyDummy.address, ethers.utils.parseEther('1'));
-    await strategyDummy.updateBalance();
+    await strategyDummy.harvest();
     expect(await strategyDummy.getBalance()).to.equal(ethers.utils.parseEther('1'));
   });
 
@@ -41,7 +41,7 @@ describe('StrategyDummy', function () {
     const { strategyDummy, testERC20 } = await loadFixture(fixture);
     await testERC20.approve(strategyDummy.address, ethers.utils.parseEther('2'));
     await strategyDummy.aggregateCommit(ethers.utils.parseEther('1'));
-    await strategyDummy.updateBalance();
+    await strategyDummy.harvest();
     expect(await strategyDummy.getBalance()).to.equal(ethers.utils.parseEther('2'));
   });
 
@@ -50,7 +50,7 @@ describe('StrategyDummy', function () {
     await testERC20.approve(strategyDummy.address, ethers.utils.parseEther('4'));
     expect(await strategyDummy.aggregateCommit(ethers.utils.parseEther('3'))).to.not.throw;
     await strategyDummy.aggregateUncommit(ethers.utils.parseEther('1'));
-    await strategyDummy.updateBalance();
+    await strategyDummy.harvest();
     expect(await strategyDummy.getBalance()).to.equal(ethers.utils.parseEther('3'));
   });
 });

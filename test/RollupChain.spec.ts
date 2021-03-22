@@ -146,7 +146,7 @@ describe('RollupChain', function () {
     await testERC20.approve(rollupChain.address, ethers.utils.parseEther('1'));
     await testERC20.approve(strategyDummy.address, ethers.utils.parseEther('1'));
     await rollupChain.deposit(tokenAddress, ethers.utils.parseEther('1'));
-    await strategyDummy.updateBalance();
+    await strategyDummy.harvest();
     await rollupChain.syncBalance(1);
 
     let [strategyID, delta, blockID, status] = await rollupChain.pendingBalanceSyncs(0);
