@@ -19,9 +19,7 @@ export function loadFixture<T>(fixture: Fixture<T>): Promise<T> {
 }
 
 export async function deployContracts(admin: Wallet) {
-  const registryFactory = (await ethers.getContractFactory(
-    'Registry'
-  )) as Registry__factory;
+  const registryFactory = (await ethers.getContractFactory('Registry')) as Registry__factory;
   const registry = await registryFactory.deploy();
   await registry.deployed();
 
@@ -34,9 +32,7 @@ export async function deployContracts(admin: Wallet) {
   const transitionDisputerFactory = (await ethers.getContractFactory(
     'TransitionDisputer'
   )) as TransitionDisputer__factory;
-  const transitionDisputer = await transitionDisputerFactory.deploy(
-    transitionEvaluator.address
-  );
+  const transitionDisputer = await transitionDisputerFactory.deploy(transitionEvaluator.address);
   await transitionDisputer.deployed();
 
   const rollupChainFactory = (await ethers.getContractFactory(
@@ -51,15 +47,11 @@ export async function deployContracts(admin: Wallet) {
   );
   await rollupChain.deployed();
 
-  const testERC20Factory = (await ethers.getContractFactory(
-    'TestERC20'
-  )) as TestERC20__factory;
+  const testERC20Factory = (await ethers.getContractFactory('TestERC20')) as TestERC20__factory;
   const testERC20 = await testERC20Factory.deploy();
   await testERC20.deployed();
 
-  const wethFactory = (await ethers.getContractFactory(
-    'WETH9'
-  )) as WETH9__factory;
+  const wethFactory = (await ethers.getContractFactory('WETH9')) as WETH9__factory;
   const weth = await wethFactory.deploy();
   await weth.deployed();
 

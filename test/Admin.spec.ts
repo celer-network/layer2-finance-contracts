@@ -19,9 +19,7 @@ describe('Admin', function () {
     const { rollupChain, testERC20 } = await loadFixture(fixture);
     const tokenAddress = testERC20.address;
     await rollupChain.pause();
-    await expect(rollupChain.deposit(tokenAddress, 1)).to.be.revertedWith(
-      'Pausable: paused'
-    );
+    await expect(rollupChain.deposit(tokenAddress, 1)).to.be.revertedWith('Pausable: paused');
   });
 
   it('should fail to deposit when exceed limit', async function () {
@@ -60,9 +58,7 @@ describe('Admin', function () {
       to: rollupChain.address,
       value: ethers.utils.parseEther('1.0')
     });
-    await expect(rollupChain.drainETH(10)).to.be.revertedWith(
-      'Pausable: not paused'
-    );
+    await expect(rollupChain.drainETH(10)).to.be.revertedWith('Pausable: not paused');
   });
 
   it('should drain ETH successfully when paused', async function () {
