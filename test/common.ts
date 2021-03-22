@@ -65,5 +65,7 @@ export async function deployContracts(admin: Wallet) {
     ethers.utils.parseEther('1')
   );
   await strategyDummy.deployed();
+
+  await testERC20.approve(strategyDummy.address, ethers.utils.parseEther('1000'));
   return { admin, registry, rollupChain, strategyDummy, testERC20, weth };
 }
