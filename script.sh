@@ -18,7 +18,7 @@ solFiles=(
   RollupChain
 )
 solFilesStrategy=(
-  IStrategy
+  interfaces/IStrategy
   StrategyDummy
 )
 
@@ -28,7 +28,6 @@ dld_solc() {
   # below will create $OPENZEPPELIN/contracts folder
   curl -L "https://github.com/OpenZeppelin/openzeppelin-contracts/archive/v3.4.0.tar.gz" | tar -xz -C contracts $OPENZEPPELIN/contracts/
   cp -r contracts/$OPENZEPPELIN contracts/strategies/
-  cp contracts/strategies/interfaces/IStrategy.sol contracts/strategies
 }
 
 run_solc() {
