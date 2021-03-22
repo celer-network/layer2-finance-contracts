@@ -60,8 +60,9 @@ export async function deployContracts(admin: Wallet) {
   )) as StrategyDummy__factory;
   const strategyDummy = await strategyDummyFactory.deploy(
     rollupChain.address,
+    testERC20.address,
     admin.address,
-    testERC20.address
+    ethers.utils.parseEther('1')
   );
   await strategyDummy.deployed();
   return { admin, registry, rollupChain, strategyDummy, testERC20, weth };
