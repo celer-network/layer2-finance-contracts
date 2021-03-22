@@ -18,8 +18,9 @@ describe('StrategyDummy', function () {
     )) as StrategyDummy__factory;
     const strategyDummy = await strategyDummyFactory.deploy(
       admin.address,
+      testERC20.address,
       admin.address,
-      testERC20.address
+      ethers.utils.parseEther('1')
     );
     await strategyDummy.deployed();
     return { strategyDummy, testERC20 };

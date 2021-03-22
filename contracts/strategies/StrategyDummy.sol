@@ -19,17 +19,21 @@ contract StrategyDummy is IStrategy {
     using SafeERC20 for IERC20;
 
     address controller;
-    address funder;
     address asset;
+
+    address funder;
+    uint256 harvestGain;
 
     constructor(
         address _controller,
+        address _asset,
         address _funder,
-        address _asset
+        uint256 _harvestGain
     ) {
         controller = _controller;
         funder = _funder;
         asset = _asset;
+        harvestGain = _harvestGain;
     }
 
     function getAssetAddress() external view override returns (address) {
@@ -53,6 +57,10 @@ contract StrategyDummy is IStrategy {
     }
 
     function harvest() external override {
-        IERC20(asset).safeTransferFrom(funder, address(this), 1e18);
+        IERC20(asset).safeTransferFrom(funder, address(this), harvestGain);
+    }
+
+    function setHarvestGain(uint256 _harvestGain) external {
+        harvestGain = _harvestGain;
     }
 }
