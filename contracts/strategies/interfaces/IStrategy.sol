@@ -15,31 +15,31 @@ interface IStrategy {
     event UnCommitted(uint256 uncommitAmount);
 
     /**
-     * @dev Returns the address of the asset token.
+     * @dev Return the address of the asset token.
      */
     function getAssetAddress() external view returns (address);
 
     /**
-     * @dev Updates the asset balance.
+     * @dev Harvest protocol tokens and update the asset balance.
      */
-    function updateBalance() external;
+    function harvest() external;
 
     /**
-     * @dev Returns the asset balance.
+     * @dev Return the asset balance.
      */
     function getBalance() external view returns (uint256);
 
     /**
-     * @dev Commits to strategies per instructions from L2.
+     * @dev Commit to strategy per instructions from L2.
      *
-     * @param commitAmount The aggregated amount to commit.
+     * @param commitAmount The aggregated asset amount to commit.
      */
     function aggregateCommit(uint256 commitAmount) external;
 
     /**
-     * @dev Uncommits from strategies per instructions from L2.
+     * @dev Uncommit from strategy per instructions from L2.
      *
-     * @param uncommitAmount The aggregated amount to uncommit.
+     * @param uncommitAmount The aggregated asset amount to uncommit.
      */
     function aggregateUncommit(uint256 uncommitAmount) external;
 }
