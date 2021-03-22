@@ -27,13 +27,12 @@ dld_solc() {
   sudo mv solc /usr/local/bin/
   # below will create $OPENZEPPELIN/contracts folder
   curl -L "https://github.com/OpenZeppelin/openzeppelin-contracts/archive/v3.4.0.tar.gz" | tar -xz -C contracts $OPENZEPPELIN/contracts/
-  cp -r contracts/$OPENZEPPELIN contracts/strategies/
 }
 
 run_solc() {
   mkdir -p genfiles
   for f in ${solFiles[@]}; do
-    solc --allow-paths contracts --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/$OPENZEPPELIN/ contracts/$f.sol
+    solc --base-path $PWD --allow-paths contracts --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/$OPENZEPPELIN/ contracts/$f.sol
   done
 }
 
