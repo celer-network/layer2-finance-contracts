@@ -4,7 +4,7 @@ name: gen-go-binding
 on:
   pull_request:
     paths:
-      - 'contracts/*'
+      - 'contracts/**'
 
 jobs:
   build:
