@@ -1,4 +1,4 @@
-transitions, gas cost per block
+<tn num, gas cost> per block
 
 -- commit --
 1	78946
@@ -28,7 +28,7 @@ transitions, gas cost per block
 700	3458367
 800	3972324
 900	4494480
-per tx cost after 1st tn: 4912
+per tn cost after 1st tn: 4912
 
 -- deposit --
 1	126968
@@ -45,7 +45,7 @@ per tx cost after 1st tn: 4912
 30	1083014
 40	1418709
 50	1754660
-per tx cost after 1st tn: 33219
+per tn cost after 1st tn: 33219
 
 -- withdraw --
 1	143755
@@ -67,7 +67,7 @@ per tx cost after 1st tn: 33219
 80	4140836
 90	4651351
 100	5162623
-per tx cost after 1st tn: 50696
+per tn cost after 1st tn: 50696
 
 -- sync balance --
 1	126028
@@ -84,7 +84,7 @@ per tx cost after 1st tn: 50696
 30	1053942
 40	1379561
 50	1705224
-per tx cost after 1st tn: 32229
+per tn cost after 1st tn: 32229
 
 -- sync commitment --
 1	97742
@@ -106,5 +106,5 @@ per tx cost after 1st tn: 32229
 80	394979
 90	432803
 100	470419
-per tx cost after 1st tn: 3765
+per tn cost after 1st tn: 3765
 

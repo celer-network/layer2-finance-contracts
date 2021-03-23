@@ -19,7 +19,7 @@ describe('Benchmark commitBlock', async function () {
     fs.mkdirSync(GAS_USAGE_DIR, { recursive: true });
   }
   fs.rmSync(GAS_USAGE_LOG, { force: true });
-  fs.appendFileSync(GAS_USAGE_LOG, 'transitions, gas cost per block\n\n');
+  fs.appendFileSync(GAS_USAGE_LOG, '<tn num, gas cost> per block\n\n');
 
   async function fixture([admin]: Wallet[]) {
     const {
@@ -109,8 +109,8 @@ describe('Benchmark commitBlock', async function () {
             numTxs.toString() + '\t' + gasUsed + '\n'
           );
         }
-        const txCost = Math.ceil((Number(lastCost)-Number(firtCost))/(maxNum-1));
-        fs.appendFileSync(GAS_USAGE_LOG, 'per tx cost after 1st tn: '+txCost+'\n');
+        let txCost = Math.ceil((Number(lastCost)-Number(firtCost))/(maxNum-1));
+        fs.appendFileSync(GAS_USAGE_LOG, 'per tn cost after 1st tn: '+txCost+'\n');
         fs.appendFileSync(GAS_USAGE_LOG, '\n');
       }
     );
