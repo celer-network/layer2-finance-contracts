@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./interfaces/curve/ICurveFi.sol";
 import "./interfaces/curve/IGauge.sol";
@@ -17,7 +18,7 @@ import "./interfaces/uniswap/IUniswapV2.sol";
 /**
  * @notice Deposits DAI into Curve 3Pool and issues stCrv3PoolDAI in L2. Holds 3CRV (Curve 3Pool LP tokens).
  */
-contract StrategyCurve3PoolDAI is IStrategy {
+contract StrategyCurve3PoolDAI is IStrategy, Ownable {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -148,5 +149,9 @@ contract StrategyCurve3PoolDAI is IStrategy {
         IERC20(dai).safeTransfer(msg.sender, daiBalance);
 
         emit UnCommitted(_daiAmount);
+    }
+
+    function setController(address _controller) external onlyOwner {
+        controller = _controller;
     }
 }

@@ -65,4 +65,8 @@ contract StrategyDummy is IStrategy, Ownable {
     function setHarvestGain(uint256 _harvestGain) external onlyOwner {
         harvestGain = _harvestGain;
     }
+
+    function setController(address _controller) external onlyOwner {
+        controller = _controller;
+    }
 }
