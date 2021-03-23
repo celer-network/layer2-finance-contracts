@@ -16,30 +16,27 @@ contract TransitionEvaluator {
     using SafeMath for uint256;
 
     function evaluateTransition(
-        bytes memory _transition,
-        DataTypes.AccountInfo memory _accountInfo,
-        DataTypes.StrategyInfo memory _strategyInfo,
+        bytes calldata _transition,
+        DataTypes.AccountInfo calldata _accountInfo,
+        DataTypes.StrategyInfo calldata _strategyInfo,
         Registry _registry
     ) external view returns (bytes32[2] memory) {
-        // Convert our inputs to memory
-        bytes memory transition = _transition;
-
         // Extract the transition type
-        uint8 transitionType = Transitions.extractTransitionType(transition);
+        uint8 transitionType = Transitions.extractTransitionType(_transition);
         bytes32[2] memory outputs;
         DataTypes.AccountInfo memory updatedAccountInfo;
         DataTypes.StrategyInfo memory updatedStrategyInfo;
         // Apply the transition and record the resulting storage slots
         if (transitionType == Transitions.TRANSITION_TYPE_DEPOSIT) {
-            DataTypes.DepositTransition memory deposit = Transitions.decodeDepositTransition(transition);
+            DataTypes.DepositTransition memory deposit = Transitions.decodeDepositTransition(_transition);
             updatedAccountInfo = applyDepositTransition(deposit, _accountInfo);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
         } else if (transitionType == Transitions.TRANSITION_TYPE_WITHDRAW) {
-            DataTypes.WithdrawTransition memory withdraw = Transitions.decodeWithdrawTransition(transition);
+            DataTypes.WithdrawTransition memory withdraw = Transitions.decodeWithdrawTransition(_transition);
             updatedAccountInfo = applyWithdrawTransition(withdraw, _accountInfo);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
         } else if (transitionType == Transitions.TRANSITION_TYPE_COMMIT) {
-            DataTypes.CommitTransition memory commit = Transitions.decodeCommitTransition(transition);
+            DataTypes.CommitTransition memory commit = Transitions.decodeCommitTransition(_transition);
             (updatedAccountInfo, updatedStrategyInfo) = applyCommitTransition(
                 commit,
                 _accountInfo,
@@ -49,17 +46,17 @@ contract TransitionEvaluator {
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
             outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
         } else if (transitionType == Transitions.TRANSITION_TYPE_UNCOMMIT) {
-            DataTypes.UncommitTransition memory uncommit = Transitions.decodeUncommitTransition(transition);
+            DataTypes.UncommitTransition memory uncommit = Transitions.decodeUncommitTransition(_transition);
             (updatedAccountInfo, updatedStrategyInfo) = applyUncommitTransition(uncommit, _accountInfo, _strategyInfo);
             outputs[0] = getAccountInfoHash(updatedAccountInfo);
             outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
         } else if (transitionType == Transitions.TRANSITION_TYPE_SYNC_COMMITMENT) {
             DataTypes.CommitmentSyncTransition memory commitmentSync =
-                Transitions.decodeCommitmentSyncTransition(transition);
+                Transitions.decodeCommitmentSyncTransition(_transition);
             updatedStrategyInfo = applyCommitmentSyncTransition(commitmentSync, _strategyInfo);
             outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
         } else if (transitionType == Transitions.TRANSITION_TYPE_SYNC_BALANCE) {
-            DataTypes.BalanceSyncTransition memory balanceSync = Transitions.decodeBalanceSyncTransition(transition);
+            DataTypes.BalanceSyncTransition memory balanceSync = Transitions.decodeBalanceSyncTransition(_transition);
             updatedStrategyInfo = applyBalanceSyncTransition(balanceSync, _strategyInfo);
             outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
         } else {

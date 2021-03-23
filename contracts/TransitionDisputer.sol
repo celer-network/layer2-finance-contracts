@@ -37,12 +37,12 @@ contract TransitionDisputer {
     function disputeTransition(
         dt.TransitionProof calldata _prevTransitionProof,
         dt.TransitionProof calldata _invalidTransitionProof,
-        dt.AccountProof memory _accountProof,
-        dt.StrategyProof memory _strategyProof,
-        dt.Block memory _prevTransitionBlock,
-        dt.Block memory _invalidTransitionBlock,
+        dt.AccountProof calldata _accountProof,
+        dt.StrategyProof calldata _strategyProof,
+        dt.Block calldata _prevTransitionBlock,
+        dt.Block calldata _invalidTransitionBlock,
         Registry _registry
-    ) public returns (string memory) {
+    ) external returns (string memory) {
         if (_invalidTransitionProof.blockId == 0 && _invalidTransitionProof.index == 0) {
             require(invalidInitTransition(_invalidTransitionProof, _invalidTransitionBlock), "no fraud detected");
             return "invalid init transition";
@@ -123,9 +123,9 @@ contract TransitionDisputer {
     }
 
     function evaluateInvalidTransition(
-        bytes memory _invalidTransition,
-        dt.AccountProof memory _accountProof,
-        dt.StrategyProof memory _strategyProof,
+        bytes calldata _invalidTransition,
+        dt.AccountProof calldata _accountProof,
+        dt.StrategyProof calldata _strategyProof,
         bytes32 postStateRoot,
         Registry _registry
     ) private returns (string memory) {
@@ -197,7 +197,7 @@ contract TransitionDisputer {
         return (success, preStateRoot, postStateRoot, accountId, strategyId);
     }
 
-    function invalidInitTransition(dt.TransitionProof calldata _initTransitionProof, dt.Block memory _firstBlock)
+    function invalidInitTransition(dt.TransitionProof calldata _initTransitionProof, dt.Block calldata _firstBlock)
         private
         returns (bool)
     {
@@ -276,10 +276,10 @@ contract TransitionDisputer {
      * This is used to make sure we are comparing the correct prestate & poststate.
      */
     function verifySequentialTransitions(
-        dt.TransitionProof memory _tp0,
-        dt.TransitionProof memory _tp1,
-        dt.Block memory _prevTransitionBlock,
-        dt.Block memory _invalidTransitionBlock
+        dt.TransitionProof calldata _tp0,
+        dt.TransitionProof calldata _tp1,
+        dt.Block calldata _prevTransitionBlock,
+        dt.Block calldata _invalidTransitionBlock
     ) private pure returns (bool) {
         // Start by checking if they are in the same block
         if (_tp0.blockId == _tp1.blockId) {

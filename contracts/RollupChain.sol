@@ -259,7 +259,7 @@ contract RollupChain is Ownable, Pausable {
      * @param _account The destination account.
      * @param _weth The address for WETH.
      */
-    function withdrawETH(address _account, address _weth) public {
+    function withdrawETH(address _account, address _weth) external whenNotPaused {
         uint256 amount = _withdraw(_account, _weth);
         IWETH(_weth).withdraw(amount);
         (bool sent, ) = _account.call{value: amount}("");
@@ -544,11 +544,11 @@ contract RollupChain is Ownable, Pausable {
      * @param _strategyProof The inclusion proof of the strategy involved.
      */
     function disputeTransition(
-        dt.TransitionProof memory _prevTransitionProof,
-        dt.TransitionProof memory _invalidTransitionProof,
-        dt.AccountProof memory _accountProof,
-        dt.StrategyProof memory _strategyProof
-    ) public {
+        dt.TransitionProof calldata _prevTransitionProof,
+        dt.TransitionProof calldata _invalidTransitionProof,
+        dt.AccountProof calldata _accountProof,
+        dt.StrategyProof calldata _strategyProof
+    ) external {
         uint256 invalidTransitionBlockId = _invalidTransitionProof.blockId;
         dt.Block memory invalidTransitionBlock = blocks[invalidTransitionBlockId];
         require(
