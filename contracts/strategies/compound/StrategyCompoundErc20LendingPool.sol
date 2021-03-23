@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "../interfaces/IStrategy.sol";
 import "../interfaces/compound/ICErc20.sol";
@@ -16,7 +17,7 @@ import "../interfaces/uniswap/IUniswapV2.sol";
 /**
  * Deposits ERC20 token into Compound Lending Pool and issues stCompoundLendingToken(e.g. stCompoundLendingDAI) in L2. Holds cToken (Compound interest-bearing tokens).
  */
-contract StrategyCompoundErc20LendingPool is IStrategy {
+contract StrategyCompoundErc20LendingPool is IStrategy, Ownable {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -129,5 +130,9 @@ contract StrategyCompoundErc20LendingPool is IStrategy {
         IERC20(supplyToken).safeTransfer(msg.sender, supplyTokenBalance);
 
         emit UnCommitted(_uncommitAmount);
-    }   
+    }
+
+    function setController(address _controller) external onlyOwner {
+        controller = _controller;
+    }
 }

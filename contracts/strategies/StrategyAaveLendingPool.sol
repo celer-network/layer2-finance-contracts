@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./interfaces/IStrategy.sol";
 import "./interfaces/aave/ILendingPool.sol";
@@ -15,7 +16,7 @@ import "./interfaces/aave/IAToken.sol";
 /**
  * Deposits ERC20 token into Aave Lending Pool and issues stAaveLendingToken(e.g. stAaveLendingDAI) in L2. Holds aToken (Aave interst-bearing tokens).
  */
-contract StrategyAaveLendingPool is IStrategy {
+contract StrategyAaveLendingPool is IStrategy, Ownable {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -97,5 +98,9 @@ contract StrategyAaveLendingPool is IStrategy {
         IERC20(supplyToken).safeTransfer(msg.sender, supplyTokenBalance);
 
         emit UnCommitted(_uncommitAmount);    
+    }
+
+    function setController(address _controller) external onlyOwner {
+        controller = _controller;
     }
 }
