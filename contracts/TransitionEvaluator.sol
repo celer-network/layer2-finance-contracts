@@ -15,6 +15,15 @@ import "./strategies/interfaces/IStrategy.sol";
 contract TransitionEvaluator {
     using SafeMath for uint256;
 
+    /**
+     * @notice Evaluate a transition.
+     *
+     * @param _transition The disputed transition.
+     * @param _accountInfo The involved account from the previous transition.
+     * @param _strategyInfo The involved strategy from the previous transition.
+     * @param _registry The address of the Registry contract.
+     * @return hashes of account and strategy after applying the transition.
+     */
     function evaluateTransition(
         bytes calldata _transition,
         DataTypes.AccountInfo calldata _accountInfo,
@@ -66,7 +75,7 @@ contract TransitionEvaluator {
     }
 
     /**
-     * Return the (stateRoot, accountId, strategyId) for this transition.
+     * @notice Return the (stateRoot, accountId, strategyId) for this transition.
      */
     function getTransitionStateRootAndAccessIds(bytes calldata _rawTransition)
         external
@@ -121,7 +130,11 @@ contract TransitionEvaluator {
     }
 
     /**
-     * Apply a DepositTransition.
+     * @notice Apply a DepositTransition.
+     *
+     * @param _transition The disputed transition.
+     * @param _accountInfo The involved account from the previous transition.
+     * @return new account info after apply the disputed transition
      */
     function applyDepositTransition(
         DataTypes.DepositTransition memory _transition,
@@ -154,7 +167,11 @@ contract TransitionEvaluator {
     }
 
     /**
-     * Apply a WithdrawTransition.
+     * @notice Apply a WithdrawTransition.
+     *
+     * @param _transition The disputed transition.
+     * @param _accountInfo The involved account from the previous transition.
+     * @return new account info after apply the disputed transition
      */
     function applyWithdrawTransition(
         DataTypes.WithdrawTransition memory _transition,
@@ -188,7 +205,12 @@ contract TransitionEvaluator {
     }
 
     /**
-     * Apply a CommitTransition.
+     * @notice Apply a CommitTransition.
+     *
+     * @param _transition The disputed transition.
+     * @param _accountInfo The involved account from the previous transition.
+     * @param _strategyInfo The involved strategy from the previous transition.
+     * @return new account and strategy info after apply the disputed transition
      */
     function applyCommitTransition(
         DataTypes.CommitTransition memory _transition,
@@ -251,7 +273,12 @@ contract TransitionEvaluator {
     }
 
     /**
-     * Apply a CommitTransition.
+     * @notice Apply a UncommitTransition.
+     *
+     * @param _transition The disputed transition.
+     * @param _accountInfo The involved account from the previous transition.
+     * @param _strategyInfo The involved strategy from the previous transition.
+     * @return new account and strategy info after apply the disputed transition
      */
     function applyUncommitTransition(
         DataTypes.UncommitTransition memory _transition,
@@ -294,7 +321,11 @@ contract TransitionEvaluator {
     }
 
     /**
-     * Apply a CommitmentSyncTransition.
+     * @notice Apply a CommitmentSyncTransition.
+     *
+     * @param _transition The disputed transition.
+     * @param _strategyInfo The involved strategy from the previous transition.
+     * @return new strategy info after apply the disputed transition
      */
     function applyCommitmentSyncTransition(
         DataTypes.CommitmentSyncTransition memory _transition,
@@ -315,7 +346,11 @@ contract TransitionEvaluator {
     }
 
     /**
-     * Apply a BalanceSyncTransition.
+     * @notice Apply a BalanceSyncTransition.
+     *
+     * @param _transition The disputed transition.
+     * @param _strategyInfo The involved strategy from the previous transition.
+     * @return new strategy info after apply the disputed transition
      */
     function applyBalanceSyncTransition(
         DataTypes.BalanceSyncTransition memory _transition,
@@ -332,7 +367,8 @@ contract TransitionEvaluator {
     }
 
     /**
-     * Get the hash of the AccountInfo.
+     * @notice Get the hash of the AccountInfo.
+     * @param _accountInfo Account info
      */
     function getAccountInfoHash(DataTypes.AccountInfo memory _accountInfo) internal pure returns (bytes32) {
         // Here we don't use `abi.encode([struct])` because it's not clear
@@ -351,6 +387,10 @@ contract TransitionEvaluator {
 
     /**
      * Get the hash of the StrategyInfo.
+     */
+    /**
+     * @notice Get the hash of the StrategyInfo.
+     * @param _strategyInfo Strategy info
      */
     function getStrategyInfoHash(DataTypes.StrategyInfo memory _strategyInfo) internal pure returns (bytes32) {
         // Here we don't use `abi.encode([struct])` because it's not clear

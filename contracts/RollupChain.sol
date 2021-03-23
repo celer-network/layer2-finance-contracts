@@ -110,14 +110,6 @@ contract RollupChain is Ownable, Pausable {
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
 
-    modifier onlyOperator() {
-        require(msg.sender == operator, "caller is not operator");
-        _;
-    }
-
-    /***************
-     * Constructor *
-     **************/
     constructor(
         uint256 _blockChallengePeriod,
         uint256 _maxPriorityTxDelay,
@@ -132,15 +124,22 @@ contract RollupChain is Ownable, Pausable {
         operator = _operator;
     }
 
+    modifier onlyOperator() {
+        require(msg.sender == operator, "caller is not operator");
+        _;
+    }
+
     /**
-     * @dev Called by the owner to pause contract
+     * @notice Called by the owner to pause contract
+     * @dev emergency use only
      */
     function pause() external onlyOwner {
         _pause();
     }
 
     /**
-     * @dev Called by the owner to unpause contract
+     * @notice Called by the owner to unpause contract
+     * @dev emergency use only
      */
     function unpause() external onlyOwner {
         _unpause();
@@ -148,7 +147,7 @@ contract RollupChain is Ownable, Pausable {
 
     /**
      * @notice Owner drains one type of tokens when the contract is paused
-     * @dev This is for emergency situations.
+     * @dev emergency use only
      *
      * @param _asset drained asset address
      * @param _amount drained asset amount
@@ -169,31 +168,46 @@ contract RollupChain is Ownable, Pausable {
     }
 
     /**
-     * @dev Called by the owner to set blockChallengePeriod
+     * @notice Called by the owner to set blockChallengePeriod
+     * @param _blockChallengePeriod delay (in # of ETH blocks) to challenge a rollup block
      */
     function setBlockChallengePeriod(uint256 _blockChallengePeriod) external onlyOwner {
         blockChallengePeriod = _blockChallengePeriod;
     }
 
     /**
-     * @dev Called by the owner to set maxPriorityTxDelay
+     * @notice Called by the owner to set maxPriorityTxDelay
+     * @param _maxPriorityTxDelay delay (in # of rollup blocks) to reflect an L1-initiated tx in a rollup block
      */
     function setMaxPriorityTxDelay(uint256 _maxPriorityTxDelay) external onlyOwner {
         maxPriorityTxDelay = _maxPriorityTxDelay;
     }
 
-    function getCurrentBlockId() public view returns (uint256) {
-        return blocks.length - 1;
-    }
-
+    /**
+     * @notice Called by the owner to set operator account address
+     * @param _operator operator's ETH address
+     */
     function setOperator(address _operator) external onlyOwner {
         operator = _operator;
     }
 
+    /**
+     * @notice Called by the owner to set net deposit limit
+     * @param _asset asset token address
+     * @param _limit asset net deposit limit amount
+     */
     function setNetDepositLimit(address _asset, uint256 _limit) external onlyOwner {
         uint32 assetId = registry.assetAddressToIndex(_asset);
         require(assetId != 0, "Unknown asset");
         netDepositLimits[_asset] = _limit;
+    }
+
+    /**
+     * @notice Get current rollup block id
+     * @return current rollup block id
+     */
+    function getCurrentBlockId() public view returns (uint256) {
+        return blocks.length - 1;
     }
 
     /**
@@ -266,6 +280,12 @@ contract RollupChain is Ownable, Pausable {
         require(sent, "Failed to withdraw ETH");
     }
 
+    /**
+     * @notice private function to execute pending withdraw of an asset to an account.
+     *
+     * @param _account The destination account.
+     * @param _asset The asset address;
+     */
     function _withdraw(address _account, address _asset) private returns (uint256) {
         uint32 assetId = registry.assetAddressToIndex(_asset);
         require(assetId > 0, "Asset not registered");
@@ -285,7 +305,10 @@ contract RollupChain is Ownable, Pausable {
     }
 
     /**
-     * Submit a prepared batch as a new rollup block.
+     * @notice Submit a prepared batch as a new rollup block.
+     *
+     * @param _blockId Rollup block id
+     * @param _transitions List of layer-2 transitions
      */
     function commitBlock(uint256 _blockId, bytes[] calldata _transitions) external whenNotPaused onlyOperator {
         require(_blockId == blocks.length, "Wrong block ID");
@@ -375,8 +398,13 @@ contract RollupChain is Ownable, Pausable {
         emit RollupBlockCommitted(_blockId);
     }
 
-    // Note: only the "intent" transitions (commitment sync) are given to executeBlock() instead of
-    // re-sending the whole rollup block.  This includes the case of a rollup block with zero intents.
+    /**
+     * @notice Execute a rollup block after it passes the challenge period.
+     * @dev Note: only the "intent" transitions (commitment sync) are given to executeBlock() instead of
+     * re-sending the whole rollup block. This includes the case of a rollup block with zero intents.
+     *
+     * @param _intents List of CommitmentSync transitions of the rollup block
+     */
     function executeBlock(bytes[] calldata _intents) external whenNotPaused {
         uint256 blockId = countExecuted;
         require(blockId < blocks.length, "No blocks pending execution");
@@ -451,6 +479,12 @@ contract RollupChain is Ownable, Pausable {
         emit RollupBlockExecuted(blockId);
     }
 
+    /**
+     * @notice Sync the latest L1 strategy asset balance to L2
+     * @dev L2 opeartor will submit BalanceSync transition based on the emitted event
+     *
+     * @param _strategyId Strategy id
+     */
     function syncBalance(uint32 _strategyId) external whenNotPaused onlyOperator {
         address stAddr = registry.strategyIndexToAddress(_strategyId);
         require(stAddr != address(0), "Unknown strategy ID");
@@ -477,6 +511,10 @@ contract RollupChain is Ownable, Pausable {
         emit BalanceSync(_strategyId, delta, syncId);
     }
 
+    /**
+     * @notice Dispute if operator failed to reflect an L1-initiated priority tx 
+     * in a rollup block within the maxPriorityTxDelay
+     */
     function disputePriorityTxDelay() external {
         uint256 currentBlockId = getCurrentBlockId();
 
@@ -496,7 +534,13 @@ contract RollupChain is Ownable, Pausable {
         revert("Not exceed max priority tx delay");
     }
 
-    function revertBlock(uint256 _blockId, string memory reason) private {
+    /**
+     * @notice Revert rollup block on dispute success
+     *
+     * @param _blockId Rollup block id
+     * @param _reason revert reason
+     */
+    function revertBlock(uint256 _blockId, string memory _reason) private {
         // pause contract
         _pause();
 
@@ -528,11 +572,12 @@ contract RollupChain is Ownable, Pausable {
             }
         }
 
-        emit RollupBlockReverted(_blockId, reason);
+        emit RollupBlockReverted(_blockId, _reason);
     }
 
     /**
-     * @notice Dispute a transition in a block.  Provide the transition proofs of the previous (valid) transition
+     * @notice Dispute a transition in a block.  
+     * @dev Provide the transition proofs of the previous (valid) transition
      * and the disputed transition, the account proof, and the strategy proof. Both the account proof and
      * strategy proof are always needed even if the disputed transition only updates the account or only
      * updates the strategy because the transition stateRoot = hash(accountStateRoot, strategyStateRoot).
