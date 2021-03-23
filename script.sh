@@ -10,15 +10,16 @@ OPENZEPPELIN="openzeppelin-contracts-3.4.0"          # if change, also need to c
 GETH_VER="geth-alltools-linux-amd64-1.9.25-e7872729" # for abigen
 GO_REPO=https://${GH_TOKEN}@github.com/celer-network/defi-rollup
 
-# xx.sol under contracts/, no need for .sol suffix
+# xx.sol under contracts/, no need for .sol suffix, if sol file is in subfolder, just add the relative path
+# note solc will put all .abi/.bin under genfiles folder (ie. flatten folder hierarchy), so make sure no file name conflict
 solFiles=(
   Registry
   TransitionDisputer
   TransitionEvaluator
   RollupChain
-)
-solFilesStrategy=(
-  StrategyDummy
+  # strategies
+  strategies/interfaces/IStrategy
+  strategies/StrategyDummy
 )
 
 dld_solc() {
@@ -26,16 +27,12 @@ dld_solc() {
   sudo mv solc /usr/local/bin/
   # below will create $OPENZEPPELIN/contracts folder
   curl -L "https://github.com/OpenZeppelin/openzeppelin-contracts/archive/v3.4.0.tar.gz" | tar -xz -C contracts $OPENZEPPELIN/contracts/
-  cp -r contracts/$OPENZEPPELIN contracts/strategies/
 }
 
 run_solc() {
   mkdir -p genfiles
   for f in ${solFiles[@]}; do
-    solc --allow-paths contracts --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/$OPENZEPPELIN/ contracts/$f.sol
-  done
-  for f in ${solFilesStrategy[@]}; do
-    solc --allow-paths contracts --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/strategies/$OPENZEPPELIN/ contracts/strategies/$f.sol
+    solc --base-path $PWD --allow-paths contracts --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/$OPENZEPPELIN/ contracts/$f.sol
   done
 }
 
@@ -52,10 +49,7 @@ run_abigen() {
   git checkout $BRANCH || git checkout -b $BRANCH
 
   for f in ${solFiles[@]}; do
-    abigen_one $f
-  done
-  for f in ${solFilesStrategy[@]}; do
-    abigen_one $f
+    abigen_one ${f##*/} # delete subfolder only keep file name, eg. strategies/interfaces/IStrategy -> IStrategy
   done
 
   # delete duplicated struct defs, add here if new dup appears
