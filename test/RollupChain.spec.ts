@@ -7,27 +7,15 @@ import { deployContracts, loadFixture } from './common';
 
 describe('RollupChain', function () {
   async function fixture([admin]: Wallet[]) {
-    const {
-      registry,
-      rollupChain,
-      strategyDummy,
-      testERC20,
-      weth
-    } = await deployContracts(admin);
+    const { registry, rollupChain, strategyDummy, testERC20, weth } = await deployContracts(admin);
 
     const tokenAddress = testERC20.address;
     const wethAddress = weth.address;
     await registry.registerAsset(tokenAddress);
     await registry.registerAsset(wethAddress);
 
-    await rollupChain.setNetDepositLimit(
-      tokenAddress,
-      ethers.utils.parseEther('10000')
-    );
-    await rollupChain.setNetDepositLimit(
-      wethAddress,
-      ethers.utils.parseEther('10000')
-    );
+    await rollupChain.setNetDepositLimit(tokenAddress, ethers.utils.parseEther('10000'));
+    await rollupChain.setNetDepositLimit(wethAddress, ethers.utils.parseEther('10000'));
 
     return {
       admin,
@@ -48,13 +36,7 @@ describe('RollupChain', function () {
       .to.emit(rollupChain, 'AssetDeposited')
       .withArgs(admin.address, 1, depositAmount, 0);
 
-    const [
-      account,
-      assetID,
-      amount,
-      blockID,
-      status
-    ] = await rollupChain.pendingDeposits(0);
+    const [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(0);
     expect(account).to.equal(admin.address);
     expect(assetID).to.equal(1);
     expect(amount).to.equal(depositAmount);
@@ -68,9 +50,9 @@ describe('RollupChain', function () {
     const withdrawAmount = ethers.utils.parseEther('1');
     await testERC20.approve(rollupChain.address, withdrawAmount);
     await rollupChain.deposit(tokenAddress, withdrawAmount);
-    await expect(
-      rollupChain.withdraw(admin.address, tokenAddress)
-    ).to.be.revertedWith('Nothing to withdraw');
+    await expect(rollupChain.withdraw(admin.address, tokenAddress)).to.be.revertedWith(
+      'Nothing to withdraw'
+    );
 
     const txs = [
       // Deposit
@@ -80,20 +62,14 @@ describe('RollupChain', function () {
     ];
     await rollupChain.commitBlock(0, txs);
 
-    let [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(
-      0,
-      0
-    );
+    let [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(0, 0);
     expect(account).to.equal(admin.address);
     expect(assetID).to.equal(1);
     expect(amount).to.equal(withdrawAmount);
 
     await rollupChain.executeBlock([]);
 
-    let totalAmount = await rollupChain.pendingWithdraws(
-      admin.address,
-      assetID
-    );
+    let totalAmount = await rollupChain.pendingWithdraws(admin.address, assetID);
     expect(assetID).to.equal(1);
     expect(totalAmount).to.equal(withdrawAmount);
 
@@ -116,13 +92,7 @@ describe('RollupChain', function () {
       .to.emit(rollupChain, 'AssetDeposited')
       .withArgs(admin.address, 2, depositAmount, 0);
 
-    let [
-      account,
-      assetID,
-      amount,
-      blockID,
-      status
-    ] = await rollupChain.pendingDeposits(0);
+    let [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(0);
     expect(account).to.equal(admin.address);
     expect(assetID).to.equal(2);
     expect(amount).to.equal(depositAmount);
@@ -144,23 +114,15 @@ describe('RollupChain', function () {
 
     await rollupChain.executeBlock([]);
 
-    let totalAmount = await rollupChain.pendingWithdraws(
-      admin.address,
-      assetID
-    );
+    let totalAmount = await rollupChain.pendingWithdraws(admin.address, assetID);
     expect(assetID).to.equal(2);
     expect(totalAmount).to.equal(depositAmount);
 
     const balanceBefore = await ethers.provider.getBalance(admin.address);
-    const withdrawTx = await rollupChain.withdrawETH(
-      admin.address,
-      weth.address
-    );
+    const withdrawTx = await rollupChain.withdrawETH(admin.address, weth.address);
     const gasSpent = (await withdrawTx.wait()).gasUsed.mul(withdrawTx.gasPrice);
     const balanceAfter = await ethers.provider.getBalance(admin.address);
-    expect(balanceAfter.sub(balanceBefore).add(gasSpent)).to.equal(
-      depositAmount
-    );
+    expect(balanceAfter.sub(balanceBefore).add(gasSpent)).to.equal(depositAmount);
   });
 
   it('should commit block', async function () {
@@ -177,37 +139,22 @@ describe('RollupChain', function () {
   });
 
   it('should execute block with one deposit, one commit, one sync commitment and one sync balance', async function () {
-    const {
-      registry,
-      rollupChain,
-      strategyDummy,
-      testERC20
-    } = await loadFixture(fixture);
+    const { registry, rollupChain, strategyDummy, testERC20 } = await loadFixture(fixture);
     const tokenAddress = testERC20.address;
     const stAddress = strategyDummy.address;
     await registry.registerStrategy(stAddress);
     await testERC20.approve(rollupChain.address, ethers.utils.parseEther('1'));
-    await testERC20.approve(
-      strategyDummy.address,
-      ethers.utils.parseEther('1')
-    );
+    await testERC20.approve(strategyDummy.address, ethers.utils.parseEther('1'));
     await rollupChain.deposit(tokenAddress, ethers.utils.parseEther('1'));
-    await strategyDummy.updateBalance();
+    await strategyDummy.harvest();
     await rollupChain.syncBalance(1);
 
-    let [
-      strategyID,
-      delta,
-      blockID,
-      status
-    ] = await rollupChain.pendingBalanceSyncs(0);
+    let [strategyID, delta, blockID, status] = await rollupChain.pendingBalanceSyncs(0);
     expect(strategyID).to.equal(1);
     expect(delta).to.equal(ethers.utils.parseEther('1'));
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
-    expect(await strategyDummy.getBalance()).to.equal(
-      ethers.utils.parseEther('1')
-    );
+    expect(await strategyDummy.getBalance()).to.equal(ethers.utils.parseEther('1'));
 
     const txs = [
       // Deposit
@@ -227,19 +174,11 @@ describe('RollupChain', function () {
     await rollupChain.executeBlock(intents);
 
     // Check fund committed
-    expect(await strategyDummy.getBalance()).to.equal(
-      ethers.utils.parseEther('2')
-    );
+    expect(await strategyDummy.getBalance()).to.equal(ethers.utils.parseEther('2'));
 
     // Check pending deposit cleared
     let account, assetID, amount;
-    [
-      account,
-      assetID,
-      amount,
-      blockID,
-      status
-    ] = await rollupChain.pendingDeposits(0);
+    [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(0);
     expect(account).to.equal(ethers.constants.AddressZero);
     expect(assetID).to.equal(0);
     expect(amount).to.equal(0);
@@ -247,12 +186,7 @@ describe('RollupChain', function () {
     expect(status).to.equal(0);
 
     // Check pending balance sync cleared
-    [
-      strategyID,
-      delta,
-      blockID,
-      status
-    ] = await rollupChain.pendingBalanceSyncs(0);
+    [strategyID, delta, blockID, status] = await rollupChain.pendingBalanceSyncs(0);
     expect(strategyID).to.equal(0);
     expect(delta).to.equal(0);
     expect(blockID).to.equal(0);
