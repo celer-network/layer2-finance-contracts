@@ -15,6 +15,10 @@ import "./strategies/interfaces/IStrategy.sol";
 contract TransitionEvaluator {
     using SafeMath for uint256;
 
+    /**********************
+     * External Functions *
+     **********************/
+
     /**
      * @notice Evaluate a transition.
      *
@@ -129,6 +133,10 @@ contract TransitionEvaluator {
         return (stateRoot, accountId, strategyId);
     }
 
+    /*********************
+     * Private Functions *
+     *********************/
+
     /**
      * @notice Apply a DepositTransition.
      *
@@ -139,7 +147,7 @@ contract TransitionEvaluator {
     function applyDepositTransition(
         DataTypes.DepositTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo
-    ) internal pure returns (DataTypes.AccountInfo memory) {
+    ) private pure returns (DataTypes.AccountInfo memory) {
         if (_accountInfo.account == address(0)) {
             // first time deposit of this account
             require(_accountInfo.accountId == 0, "empty account id must be zero");
@@ -176,7 +184,7 @@ contract TransitionEvaluator {
     function applyWithdrawTransition(
         DataTypes.WithdrawTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo
-    ) internal pure returns (DataTypes.AccountInfo memory) {
+    ) private pure returns (DataTypes.AccountInfo memory) {
         bytes32 txHash =
             keccak256(
                 abi.encodePacked(
@@ -217,7 +225,7 @@ contract TransitionEvaluator {
         DataTypes.AccountInfo memory _accountInfo,
         DataTypes.StrategyInfo memory _strategyInfo,
         Registry _registry
-    ) internal view returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
+    ) private view returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
         bytes32 txHash =
             keccak256(
                 abi.encodePacked(
@@ -284,7 +292,7 @@ contract TransitionEvaluator {
         DataTypes.UncommitTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo,
         DataTypes.StrategyInfo memory _strategyInfo
-    ) internal pure returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
+    ) private pure returns (DataTypes.AccountInfo memory, DataTypes.StrategyInfo memory) {
         bytes32 txHash =
             keccak256(
                 abi.encodePacked(
@@ -330,7 +338,7 @@ contract TransitionEvaluator {
     function applyCommitmentSyncTransition(
         DataTypes.CommitmentSyncTransition memory _transition,
         DataTypes.StrategyInfo memory _strategyInfo
-    ) internal pure returns (DataTypes.StrategyInfo memory) {
+    ) private pure returns (DataTypes.StrategyInfo memory) {
         require(
             _transition.pendingCommitAmount == _strategyInfo.pendingCommitAmount,
             "pending commitment amount not match"
@@ -355,7 +363,7 @@ contract TransitionEvaluator {
     function applyBalanceSyncTransition(
         DataTypes.BalanceSyncTransition memory _transition,
         DataTypes.StrategyInfo memory _strategyInfo
-    ) internal pure returns (DataTypes.StrategyInfo memory) {
+    ) private pure returns (DataTypes.StrategyInfo memory) {
         if (_transition.newAssetDelta >= 0) {
             uint256 delta = uint256(_transition.newAssetDelta);
             _strategyInfo.assetBalance = _strategyInfo.assetBalance.add(delta);
@@ -370,7 +378,7 @@ contract TransitionEvaluator {
      * @notice Get the hash of the AccountInfo.
      * @param _accountInfo Account info
      */
-    function getAccountInfoHash(DataTypes.AccountInfo memory _accountInfo) internal pure returns (bytes32) {
+    function getAccountInfoHash(DataTypes.AccountInfo memory _accountInfo) private pure returns (bytes32) {
         // Here we don't use `abi.encode([struct])` because it's not clear
         // how to generate that encoding client-side.
         return
@@ -392,7 +400,7 @@ contract TransitionEvaluator {
      * @notice Get the hash of the StrategyInfo.
      * @param _strategyInfo Strategy info
      */
-    function getStrategyInfoHash(DataTypes.StrategyInfo memory _strategyInfo) internal pure returns (bytes32) {
+    function getStrategyInfoHash(DataTypes.StrategyInfo memory _strategyInfo) private pure returns (bytes32) {
         // Here we don't use `abi.encode([struct])` because it's not clear
         // how to generate that encoding client-side.
         return

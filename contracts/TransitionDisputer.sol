@@ -24,6 +24,10 @@ contract TransitionDisputer {
         transitionEvaluator = _transitionEvaluator;
     }
 
+    /**********************
+     * External Functions *
+     **********************/
+
     /**
      * @notice Dispute a transition.
      *
@@ -123,6 +127,10 @@ contract TransitionDisputer {
             );
     }
 
+    /*********************
+     * Private Functions *
+     *********************/
+
     /**
      * @notice Evaluate a disputed transition
      * @dev This was splitted from the disputeTransition fucntion to address "stack too deep" compiler error
@@ -177,7 +185,7 @@ contract TransitionDisputer {
      * @param _invalidTransition the disputed transition
      */
     function getStateRootsAndIds(bytes memory _preStateTransition, bytes memory _invalidTransition)
-        public
+        private
         returns (
             bool,
             bytes32,
@@ -247,7 +255,7 @@ contract TransitionDisputer {
      *
      * @param _accountInfo Account info
      */
-    function getAccountInfoBytes(dt.AccountInfo memory _accountInfo) public pure returns (bytes memory) {
+    function getAccountInfoBytes(dt.AccountInfo memory _accountInfo) private pure returns (bytes memory) {
         // If it's an empty storage slot, return 32 bytes of zeros (empty value)
         if (
             _accountInfo.account == address(0) &&
@@ -275,7 +283,7 @@ contract TransitionDisputer {
      *
      * @param _strategyInfo Strategy info
      */
-    function getStrategyInfoBytes(dt.StrategyInfo memory _strategyInfo) public pure returns (bytes memory) {
+    function getStrategyInfoBytes(dt.StrategyInfo memory _strategyInfo) private pure returns (bytes memory) {
         // If it's an empty storage slot, return 32 bytes of zeros (empty value)
         if (
             _strategyInfo.assetId == 0 &&

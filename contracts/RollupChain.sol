@@ -129,86 +129,13 @@ contract RollupChain is Ownable, Pausable {
         _;
     }
 
-    /**
-     * @notice Called by the owner to pause contract
-     * @dev emergency use only
-     */
-    function pause() external onlyOwner {
-        _pause();
-    }
+    /**********************
+     * External Functions *
+     **********************/
 
-    /**
-     * @notice Called by the owner to unpause contract
-     * @dev emergency use only
-     */
-    function unpause() external onlyOwner {
-        _unpause();
-    }
+    fallback() external payable {}
 
-    /**
-     * @notice Owner drains one type of tokens when the contract is paused
-     * @dev emergency use only
-     *
-     * @param _asset drained asset address
-     * @param _amount drained asset amount
-     */
-    function drainToken(address _asset, uint256 _amount) external whenPaused onlyOwner {
-        IERC20(_asset).safeTransfer(msg.sender, _amount);
-    }
-
-    /**
-     * @notice Owner drains ETH when the contract is paused
-     * @dev This is for emergency situations.
-     *
-     * @param _amount drained ETH amount
-     */
-    function drainETH(uint256 _amount) external whenPaused onlyOwner {
-        (bool sent, ) = msg.sender.call{value: _amount}("");
-        require(sent, "Failed to drain ETH");
-    }
-
-    /**
-     * @notice Called by the owner to set blockChallengePeriod
-     * @param _blockChallengePeriod delay (in # of ETH blocks) to challenge a rollup block
-     */
-    function setBlockChallengePeriod(uint256 _blockChallengePeriod) external onlyOwner {
-        blockChallengePeriod = _blockChallengePeriod;
-    }
-
-    /**
-     * @notice Called by the owner to set maxPriorityTxDelay
-     * @param _maxPriorityTxDelay delay (in # of rollup blocks) to reflect an L1-initiated tx in a rollup block
-     */
-    function setMaxPriorityTxDelay(uint256 _maxPriorityTxDelay) external onlyOwner {
-        maxPriorityTxDelay = _maxPriorityTxDelay;
-    }
-
-    /**
-     * @notice Called by the owner to set operator account address
-     * @param _operator operator's ETH address
-     */
-    function setOperator(address _operator) external onlyOwner {
-        operator = _operator;
-    }
-
-    /**
-     * @notice Called by the owner to set net deposit limit
-     * @param _asset asset token address
-     * @param _limit asset net deposit limit amount
-     */
-    function setNetDepositLimit(address _asset, uint256 _limit) external onlyOwner {
-        uint32 assetId = registry.assetAddressToIndex(_asset);
-        require(assetId != 0, "Unknown asset");
-        netDepositLimits[_asset] = _limit;
-    }
-
-    /**
-     * @notice Get current rollup block id
-     * @return current rollup block id
-     */
-    function getCurrentBlockId() public view returns (uint256) {
-        return blocks.length - 1;
-    }
+    receive() external payable {}
 
     /**
      * @notice Deposits ERC20 asset.
@@ -233,29 +160,6 @@ contract RollupChain is Ownable, Pausable {
         IWETH(_weth).deposit{value: _amount}();
     }
 
-    function _deposit(address _asset, uint256 _amount) private {
-        address account = msg.sender;
-        uint32 assetId = registry.assetAddressToIndex(_asset);
-
-        require(assetId != 0, "Unknown asset");
-
-        uint256 netDeposit = netDeposits[_asset].add(_amount);
-        require(netDeposit <= netDepositLimits[_asset], "net deposit exceeds limit");
-        netDeposits[_asset] = netDeposit;
-
-        // Add a pending deposit record.
-        uint256 depositId = pendingDepositsTail++;
-        pendingDeposits[depositId] = PendingDeposit({
-            account: account,
-            assetId: assetId,
-            amount: _amount,
-            blockId: blocks.length, // "pending": baseline of censorship delay
-            status: PendingDepositStatus.Pending
-        });
-
-        emit AssetDeposited(account, assetId, _amount, depositId);
-    }
-
     /**
      * @notice Executes pending withdraw of an asset to an account.
      *
@@ -278,30 +182,6 @@ contract RollupChain is Ownable, Pausable {
         IWETH(_weth).withdraw(amount);
         (bool sent, ) = _account.call{value: amount}("");
         require(sent, "Failed to withdraw ETH");
-    }
-
-    /**
-     * @notice private function to execute pending withdraw of an asset to an account.
-     *
-     * @param _account The destination account.
-     * @param _asset The asset address;
-     */
-    function _withdraw(address _account, address _asset) private returns (uint256) {
-        uint32 assetId = registry.assetAddressToIndex(_asset);
-        require(assetId > 0, "Asset not registered");
-
-        uint256 amount = pendingWithdraws[_account][assetId];
-        require(amount > 0, "Nothing to withdraw");
-
-        if (netDeposits[_asset] < amount) {
-            netDeposits[_asset] = 0;
-        } else {
-            netDeposits[_asset] = netDeposits[_asset].sub(amount);
-        }
-        pendingWithdraws[_account][assetId] = 0;
-
-        emit AssetWithdrawn(_account, assetId, amount);
-        return amount;
     }
 
     /**
@@ -512,70 +392,6 @@ contract RollupChain is Ownable, Pausable {
     }
 
     /**
-     * @notice Dispute if operator failed to reflect an L1-initiated priority tx 
-     * in a rollup block within the maxPriorityTxDelay
-     */
-    function disputePriorityTxDelay() external {
-        uint256 currentBlockId = getCurrentBlockId();
-
-        if (pendingDepositsCommitHead < pendingDepositsTail) {
-            if (currentBlockId.sub(pendingDeposits[pendingDepositsCommitHead].blockId) > maxPriorityTxDelay) {
-                _pause();
-                return;
-            }
-        }
-
-        if (pendingBalanceSyncsCommitHead < pendingBalanceSyncsTail) {
-            if (currentBlockId.sub(pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId) > maxPriorityTxDelay) {
-                _pause();
-                return;
-            }
-        }
-        revert("Not exceed max priority tx delay");
-    }
-
-    /**
-     * @notice Revert rollup block on dispute success
-     *
-     * @param _blockId Rollup block id
-     * @param _reason revert reason
-     */
-    function revertBlock(uint256 _blockId, string memory _reason) private {
-        // pause contract
-        _pause();
-
-        // revert blocks and pending states
-        while (blocks.length > _blockId) {
-            pendingWithdrawCommits[blocks.length - 1];
-            blocks.pop();
-        }
-        bool first;
-        for (uint256 i = pendingDepositsExecuteHead; i < pendingDepositsTail; i++) {
-            if (pendingDeposits[i].blockId >= _blockId) {
-                if (!first) {
-                    pendingDepositsCommitHead = i;
-                    first = true;
-                }
-                pendingDeposits[i].blockId = _blockId;
-                pendingDeposits[i].status = PendingDepositStatus.Pending;
-            }
-        }
-        first = false;
-        for (uint256 i = pendingBalanceSyncsExecuteHead; i < pendingBalanceSyncsTail; i++) {
-            if (pendingBalanceSyncs[i].blockId >= _blockId) {
-                if (!first) {
-                    pendingBalanceSyncsCommitHead = i;
-                    first = true;
-                }
-                pendingBalanceSyncs[i].blockId = _blockId;
-                pendingBalanceSyncs[i].status = PendingBalanceSyncStatus.Pending;
-            }
-        }
-
-        emit RollupBlockReverted(_blockId, _reason);
-    }
-
-    /**
      * @notice Dispute a transition in a block.  
      * @dev Provide the transition proofs of the previous (valid) transition
      * and the disputed transition, the account proof, and the strategy proof. Both the account proof and
@@ -624,7 +440,204 @@ contract RollupChain is Ownable, Pausable {
         }
     }
 
-    fallback() external payable {}
+    /**
+     * @notice Dispute if operator failed to reflect an L1-initiated priority tx 
+     * in a rollup block within the maxPriorityTxDelay
+     */
+    function disputePriorityTxDelay() external {
+        uint256 currentBlockId = getCurrentBlockId();
 
-    receive() external payable {}
+        if (pendingDepositsCommitHead < pendingDepositsTail) {
+            if (currentBlockId.sub(pendingDeposits[pendingDepositsCommitHead].blockId) > maxPriorityTxDelay) {
+                _pause();
+                return;
+            }
+        }
+
+        if (pendingBalanceSyncsCommitHead < pendingBalanceSyncsTail) {
+            if (currentBlockId.sub(pendingBalanceSyncs[pendingBalanceSyncsCommitHead].blockId) > maxPriorityTxDelay) {
+                _pause();
+                return;
+            }
+        }
+        revert("Not exceed max priority tx delay");
+    }
+
+    /**
+     * @notice Called by the owner to pause contract
+     * @dev emergency use only
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @notice Called by the owner to unpause contract
+     * @dev emergency use only
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /**
+     * @notice Owner drains one type of tokens when the contract is paused
+     * @dev emergency use only
+     *
+     * @param _asset drained asset address
+     * @param _amount drained asset amount
+     */
+    function drainToken(address _asset, uint256 _amount) external whenPaused onlyOwner {
+        IERC20(_asset).safeTransfer(msg.sender, _amount);
+    }
+
+    /**
+     * @notice Owner drains ETH when the contract is paused
+     * @dev This is for emergency situations.
+     *
+     * @param _amount drained ETH amount
+     */
+    function drainETH(uint256 _amount) external whenPaused onlyOwner {
+        (bool sent, ) = msg.sender.call{value: _amount}("");
+        require(sent, "Failed to drain ETH");
+    }
+
+    /**
+     * @notice Called by the owner to set blockChallengePeriod
+     * @param _blockChallengePeriod delay (in # of ETH blocks) to challenge a rollup block
+     */
+    function setBlockChallengePeriod(uint256 _blockChallengePeriod) external onlyOwner {
+        blockChallengePeriod = _blockChallengePeriod;
+    }
+
+    /**
+     * @notice Called by the owner to set maxPriorityTxDelay
+     * @param _maxPriorityTxDelay delay (in # of rollup blocks) to reflect an L1-initiated tx in a rollup block
+     */
+    function setMaxPriorityTxDelay(uint256 _maxPriorityTxDelay) external onlyOwner {
+        maxPriorityTxDelay = _maxPriorityTxDelay;
+    }
+
+    /**
+     * @notice Called by the owner to set operator account address
+     * @param _operator operator's ETH address
+     */
+    function setOperator(address _operator) external onlyOwner {
+        operator = _operator;
+    }
+
+    /**
+     * @notice Called by the owner to set net deposit limit
+     * @param _asset asset token address
+     * @param _limit asset net deposit limit amount
+     */
+    function setNetDepositLimit(address _asset, uint256 _limit) external onlyOwner {
+        uint32 assetId = registry.assetAddressToIndex(_asset);
+        require(assetId != 0, "Unknown asset");
+        netDepositLimits[_asset] = _limit;
+    }
+
+    /*********************
+     * Public Functions *
+     *********************/
+
+    /**
+     * @notice Get current rollup block id
+     * @return current rollup block id
+     */
+    function getCurrentBlockId() public view returns (uint256) {
+        return blocks.length - 1;
+    }
+
+    /*********************
+     * Private Functions *
+     *********************/
+
+    function _deposit(address _asset, uint256 _amount) private {
+        address account = msg.sender;
+        uint32 assetId = registry.assetAddressToIndex(_asset);
+
+        require(assetId != 0, "Unknown asset");
+
+        uint256 netDeposit = netDeposits[_asset].add(_amount);
+        require(netDeposit <= netDepositLimits[_asset], "net deposit exceeds limit");
+        netDeposits[_asset] = netDeposit;
+
+        // Add a pending deposit record.
+        uint256 depositId = pendingDepositsTail++;
+        pendingDeposits[depositId] = PendingDeposit({
+            account: account,
+            assetId: assetId,
+            amount: _amount,
+            blockId: blocks.length, // "pending": baseline of censorship delay
+            status: PendingDepositStatus.Pending
+        });
+
+        emit AssetDeposited(account, assetId, _amount, depositId);
+    }
+
+
+    /**
+     * @notice private function to execute pending withdraw of an asset to an account.
+     *
+     * @param _account The destination account.
+     * @param _asset The asset address;
+     */
+    function _withdraw(address _account, address _asset) private returns (uint256) {
+        uint32 assetId = registry.assetAddressToIndex(_asset);
+        require(assetId > 0, "Asset not registered");
+
+        uint256 amount = pendingWithdraws[_account][assetId];
+        require(amount > 0, "Nothing to withdraw");
+
+        if (netDeposits[_asset] < amount) {
+            netDeposits[_asset] = 0;
+        } else {
+            netDeposits[_asset] = netDeposits[_asset].sub(amount);
+        }
+        pendingWithdraws[_account][assetId] = 0;
+
+        emit AssetWithdrawn(_account, assetId, amount);
+        return amount;
+    }
+
+    /**
+     * @notice Revert rollup block on dispute success
+     *
+     * @param _blockId Rollup block id
+     * @param _reason revert reason
+     */
+    function revertBlock(uint256 _blockId, string memory _reason) private {
+        // pause contract
+        _pause();
+
+        // revert blocks and pending states
+        while (blocks.length > _blockId) {
+            pendingWithdrawCommits[blocks.length - 1];
+            blocks.pop();
+        }
+        bool first;
+        for (uint256 i = pendingDepositsExecuteHead; i < pendingDepositsTail; i++) {
+            if (pendingDeposits[i].blockId >= _blockId) {
+                if (!first) {
+                    pendingDepositsCommitHead = i;
+                    first = true;
+                }
+                pendingDeposits[i].blockId = _blockId;
+                pendingDeposits[i].status = PendingDepositStatus.Pending;
+            }
+        }
+        first = false;
+        for (uint256 i = pendingBalanceSyncsExecuteHead; i < pendingBalanceSyncsTail; i++) {
+            if (pendingBalanceSyncs[i].blockId >= _blockId) {
+                if (!first) {
+                    pendingBalanceSyncsCommitHead = i;
+                    first = true;
+                }
+                pendingBalanceSyncs[i].blockId = _blockId;
+                pendingBalanceSyncs[i].status = PendingBalanceSyncStatus.Pending;
+            }
+        }
+
+        emit RollupBlockReverted(_blockId, _reason);
+    }
 }
