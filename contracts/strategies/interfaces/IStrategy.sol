@@ -27,7 +27,7 @@ interface IStrategy {
     /**
      * @dev Return the asset balance.
      */
-    function getBalance() external view returns (uint256);
+    function getBalance() external returns (uint256);
 
     /**
      * @dev Commit to strategy per instructions from L2.

@@ -2,9 +2,9 @@ name: run-tests
 on:
   pull_request:
     paths:
-      - 'benchmark/*'
-      - 'contracts/*'
-      - 'test/*'
+      - 'benchmark/**'
+      - 'contracts/**'
+      - 'test/**'
 jobs:
   test:
     runs-on: ubuntu-20.04
