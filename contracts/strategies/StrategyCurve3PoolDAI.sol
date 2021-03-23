@@ -65,7 +65,7 @@ contract StrategyCurve3PoolDAI is IStrategy {
         return dai;
     }
 
-    function getBalance() external override returns (uint256) {
+    function getBalance() external view override returns (uint256) {
         uint256 triCrvBalance = IGauge(gauge).balanceOf(address(this));
         uint256 daiBalance = triCrvBalance.mul(ICurveFi(triPool).calc_withdraw_one_coin(triCrvBalance, 0));
         return daiBalance;
