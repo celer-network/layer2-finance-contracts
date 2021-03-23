@@ -225,7 +225,7 @@ contract TransitionDisputer {
     function getAccountInfoBytes(dt.AccountInfo memory _accountInfo) public pure returns (bytes memory) {
         // If it's an empty storage slot, return 32 bytes of zeros (empty value)
         if (
-            _accountInfo.account == 0x0000000000000000000000000000000000000000 &&
+            _accountInfo.account == address(0) &&
             _accountInfo.accountId == 0 &&
             _accountInfo.idleAssets.length == 0 &&
             _accountInfo.stTokens.length == 0 &&
