@@ -20,10 +20,10 @@ interface IStrategy {
     function getAssetAddress() external view returns (address);
 
     /**
-     * @dev Updates the asset balance.
+     * @dev Harvest protocol tokens and update the asset balance.
      */
-    function updateBalance() external;
-
+    function harvest() external;
+    
     /**
      * @dev Returns the asset balance.
      */

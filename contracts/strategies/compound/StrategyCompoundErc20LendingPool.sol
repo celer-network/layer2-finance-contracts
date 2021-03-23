@@ -72,14 +72,13 @@ contract StrategyCompoundErc20LendingPool is IStrategy {
         return supplyTokenBalance;
     }
 
-    function updateBalance() external override {
+    function harvest() external override {
         // Claim COMP token.
         IComptroller(comptroller).claimComp(address(this));
         uint256 compBalance = IERC20(comp).balanceOf(address(this));
         if(compBalance > 0) {
             // Sell COMP token for obtain more supplying token(e.g. DAI, USDT)
-            IERC20(comp).safeApprove(uniswap, 0);
-            IERC20(comp).safeApprove(uniswap, compBalance);
+            IERC20(comp).safeIncreaseAllowance(uniswap, compBalance);
 
             address[] memory paths = new address[](3);
             paths[0] = comp;
@@ -109,8 +108,7 @@ contract StrategyCompoundErc20LendingPool is IStrategy {
         IERC20(supplyToken).safeTransferFrom(msg.sender, address(this), _commitAmount);
 
         // Deposit supplying token to Compound Erc20 Lending Pool and mint cErc20.
-        IERC20(supplyToken).safeApprove(cErc20, 0);
-        IERC20(supplyToken).safeApprove(cErc20, _commitAmount);
+        IERC20(supplyToken).safeIncreaseAllowance(cErc20, _commitAmount);
         uint256 mintResult = ICErc20(cErc20).mint(_commitAmount);
         require(mintResult == 0, "Couldn't mint cToken");
 

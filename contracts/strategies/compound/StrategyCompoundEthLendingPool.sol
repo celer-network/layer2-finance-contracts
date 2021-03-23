@@ -66,14 +66,13 @@ contract StrategyCompoundEthLendingPool is IStrategy {
         return ethBalance;
     }
 
-    function updateBalance() external override {
+    function harvest() external override {
         // Claim COMP token.
         IComptroller(comptroller).claimComp(address(this));
         uint256 compBalance = IERC20(comp).balanceOf(address(this));
         if(compBalance > 0) {
             // Sell COMP token for obtain more ETH
-            IERC20(comp).safeApprove(uniswap, 0);
-            IERC20(comp).safeApprove(uniswap, compBalance);
+            IERC20(comp).safeIncreaseAllowance(uniswap, compBalance);
 
             address[] memory paths = new address[](2);
             paths[0] = comp;

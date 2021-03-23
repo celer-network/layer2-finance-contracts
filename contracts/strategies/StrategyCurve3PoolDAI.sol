@@ -71,14 +71,13 @@ contract StrategyCurve3PoolDAI is IStrategy {
         return daiBalance;
     }
 
-    function updateBalance() external override {
+    function harvest() external override {
         // Harvest CRV
         IMintr(mintr).mint(gauge);
         uint256 crvBalance = IERC20(crv).balanceOf(address(this));
         if (crvBalance > 0) {
             // Sell CRV for more DAI
-            IERC20(crv).safeApprove(uniswap, 0);
-            IERC20(crv).safeApprove(uniswap, crvBalance);
+            IERC20(crv).safeIncreaseAllowance(uniswap, crvBalance);
 
             address[] memory paths = new address[](3);
             paths[0] = crv;
@@ -115,8 +114,7 @@ contract StrategyCurve3PoolDAI is IStrategy {
         IERC20(dai).safeTransferFrom(msg.sender, address(this), _daiAmount);
 
         // Deposit DAI to 3Pool
-        IERC20(dai).safeApprove(triPool, 0);
-        IERC20(dai).safeApprove(triPool, _daiAmount);
+        IERC20(dai).safeIncreaseAllowance(triPool, _daiAmount);
         uint256 virtualPrice = _daiAmount.mul(1e18).div(ICurveFi(triPool).get_virtual_price());
         ICurveFi(triPool).add_liquidity(
             [_daiAmount, 0, 0],

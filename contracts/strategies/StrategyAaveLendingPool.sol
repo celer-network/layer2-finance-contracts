@@ -60,7 +60,7 @@ contract StrategyAaveLendingPool is IStrategy {
     }
 
     // Currently Aave protocol does not support LP Rewards and Staking.
-    function updateBalance() external override {}
+    function harvest() external override {}
 
     function aggregateCommit(uint256 _commitAmount) external override {
         require(msg.sender == controller, "Not controller");
@@ -70,8 +70,7 @@ contract StrategyAaveLendingPool is IStrategy {
         IERC20(supplyToken).safeTransferFrom(msg.sender, address(this), _commitAmount);
 
         // Deposit supplying token to Aave Lending Pool and mint aToken.
-        IERC20(supplyToken).safeApprove(lendingPool, 0);
-        IERC20(supplyToken).safeApprove(lendingPool, _commitAmount);
+        IERC20(supplyToken).safeIncreaseAllowance(lendingPool, _commitAmount);
         ILendingPool(lendingPool).deposit(
             supplyToken,
             _commitAmount,

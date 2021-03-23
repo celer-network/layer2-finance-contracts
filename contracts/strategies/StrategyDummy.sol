@@ -7,29 +7,35 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./interfaces/IStrategy.sol";
 
 /**
  * @notice A dummy sample strategy that does nothing with the committed funds.
+ * @dev Use ownable to have better control on testnet.
  */
-contract StrategyDummy is IStrategy {
+contract StrategyDummy is IStrategy, Ownable {
     using Address for address;
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
     address controller;
-    address funder;
     address asset;
+
+    address funder;
+    uint256 harvestGain;
 
     constructor(
         address _controller,
+        address _asset,
         address _funder,
-        address _asset
-    ) public {
+        uint256 _harvestGain
+    ) {
         controller = _controller;
         funder = _funder;
         asset = _asset;
+        harvestGain = _harvestGain;
     }
 
     function getAssetAddress() external view override returns (address) {
@@ -48,11 +54,15 @@ contract StrategyDummy is IStrategy {
         IERC20(asset).safeTransfer(controller, _uncommitAmount);
     }
 
-    function getBalance() external override returns (uint256) {
+    function getBalance() external view override returns (uint256) {
         return IERC20(asset).balanceOf(address(this));
     }
 
-    function updateBalance() external override {
-        IERC20(asset).safeTransferFrom(funder, address(this), 1e18);
+    function harvest() external override onlyOwner {
+        IERC20(asset).safeTransferFrom(funder, address(this), harvestGain);
+    }
+
+    function setHarvestGain(uint256 _harvestGain) external onlyOwner {
+        harvestGain = _harvestGain;
     }
 }
