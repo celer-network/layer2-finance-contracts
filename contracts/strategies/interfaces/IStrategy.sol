@@ -23,7 +23,7 @@ interface IStrategy {
      * @dev Harvest protocol tokens and update the asset balance.
      */
     function harvest() external;
-    
+
     /**
      * @dev Return the asset balance.
      */
@@ -32,14 +32,14 @@ interface IStrategy {
     /**
      * @dev Commit to strategy per instructions from L2.
      *
-     * @param commitAmount The aggregated token amount to commit.
+     * @param commitAmount The aggregated asset amount to commit.
      */
     function aggregateCommit(uint256 commitAmount) external;
 
     /**
      * @dev Uncommit from strategy per instructions from L2.
      *
-     * @param uncommitAmount The aggregated token amount to uncommit.
+     * @param uncommitAmount The aggregated asset amount to uncommit.
      */
     function aggregateUncommit(uint256 uncommitAmount) external;
 }
