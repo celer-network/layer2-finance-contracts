@@ -42,36 +42,36 @@ contract TransitionEvaluator {
         // Apply the transition and record the resulting storage slots
         if (transitionType == Transitions.TRANSITION_TYPE_DEPOSIT) {
             DataTypes.DepositTransition memory deposit = Transitions.decodeDepositTransition(_transition);
-            updatedAccountInfo = applyDepositTransition(deposit, _accountInfo);
-            outputs[0] = getAccountInfoHash(updatedAccountInfo);
+            updatedAccountInfo = _applyDepositTransition(deposit, _accountInfo);
+            outputs[0] = _getAccountInfoHash(updatedAccountInfo);
         } else if (transitionType == Transitions.TRANSITION_TYPE_WITHDRAW) {
             DataTypes.WithdrawTransition memory withdraw = Transitions.decodeWithdrawTransition(_transition);
-            updatedAccountInfo = applyWithdrawTransition(withdraw, _accountInfo);
-            outputs[0] = getAccountInfoHash(updatedAccountInfo);
+            updatedAccountInfo = _applyWithdrawTransition(withdraw, _accountInfo);
+            outputs[0] = _getAccountInfoHash(updatedAccountInfo);
         } else if (transitionType == Transitions.TRANSITION_TYPE_COMMIT) {
             DataTypes.CommitTransition memory commit = Transitions.decodeCommitTransition(_transition);
-            (updatedAccountInfo, updatedStrategyInfo) = applyCommitTransition(
+            (updatedAccountInfo, updatedStrategyInfo) = _applyCommitTransition(
                 commit,
                 _accountInfo,
                 _strategyInfo,
                 _registry
             );
-            outputs[0] = getAccountInfoHash(updatedAccountInfo);
-            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
+            outputs[0] = _getAccountInfoHash(updatedAccountInfo);
+            outputs[1] = _getStrategyInfoHash(updatedStrategyInfo);
         } else if (transitionType == Transitions.TRANSITION_TYPE_UNCOMMIT) {
             DataTypes.UncommitTransition memory uncommit = Transitions.decodeUncommitTransition(_transition);
-            (updatedAccountInfo, updatedStrategyInfo) = applyUncommitTransition(uncommit, _accountInfo, _strategyInfo);
-            outputs[0] = getAccountInfoHash(updatedAccountInfo);
-            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
+            (updatedAccountInfo, updatedStrategyInfo) = _applyUncommitTransition(uncommit, _accountInfo, _strategyInfo);
+            outputs[0] = _getAccountInfoHash(updatedAccountInfo);
+            outputs[1] = _getStrategyInfoHash(updatedStrategyInfo);
         } else if (transitionType == Transitions.TRANSITION_TYPE_SYNC_COMMITMENT) {
             DataTypes.CommitmentSyncTransition memory commitmentSync =
                 Transitions.decodeCommitmentSyncTransition(_transition);
-            updatedStrategyInfo = applyCommitmentSyncTransition(commitmentSync, _strategyInfo);
-            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
+            updatedStrategyInfo = _applyCommitmentSyncTransition(commitmentSync, _strategyInfo);
+            outputs[1] = _getStrategyInfoHash(updatedStrategyInfo);
         } else if (transitionType == Transitions.TRANSITION_TYPE_SYNC_BALANCE) {
             DataTypes.BalanceSyncTransition memory balanceSync = Transitions.decodeBalanceSyncTransition(_transition);
-            updatedStrategyInfo = applyBalanceSyncTransition(balanceSync, _strategyInfo);
-            outputs[1] = getStrategyInfoHash(updatedStrategyInfo);
+            updatedStrategyInfo = _applyBalanceSyncTransition(balanceSync, _strategyInfo);
+            outputs[1] = _getStrategyInfoHash(updatedStrategyInfo);
         } else {
             revert("Transition type not recognized");
         }
@@ -144,7 +144,7 @@ contract TransitionEvaluator {
      * @param _accountInfo The involved account from the previous transition.
      * @return new account info after apply the disputed transition
      */
-    function applyDepositTransition(
+    function _applyDepositTransition(
         DataTypes.DepositTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo
     ) private pure returns (DataTypes.AccountInfo memory) {
@@ -181,7 +181,7 @@ contract TransitionEvaluator {
      * @param _accountInfo The involved account from the previous transition.
      * @return new account info after apply the disputed transition
      */
-    function applyWithdrawTransition(
+    function _applyWithdrawTransition(
         DataTypes.WithdrawTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo
     ) private pure returns (DataTypes.AccountInfo memory) {
@@ -220,7 +220,7 @@ contract TransitionEvaluator {
      * @param _strategyInfo The involved strategy from the previous transition.
      * @return new account and strategy info after apply the disputed transition
      */
-    function applyCommitTransition(
+    function _applyCommitTransition(
         DataTypes.CommitTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo,
         DataTypes.StrategyInfo memory _strategyInfo,
@@ -288,7 +288,7 @@ contract TransitionEvaluator {
      * @param _strategyInfo The involved strategy from the previous transition.
      * @return new account and strategy info after apply the disputed transition
      */
-    function applyUncommitTransition(
+    function _applyUncommitTransition(
         DataTypes.UncommitTransition memory _transition,
         DataTypes.AccountInfo memory _accountInfo,
         DataTypes.StrategyInfo memory _strategyInfo
@@ -335,7 +335,7 @@ contract TransitionEvaluator {
      * @param _strategyInfo The involved strategy from the previous transition.
      * @return new strategy info after apply the disputed transition
      */
-    function applyCommitmentSyncTransition(
+    function _applyCommitmentSyncTransition(
         DataTypes.CommitmentSyncTransition memory _transition,
         DataTypes.StrategyInfo memory _strategyInfo
     ) private pure returns (DataTypes.StrategyInfo memory) {
@@ -360,7 +360,7 @@ contract TransitionEvaluator {
      * @param _strategyInfo The involved strategy from the previous transition.
      * @return new strategy info after apply the disputed transition
      */
-    function applyBalanceSyncTransition(
+    function _applyBalanceSyncTransition(
         DataTypes.BalanceSyncTransition memory _transition,
         DataTypes.StrategyInfo memory _strategyInfo
     ) private pure returns (DataTypes.StrategyInfo memory) {
@@ -378,7 +378,7 @@ contract TransitionEvaluator {
      * @notice Get the hash of the AccountInfo.
      * @param _accountInfo Account info
      */
-    function getAccountInfoHash(DataTypes.AccountInfo memory _accountInfo) private pure returns (bytes32) {
+    function _getAccountInfoHash(DataTypes.AccountInfo memory _accountInfo) private pure returns (bytes32) {
         // Here we don't use `abi.encode([struct])` because it's not clear
         // how to generate that encoding client-side.
         return
@@ -400,7 +400,7 @@ contract TransitionEvaluator {
      * @notice Get the hash of the StrategyInfo.
      * @param _strategyInfo Strategy info
      */
-    function getStrategyInfoHash(DataTypes.StrategyInfo memory _strategyInfo) private pure returns (bytes32) {
+    function _getStrategyInfoHash(DataTypes.StrategyInfo memory _strategyInfo) private pure returns (bytes32) {
         // Here we don't use `abi.encode([struct])` because it's not clear
         // how to generate that encoding client-side.
         return

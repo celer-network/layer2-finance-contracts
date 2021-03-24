@@ -51,13 +51,13 @@ contract TransitionDisputer {
         Registry _registry
     ) external returns (string memory) {
         if (_invalidTransitionProof.blockId == 0 && _invalidTransitionProof.index == 0) {
-            require(invalidInitTransition(_invalidTransitionProof, _invalidTransitionBlock), "no fraud detected");
+            require(_invalidInitTransition(_invalidTransitionProof, _invalidTransitionBlock), "no fraud detected");
             return "invalid init transition";
         }
 
         // ------ #1: verify sequential transitions
         // First verify that the transitions are sequential and in their respective block root hashes.
-        verifySequentialTransitions(
+        _verifySequentialTransitions(
             _prevTransitionProof,
             _invalidTransitionProof,
             _prevTransitionBlock,
@@ -66,7 +66,7 @@ contract TransitionDisputer {
 
         // ------ #2: decode transitions to get post- and pre-StateRoot, and ids of account and strategy
         (bool ok, bytes32 preStateRoot, bytes32 postStateRoot, uint32 accountId, uint32 strategyId) =
-            getStateRootsAndIds(_prevTransitionProof.transition, _invalidTransitionProof.transition);
+            _getStateRootsAndIds(_prevTransitionProof.transition, _invalidTransitionProof.transition);
         // If not success something went wrong with the decoding...
         if (!ok) {
             // revert the block if it has an incorrectly encoded transition!
@@ -76,23 +76,23 @@ contract TransitionDisputer {
         // ------ #3: verify transition stateRoot == hash(accountStateRoot, strategyStateRoot)
         // The account and strategy stateRoots must always be given irrespective of what is being disputed.
         require(
-            checkTwoTreeStateRoot(preStateRoot, _accountProof.stateRoot, _strategyProof.stateRoot),
+            _checkTwoTreeStateRoot(preStateRoot, _accountProof.stateRoot, _strategyProof.stateRoot),
             "Failed combined two-tree stateRoot verification check"
         );
 
         // ------ #4: verify account and strategy inclusion
         if (accountId > 0) {
-            verifyProofInclusion(
+            _verifyProofInclusion(
                 _accountProof.stateRoot,
-                keccak256(getAccountInfoBytes(_accountProof.value)),
+                keccak256(_getAccountInfoBytes(_accountProof.value)),
                 _accountProof.index,
                 _accountProof.siblings
             );
         }
         if (strategyId > 0) {
-            verifyProofInclusion(
+            _verifyProofInclusion(
                 _strategyProof.stateRoot,
-                keccak256(getStrategyInfoBytes(_strategyProof.value)),
+                keccak256(_getStrategyInfoBytes(_strategyProof.value)),
                 _strategyProof.index,
                 _strategyProof.siblings
             );
@@ -120,7 +120,7 @@ contract TransitionDisputer {
         // ------ #7: evaluate transition and verify new state root
         // split function to address "stack too deep" compiler error
         return
-            evaluateInvalidTransition(
+            _evaluateInvalidTransition(
                 _invalidTransitionProof.transition,
                 _accountProof,
                 _strategyProof,
@@ -143,7 +143,7 @@ contract TransitionDisputer {
      * @param _postStateRoot State root of the disputed transtion.
      * @param _registry The address of the Registry contract.
      */
-    function evaluateInvalidTransition(
+    function _evaluateInvalidTransition(
         bytes calldata _invalidTransition,
         dt.AccountProof calldata _accountProof,
         dt.StrategyProof calldata _strategyProof,
@@ -171,7 +171,7 @@ contract TransitionDisputer {
         bytes32[2] memory outputs = abi.decode((returnData), (bytes32[2]));
 
         // Check if the combined new stateRoots of account and strategy Merkle trees is incorrect.
-        ok = updateAndVerify(_postStateRoot, outputs, _accountProof, _strategyProof);
+        ok = _updateAndVerify(_postStateRoot, outputs, _accountProof, _strategyProof);
         if (!ok) {
             // revert the block because we found an invalid post state root
             return "invalid post-state root";
@@ -186,7 +186,7 @@ contract TransitionDisputer {
      * @param _preStateTransition transition immediately before the disputed transition
      * @param _invalidTransition the disputed transition
      */
-    function getStateRootsAndIds(bytes memory _preStateTransition, bytes memory _invalidTransition)
+    function _getStateRootsAndIds(bytes memory _preStateTransition, bytes memory _invalidTransition)
         private
         returns (
             bool,
@@ -230,11 +230,11 @@ contract TransitionDisputer {
      * @param _initTransitionProof The inclusion proof of the disputed initial transition.
      * @param _firstBlock The first rollup block
      */
-    function invalidInitTransition(dt.TransitionProof calldata _initTransitionProof, dt.Block calldata _firstBlock)
+    function _invalidInitTransition(dt.TransitionProof calldata _initTransitionProof, dt.Block calldata _firstBlock)
         private
         returns (bool)
     {
-        require(checkTransitionInclusion(_initTransitionProof, _firstBlock), "transition not included in block");
+        require(_checkTransitionInclusion(_initTransitionProof, _firstBlock), "transition not included in block");
         (bool success, bytes memory returnData) =
             address(transitionEvaluator).call(
                 abi.encodeWithSelector(
@@ -257,7 +257,7 @@ contract TransitionDisputer {
      *
      * @param _accountInfo Account info
      */
-    function getAccountInfoBytes(dt.AccountInfo memory _accountInfo) private pure returns (bytes memory) {
+    function _getAccountInfoBytes(dt.AccountInfo memory _accountInfo) private pure returns (bytes memory) {
         // If it's an empty storage slot, return 32 bytes of zeros (empty value)
         if (
             _accountInfo.account == address(0) &&
@@ -284,7 +284,7 @@ contract TransitionDisputer {
      * @notice Get the bytes value for this strategy.
      * @param _strategyInfo Strategy info
      */
-    function getStrategyInfoBytes(dt.StrategyInfo memory _strategyInfo) private pure returns (bytes memory) {
+    function _getStrategyInfoBytes(dt.StrategyInfo memory _strategyInfo) private pure returns (bytes memory) {
         // If it's an empty storage slot, return 32 bytes of zeros (empty value)
         if (
             _strategyInfo.assetId == 0 &&
@@ -311,7 +311,7 @@ contract TransitionDisputer {
      * @notice Verifies that two transitions were included one after another.
      * @dev This is used to make sure we are comparing the correct prestate & poststate.
      */
-    function verifySequentialTransitions(
+    function _verifySequentialTransitions(
         dt.TransitionProof calldata _tp0,
         dt.TransitionProof calldata _tp1,
         dt.Block calldata _prevTransitionBlock,
@@ -335,8 +335,8 @@ contract TransitionDisputer {
         }
 
         // Verify inclusion
-        require(checkTransitionInclusion(_tp0, _prevTransitionBlock), "_tp0 must be included in its block");
-        require(checkTransitionInclusion(_tp1, _invalidTransitionBlock), "_tp1 must be included in its block");
+        require(_checkTransitionInclusion(_tp0, _prevTransitionBlock), "_tp0 must be included in its block");
+        require(_checkTransitionInclusion(_tp1, _invalidTransitionBlock), "_tp1 must be included in its block");
 
         return true;
     }
@@ -344,7 +344,7 @@ contract TransitionDisputer {
     /**
      * @notice Check to see if a transition is included in the block.
      */
-    function checkTransitionInclusion(dt.TransitionProof memory _tp, dt.Block memory _block)
+    function _checkTransitionInclusion(dt.TransitionProof memory _tp, dt.Block memory _block)
         private
         pure
         returns (bool)
@@ -357,7 +357,7 @@ contract TransitionDisputer {
     /**
      * @notice Check if the combined stateRoot of the two Merkle trees (account, strategy) matches the stateRoot.
      */
-    function checkTwoTreeStateRoot(
+    function _checkTwoTreeStateRoot(
         bytes32 _stateRoot,
         bytes32 _accountStateRoot,
         bytes32 _strategyStateRoot
@@ -369,7 +369,7 @@ contract TransitionDisputer {
     /**
      * @notice Check if an account or strategy proof is included in the state root.
      */
-    function verifyProofInclusion(
+    function _verifyProofInclusion(
         bytes32 _stateRoot,
         bytes32 _leafHash,
         uint32 _index,
@@ -382,7 +382,7 @@ contract TransitionDisputer {
     /**
      * @notice Update the account and strategy Merkle trees with their new leaf nodes and check validity.
      */
-    function updateAndVerify(
+    function _updateAndVerify(
         bytes32 _stateRoot,
         bytes32[2] memory _leafHashes,
         dt.AccountProof memory _accountProof,
@@ -404,6 +404,6 @@ contract TransitionDisputer {
             strategyStateRoot = MerkleTree.computeRoot(_leafHashes[1], _strategyProof.index, _strategyProof.siblings);
         }
 
-        return checkTwoTreeStateRoot(_stateRoot, accountStateRoot, strategyStateRoot);
+        return _checkTwoTreeStateRoot(_stateRoot, accountStateRoot, strategyStateRoot);
     }
 }
