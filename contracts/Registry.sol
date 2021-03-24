@@ -35,7 +35,7 @@ contract Registry is Ownable {
 
     /**
      * @notice Register a strategy
-     * @param _asset The strategy contract address;
+     * @param _strategy The strategy contract address;
      */
     function registerStrategy(address _strategy) external onlyOwner {
         require(strategyAddressToIndex[_strategy] == 0, "Strategy already registered");
