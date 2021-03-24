@@ -434,7 +434,7 @@ contract RollupChain is Ownable, Pausable {
 
         if (success) {
             string memory reason = abi.decode((returnData), (string));
-            revertBlock(invalidTransitionBlockId, reason);
+            _revertBlock(invalidTransitionBlockId, reason);
         } else {
             revert("Failed to dispute");
         }
@@ -608,7 +608,7 @@ contract RollupChain is Ownable, Pausable {
      * @param _blockId Rollup block id
      * @param _reason Revert reason
      */
-    function revertBlock(uint256 _blockId, string memory _reason) private {
+    function _revertBlock(uint256 _blockId, string memory _reason) private {
         // pause contract
         _pause();
 
