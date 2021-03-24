@@ -12,7 +12,9 @@ const GAS_USAGE_DIR = 'reports/gas_usage/';
 const GAS_USAGE_LOG = path.join(GAS_USAGE_DIR, 'commit_block.txt');
 
 const USER_KEY = '0x36f2243a51a0f879b1859fff1a663ac04aeebca1bcff4d7dc5a8b38e53211199';
-const INIT_TX = ['0x000000000000000000000000000000000000000000000000000000000000000700000000000000000000000000000000000062616420737461746520726f6f74'];
+const INIT_TX = [
+  '0x000000000000000000000000000000000000000000000000000000000000000700000000000000000000000000000000000062616420737461746520726f6f74'
+];
 
 describe('Benchmark commitBlock', async function () {
   if (!fs.existsSync(GAS_USAGE_DIR)) {
@@ -22,20 +24,12 @@ describe('Benchmark commitBlock', async function () {
   fs.appendFileSync(GAS_USAGE_LOG, '<tn num, gas cost> per block\n\n');
 
   async function fixture([admin]: Wallet[]) {
-    const {
-      registry,
-      rollupChain,
-      strategyDummy,
-      testERC20
-    } = await deployContracts(admin);
+    const { registry, rollupChain, strategyDummy, testERC20 } = await deployContracts(admin);
     const tokenAddress = testERC20.address;
     await registry.registerAsset(tokenAddress);
-    await rollupChain.setNetDepositLimit(
-      tokenAddress,
-      ethers.utils.parseEther('10000')
-    );
+    await rollupChain.setNetDepositLimit(tokenAddress, ethers.utils.parseEther('10000'));
 
-    const user = new ethers.Wallet(USER_KEY).connect(ethers.provider)
+    const user = new ethers.Wallet(USER_KEY).connect(ethers.provider);
     await admin.sendTransaction({
       to: user.address,
       value: ethers.utils.parseEther('10')
@@ -53,67 +47,65 @@ describe('Benchmark commitBlock', async function () {
   }
 
   async function doBenchmark(txType: string, data: string, maxNum: number) {
-    it(
-      'one rollup block with up to ' + maxNum + ' ' + txType + ' transitions',
-      async function () {
-        this.timeout(20000 + 100 * maxNum);
-        const {registry, rollupChain, strategyDummy, testERC20, user } = await loadFixture(fixture);
-        await rollupChain.commitBlock(0, INIT_TX)
-        if (txType == 'deposit') {
-          const depNum = maxNum * (maxNum+1) / 2 + 1
-          await testERC20.connect(user).approve(rollupChain.address, ethers.utils.parseEther('1').mul(depNum));
-        } else if (txType == 'sync balance') {
-          const stAddress = strategyDummy.address;
-          await registry.registerStrategy(stAddress);
-        }
-        fs.appendFileSync(GAS_USAGE_LOG, '-- ' + txType + ' --\n');
-        let blockid = 1
-        let firtCost, lastCost
-        for (let numTxs = 1; numTxs <= maxNum; numTxs++) {
-          if (numTxs > 100 && numTxs % 100 != 0) {
-            continue;
-          }
-          if (numTxs > 10 && numTxs % 10 != 0) {
-            continue;
-          }
-          if (txType == 'deposit') {
-            for (let i = 0; i < numTxs; i++) {
-              await rollupChain.connect(user).deposit(testERC20.address, ethers.utils.parseEther('1'));
-            }
-          } else if (txType == 'sync balance') {
-            for (let i = 0; i < numTxs; i++) {
-              await strategyDummy.harvest();
-              await rollupChain.syncBalance(1);
-            }
-          }
-
-          let txs = [];
-          for (let i = 0; i < numTxs; i++) {
-            txs.push(data);
-          }
-          const gasUsed = (
-            await (
-              await rollupChain.commitBlock(blockid, txs, {
-                gasLimit: 9500000 // TODO: Remove once estimateGas() works correctly
-              })
-            ).wait()
-          ).gasUsed;
-          if (numTxs == 1) {
-            firtCost = gasUsed.toNumber();
-          } else if (numTxs == maxNum) {
-            lastCost = gasUsed.toNumber();
-          }
-          blockid++;
-          fs.appendFileSync(
-            GAS_USAGE_LOG,
-            numTxs.toString() + '\t' + gasUsed + '\n'
-          );
-        }
-        let txCost = Math.ceil((Number(lastCost)-Number(firtCost))/(maxNum-1));
-        fs.appendFileSync(GAS_USAGE_LOG, 'per tn cost after 1st tn: '+txCost+'\n');
-        fs.appendFileSync(GAS_USAGE_LOG, '\n');
+    it('one rollup block with up to ' + maxNum + ' ' + txType + ' transitions', async function () {
+      this.timeout(20000 + 100 * maxNum);
+      const { registry, rollupChain, strategyDummy, testERC20, user } = await loadFixture(fixture);
+      await rollupChain.commitBlock(0, INIT_TX);
+      if (txType == 'deposit') {
+        const depNum = (maxNum * (maxNum + 1)) / 2 + 1;
+        await testERC20
+          .connect(user)
+          .approve(rollupChain.address, ethers.utils.parseEther('1').mul(depNum));
+      } else if (txType == 'sync balance') {
+        const stAddress = strategyDummy.address;
+        await registry.registerStrategy(stAddress);
       }
-    );
+      fs.appendFileSync(GAS_USAGE_LOG, '-- ' + txType + ' --\n');
+      let blockid = 1;
+      let firtCost, lastCost;
+      for (let numTxs = 1; numTxs <= maxNum; numTxs++) {
+        if (numTxs > 100 && numTxs % 100 != 0) {
+          continue;
+        }
+        if (numTxs > 10 && numTxs % 10 != 0) {
+          continue;
+        }
+        if (txType == 'deposit') {
+          for (let i = 0; i < numTxs; i++) {
+            await rollupChain
+              .connect(user)
+              .deposit(testERC20.address, ethers.utils.parseEther('1'));
+          }
+        } else if (txType == 'sync balance') {
+          for (let i = 0; i < numTxs; i++) {
+            await strategyDummy.harvest();
+            await rollupChain.syncBalance(1);
+          }
+        }
+
+        let txs = [];
+        for (let i = 0; i < numTxs; i++) {
+          txs.push(data);
+        }
+        const gasUsed = (
+          await (
+            await rollupChain.commitBlock(blockid, txs, {
+              gasLimit: 9500000 // TODO: Remove once estimateGas() works correctly
+            })
+          ).wait()
+        ).gasUsed;
+        if (numTxs == 1) {
+          firtCost = gasUsed.toNumber();
+        } else if (numTxs == maxNum) {
+          lastCost = gasUsed.toNumber();
+        }
+        blockid++;
+        fs.appendFileSync(GAS_USAGE_LOG, numTxs.toString() + '\t' + gasUsed + '\n');
+      }
+      let txCost = Math.ceil((Number(lastCost) - Number(firtCost)) / (maxNum - 1));
+      fs.appendFileSync(GAS_USAGE_LOG, 'per tn cost after 1st tn: ' + txCost + '\n');
+      fs.appendFileSync(GAS_USAGE_LOG, '\n');
+    });
   }
 
   await doBenchmark(

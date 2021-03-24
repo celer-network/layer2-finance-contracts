@@ -77,7 +77,7 @@ contract StrategyCompoundErc20LendingPool is IStrategy, Ownable {
         // Claim COMP token.
         IComptroller(comptroller).claimComp(address(this));
         uint256 compBalance = IERC20(comp).balanceOf(address(this));
-        if(compBalance > 0) {
+        if (compBalance > 0) {
             // Sell COMP token for obtain more supplying token(e.g. DAI, USDT)
             IERC20(comp).safeIncreaseAllowance(uniswap, compBalance);
 
@@ -120,7 +120,7 @@ contract StrategyCompoundErc20LendingPool is IStrategy, Ownable {
         require(msg.sender == controller, "Not controller");
         require(_uncommitAmount > 0, "Nothing to uncommit");
 
-        // Withdraw supplying token from Compound Erc20 Lending Pool 
+        // Withdraw supplying token from Compound Erc20 Lending Pool
         // based on an amount of the supplying token(e.g. DAI, USDT).
         uint256 redeemResult = ICErc20(cErc20).redeemUnderlying(_uncommitAmount);
         require(redeemResult == 0, "Couldn't redeem cToken");

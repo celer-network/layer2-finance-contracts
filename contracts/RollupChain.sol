@@ -129,13 +129,13 @@ contract RollupChain is Ownable, Pausable {
         _;
     }
 
-    /**********************
-     * External Functions *
-     **********************/
-
     fallback() external payable {}
 
     receive() external payable {}
+
+    /**********************
+     * External Functions *
+     **********************/
 
     /**
      * @notice Deposits ERC20 asset.
@@ -392,7 +392,7 @@ contract RollupChain is Ownable, Pausable {
     }
 
     /**
-     * @notice Dispute a transition in a block.  
+     * @notice Dispute a transition in a block.
      * @dev Provide the transition proofs of the previous (valid) transition
      * and the disputed transition, the account proof, and the strategy proof. Both the account proof and
      * strategy proof are always needed even if the disputed transition only updates the account or only
@@ -441,7 +441,7 @@ contract RollupChain is Ownable, Pausable {
     }
 
     /**
-     * @notice Dispute if operator failed to reflect an L1-initiated priority tx 
+     * @notice Dispute if operator failed to reflect an L1-initiated priority tx
      * in a rollup block within the maxPriorityTxDelay
      */
     function disputePriorityTxDelay() external {
@@ -536,10 +536,6 @@ contract RollupChain is Ownable, Pausable {
         netDepositLimits[_asset] = _limit;
     }
 
-    /*********************
-     * Public Functions *
-     *********************/
-
     /**
      * @notice Get current rollup block id
      * @return current rollup block id
@@ -552,6 +548,12 @@ contract RollupChain is Ownable, Pausable {
      * Private Functions *
      *********************/
 
+    /**
+     * @notice internal deposit processing without actual token transfer.
+     *
+     * @param _asset The asset token address.
+     * @param _amount The asset token amount.
+     */
     function _deposit(address _asset, uint256 _amount) private {
         address account = msg.sender;
         uint32 assetId = registry.assetAddressToIndex(_asset);
@@ -575,12 +577,12 @@ contract RollupChain is Ownable, Pausable {
         emit AssetDeposited(account, assetId, _amount, depositId);
     }
 
-
     /**
-     * @notice private function to execute pending withdraw of an asset to an account.
+     * @notice internal withdrawal processing without actual token transfer.
      *
      * @param _account The destination account.
-     * @param _asset The asset address;
+     * @param _asset The asset token address.
+     * @return amount to withdraw
      */
     function _withdraw(address _account, address _asset) private returns (uint256) {
         uint32 assetId = registry.assetAddressToIndex(_asset);
@@ -604,7 +606,7 @@ contract RollupChain is Ownable, Pausable {
      * @notice Revert rollup block on dispute success
      *
      * @param _blockId Rollup block id
-     * @param _reason revert reason
+     * @param _reason Revert reason
      */
     function revertBlock(uint256 _blockId, string memory _reason) private {
         // pause contract

@@ -54,7 +54,7 @@ contract StrategyAaveLendingPool is IStrategy, Ownable {
     }
 
     function getBalance() external view override returns (uint256) {
-        // Supplying token(e.g. DAI, USDT) balance of this contract. 
+        // Supplying token(e.g. DAI, USDT) balance of this contract.
         // aToken value is pegged to the value of supplying erc20 token at a 1:1 ratio.
         uint256 supplyTokenBalance = IAToken(aToken).balanceOf(address(this));
         return supplyTokenBalance;
@@ -72,12 +72,7 @@ contract StrategyAaveLendingPool is IStrategy, Ownable {
 
         // Deposit supplying token to Aave Lending Pool and mint aToken.
         IERC20(supplyToken).safeIncreaseAllowance(lendingPool, _commitAmount);
-        ILendingPool(lendingPool).deposit(
-            supplyToken,
-            _commitAmount,
-            address(this),
-            0
-        );
+        ILendingPool(lendingPool).deposit(supplyToken, _commitAmount, address(this), 0);
 
         emit Committed(_commitAmount);
     }
@@ -87,17 +82,13 @@ contract StrategyAaveLendingPool is IStrategy, Ownable {
         require(_uncommitAmount > 0, "Nothing to uncommit");
 
         // Withdraw supplying token(e.g. DAI, USDT) from Aave Lending Pool.
-        ILendingPool(lendingPool).withdraw(
-            supplyToken,
-            _uncommitAmount,
-            address(this)
-        );
+        ILendingPool(lendingPool).withdraw(supplyToken, _uncommitAmount, address(this));
 
         // Transfer supplying token to Controller
         uint256 supplyTokenBalance = IERC20(supplyToken).balanceOf(address(this));
         IERC20(supplyToken).safeTransfer(msg.sender, supplyTokenBalance);
 
-        emit UnCommitted(_uncommitAmount);    
+        emit UnCommitted(_uncommitAmount);
     }
 
     function setController(address _controller) external onlyOwner {

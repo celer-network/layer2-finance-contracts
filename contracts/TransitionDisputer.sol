@@ -38,6 +38,8 @@ contract TransitionDisputer {
      * @param _prevTransitionBlock The block containing the previous transition.
      * @param _invalidTransitionBlock The block containing the disputed transition.
      * @param _registry The address of the Registry contract.
+     *
+     * @return reason of the transition being determined as invalid
      */
     function disputeTransition(
         dt.TransitionProof calldata _prevTransitionProof,
@@ -280,7 +282,6 @@ contract TransitionDisputer {
 
     /**
      * @notice Get the bytes value for this strategy.
-     *
      * @param _strategyInfo Strategy info
      */
     function getStrategyInfoBytes(dt.StrategyInfo memory _strategyInfo) private pure returns (bytes memory) {

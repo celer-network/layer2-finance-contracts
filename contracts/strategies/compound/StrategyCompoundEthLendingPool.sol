@@ -71,7 +71,7 @@ contract StrategyCompoundEthLendingPool is IStrategy, Ownable {
         // Claim COMP token.
         IComptroller(comptroller).claimComp(address(this));
         uint256 compBalance = IERC20(comp).balanceOf(address(this));
-        if(compBalance > 0) {
+        if (compBalance > 0) {
             // Sell COMP token for obtain more ETH
             IERC20(comp).safeIncreaseAllowance(uniswap, compBalance);
 
@@ -96,7 +96,7 @@ contract StrategyCompoundEthLendingPool is IStrategy, Ownable {
     function aggregateCommit(uint256 _commitAmount) external override {
         require(msg.sender == controller, "Not controller");
         require(_commitAmount > 0, "Nothing to commit");
-    
+
         // Pull WETH from Controller
         IERC20(weth).safeTransferFrom(msg.sender, address(this), _commitAmount);
         // Convert WETH into ETH
@@ -131,5 +131,6 @@ contract StrategyCompoundEthLendingPool is IStrategy, Ownable {
 
     // This is needed to receive ETH when calling `ICEth.redeemUnderlying` and `IWETH.withdraw`
     receive() external payable {}
+
     fallback() external payable {}
 }
