@@ -18,6 +18,10 @@ contract Registry is Ownable {
     event AssetRegistered(address asset, uint32 assetId);
     event StrategyRegistered(address strategy, uint32 strategyId);
 
+    /**
+     * @notice Register a asset
+     * @param _asset The asset token address;
+     */
     function registerAsset(address _asset) external onlyOwner {
         require(assetAddressToIndex[_asset] == 0, "Asset already registered");
 
@@ -29,6 +33,10 @@ contract Registry is Ownable {
         emit AssetRegistered(_asset, numAssets);
     }
 
+    /**
+     * @notice Register a strategy
+     * @param _strategy The strategy contract address;
+     */
     function registerStrategy(address _strategy) external onlyOwner {
         require(strategyAddressToIndex[_strategy] == 0, "Strategy already registered");
 

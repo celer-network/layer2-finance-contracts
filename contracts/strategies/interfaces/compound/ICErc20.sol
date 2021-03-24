@@ -18,7 +18,7 @@ interface ICErc20 {
     function mint(uint256 mintAmount) external returns (uint256);
 
     /**
-     * @notice Sender redeems cTokens in exchange for a specified amount of underlying asset 
+     * @notice Sender redeems cTokens in exchange for a specified amount of underlying asset
      * @param redeemAmount The amount of underlying to redeem
      * @return uint 0=success, otherwise a failure
      */

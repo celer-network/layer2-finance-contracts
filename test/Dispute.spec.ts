@@ -367,10 +367,7 @@ describe('Dispute', function () {
       .readFileSync('test/dispute-data/init-deposit-valid-tn')
       .toString()
       .split('\n');
-    const tnData1 = fs
-      .readFileSync('test/dispute-data/2nd-block-valid-tn')
-      .toString()
-      .split('\n');
+    const tnData1 = fs.readFileSync('test/dispute-data/2nd-block-valid-tn').toString().split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG +
       fs.readFileSync('test/dispute-data/2nd-block-valid-pf').toString().trim();

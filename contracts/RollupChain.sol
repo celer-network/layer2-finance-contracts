@@ -110,14 +110,6 @@ contract RollupChain is Ownable, Pausable {
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
 
-    modifier onlyOperator() {
-        require(msg.sender == operator, "caller is not operator");
-        _;
-    }
-
-    /***************
-     * Constructor *
-     **************/
     constructor(
         uint256 _blockChallengePeriod,
         uint256 _maxPriorityTxDelay,
@@ -132,69 +124,18 @@ contract RollupChain is Ownable, Pausable {
         operator = _operator;
     }
 
-    /**
-     * @dev Called by the owner to pause contract
-     */
-    function pause() external onlyOwner {
-        _pause();
+    modifier onlyOperator() {
+        require(msg.sender == operator, "caller is not operator");
+        _;
     }
 
-    /**
-     * @dev Called by the owner to unpause contract
-     */
-    function unpause() external onlyOwner {
-        _unpause();
-    }
+    fallback() external payable {}
 
-    /**
-     * @notice Owner drains one type of tokens when the contract is paused
-     * @dev This is for emergency situations.
-     *
-     * @param _asset drained asset address
-     * @param _amount drained asset amount
-     */
-    function drainToken(address _asset, uint256 _amount) external whenPaused onlyOwner {
-        IERC20(_asset).safeTransfer(msg.sender, _amount);
-    }
+    receive() external payable {}
 
-    /**
-     * @notice Owner drains ETH when the contract is paused
-     * @dev This is for emergency situations.
-     *
-     * @param _amount drained ETH amount
-     */
-    function drainETH(uint256 _amount) external whenPaused onlyOwner {
-        (bool sent, ) = msg.sender.call{value: _amount}("");
-        require(sent, "Failed to drain ETH");
-    }
-
-    /**
-     * @dev Called by the owner to set blockChallengePeriod
-     */
-    function setBlockChallengePeriod(uint256 _blockChallengePeriod) external onlyOwner {
-        blockChallengePeriod = _blockChallengePeriod;
-    }
-
-    /**
-     * @dev Called by the owner to set maxPriorityTxDelay
-     */
-    function setMaxPriorityTxDelay(uint256 _maxPriorityTxDelay) external onlyOwner {
-        maxPriorityTxDelay = _maxPriorityTxDelay;
-    }
-
-    function getCurrentBlockId() public view returns (uint256) {
-        return blocks.length - 1;
-    }
-
-    function setOperator(address _operator) external onlyOwner {
-        operator = _operator;
-    }
-
-    function setNetDepositLimit(address _asset, uint256 _limit) external onlyOwner {
-        uint32 assetId = registry.assetAddressToIndex(_asset);
-        require(assetId != 0, "Unknown asset");
-        netDepositLimits[_asset] = _limit;
-    }
+    /**********************
+     * External Functions *
+     **********************/
 
     /**
      * @notice Deposits ERC20 asset.
@@ -219,29 +160,6 @@ contract RollupChain is Ownable, Pausable {
         IWETH(_weth).deposit{value: _amount}();
     }
 
-    function _deposit(address _asset, uint256 _amount) private {
-        address account = msg.sender;
-        uint32 assetId = registry.assetAddressToIndex(_asset);
-
-        require(assetId != 0, "Unknown asset");
-
-        uint256 netDeposit = netDeposits[_asset].add(_amount);
-        require(netDeposit <= netDepositLimits[_asset], "net deposit exceeds limit");
-        netDeposits[_asset] = netDeposit;
-
-        // Add a pending deposit record.
-        uint256 depositId = pendingDepositsTail++;
-        pendingDeposits[depositId] = PendingDeposit({
-            account: account,
-            assetId: assetId,
-            amount: _amount,
-            blockId: blocks.length, // "pending": baseline of censorship delay
-            status: PendingDepositStatus.Pending
-        });
-
-        emit AssetDeposited(account, assetId, _amount, depositId);
-    }
-
     /**
      * @notice Executes pending withdraw of an asset to an account.
      *
@@ -259,33 +177,18 @@ contract RollupChain is Ownable, Pausable {
      * @param _account The destination account.
      * @param _weth The address for WETH.
      */
-    function withdrawETH(address _account, address _weth) public {
+    function withdrawETH(address _account, address _weth) external whenNotPaused {
         uint256 amount = _withdraw(_account, _weth);
         IWETH(_weth).withdraw(amount);
         (bool sent, ) = _account.call{value: amount}("");
         require(sent, "Failed to withdraw ETH");
     }
 
-    function _withdraw(address _account, address _asset) private returns (uint256) {
-        uint32 assetId = registry.assetAddressToIndex(_asset);
-        require(assetId > 0, "Asset not registered");
-
-        uint256 amount = pendingWithdraws[_account][assetId];
-        require(amount > 0, "Nothing to withdraw");
-
-        if (netDeposits[_asset] < amount) {
-            netDeposits[_asset] = 0;
-        } else {
-            netDeposits[_asset] = netDeposits[_asset].sub(amount);
-        }
-        pendingWithdraws[_account][assetId] = 0;
-
-        emit AssetWithdrawn(_account, assetId, amount);
-        return amount;
-    }
-
     /**
-     * Submit a prepared batch as a new rollup block.
+     * @notice Submit a prepared batch as a new rollup block.
+     *
+     * @param _blockId Rollup block id
+     * @param _transitions List of layer-2 transitions
      */
     function commitBlock(uint256 _blockId, bytes[] calldata _transitions) external whenNotPaused onlyOperator {
         require(_blockId == blocks.length, "Wrong block ID");
@@ -375,8 +278,13 @@ contract RollupChain is Ownable, Pausable {
         emit RollupBlockCommitted(_blockId);
     }
 
-    // Note: only the "intent" transitions (commitment sync) are given to executeBlock() instead of
-    // re-sending the whole rollup block.  This includes the case of a rollup block with zero intents.
+    /**
+     * @notice Execute a rollup block after it passes the challenge period.
+     * @dev Note: only the "intent" transitions (commitment sync) are given to executeBlock() instead of
+     * re-sending the whole rollup block. This includes the case of a rollup block with zero intents.
+     *
+     * @param _intents List of CommitmentSync transitions of the rollup block
+     */
     function executeBlock(bytes[] calldata _intents) external whenNotPaused {
         uint256 blockId = countExecuted;
         require(blockId < blocks.length, "No blocks pending execution");
@@ -451,6 +359,12 @@ contract RollupChain is Ownable, Pausable {
         emit RollupBlockExecuted(blockId);
     }
 
+    /**
+     * @notice Sync the latest L1 strategy asset balance to L2
+     * @dev L2 opeartor will submit BalanceSync transition based on the emitted event
+     *
+     * @param _strategyId Strategy id
+     */
     function syncBalance(uint32 _strategyId) external whenNotPaused onlyOperator {
         address stAddr = registry.strategyIndexToAddress(_strategyId);
         require(stAddr != address(0), "Unknown strategy ID");
@@ -477,6 +391,59 @@ contract RollupChain is Ownable, Pausable {
         emit BalanceSync(_strategyId, delta, syncId);
     }
 
+    /**
+     * @notice Dispute a transition in a block.
+     * @dev Provide the transition proofs of the previous (valid) transition
+     * and the disputed transition, the account proof, and the strategy proof. Both the account proof and
+     * strategy proof are always needed even if the disputed transition only updates the account or only
+     * updates the strategy because the transition stateRoot = hash(accountStateRoot, strategyStateRoot).
+     * If the transition is invalid, prune the chain from that invalid block.
+     *
+     * @param _prevTransitionProof The inclusion proof of the transition immediately before the fraudulent transition.
+     * @param _invalidTransitionProof The inclusion proof of the fraudulent transition.
+     * @param _accountProof The inclusion proof of the account involved.
+     * @param _strategyProof The inclusion proof of the strategy involved.
+     */
+    function disputeTransition(
+        dt.TransitionProof calldata _prevTransitionProof,
+        dt.TransitionProof calldata _invalidTransitionProof,
+        dt.AccountProof calldata _accountProof,
+        dt.StrategyProof calldata _strategyProof
+    ) external {
+        uint256 invalidTransitionBlockId = _invalidTransitionProof.blockId;
+        dt.Block memory invalidTransitionBlock = blocks[invalidTransitionBlockId];
+        require(
+            invalidTransitionBlock.blockTime + blockChallengePeriod > block.number,
+            "Block challenge period is over"
+        );
+
+        bool success;
+        bytes memory returnData;
+        (success, returnData) = address(transitionDisputer).call(
+            abi.encodeWithSelector(
+                transitionDisputer.disputeTransition.selector,
+                _prevTransitionProof,
+                _invalidTransitionProof,
+                _accountProof,
+                _strategyProof,
+                blocks[_prevTransitionProof.blockId],
+                invalidTransitionBlock,
+                registry
+            )
+        );
+
+        if (success) {
+            string memory reason = abi.decode((returnData), (string));
+            revertBlock(invalidTransitionBlockId, reason);
+        } else {
+            revert("Failed to dispute");
+        }
+    }
+
+    /**
+     * @notice Dispute if operator failed to reflect an L1-initiated priority tx
+     * in a rollup block within the maxPriorityTxDelay
+     */
     function disputePriorityTxDelay() external {
         uint256 currentBlockId = getCurrentBlockId();
 
@@ -496,7 +463,152 @@ contract RollupChain is Ownable, Pausable {
         revert("Not exceed max priority tx delay");
     }
 
-    function revertBlock(uint256 _blockId, string memory reason) private {
+    /**
+     * @notice Called by the owner to pause contract
+     * @dev emergency use only
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @notice Called by the owner to unpause contract
+     * @dev emergency use only
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /**
+     * @notice Owner drains one type of tokens when the contract is paused
+     * @dev emergency use only
+     *
+     * @param _asset drained asset address
+     * @param _amount drained asset amount
+     */
+    function drainToken(address _asset, uint256 _amount) external whenPaused onlyOwner {
+        IERC20(_asset).safeTransfer(msg.sender, _amount);
+    }
+
+    /**
+     * @notice Owner drains ETH when the contract is paused
+     * @dev This is for emergency situations.
+     *
+     * @param _amount drained ETH amount
+     */
+    function drainETH(uint256 _amount) external whenPaused onlyOwner {
+        (bool sent, ) = msg.sender.call{value: _amount}("");
+        require(sent, "Failed to drain ETH");
+    }
+
+    /**
+     * @notice Called by the owner to set blockChallengePeriod
+     * @param _blockChallengePeriod delay (in # of ETH blocks) to challenge a rollup block
+     */
+    function setBlockChallengePeriod(uint256 _blockChallengePeriod) external onlyOwner {
+        blockChallengePeriod = _blockChallengePeriod;
+    }
+
+    /**
+     * @notice Called by the owner to set maxPriorityTxDelay
+     * @param _maxPriorityTxDelay delay (in # of rollup blocks) to reflect an L1-initiated tx in a rollup block
+     */
+    function setMaxPriorityTxDelay(uint256 _maxPriorityTxDelay) external onlyOwner {
+        maxPriorityTxDelay = _maxPriorityTxDelay;
+    }
+
+    /**
+     * @notice Called by the owner to set operator account address
+     * @param _operator operator's ETH address
+     */
+    function setOperator(address _operator) external onlyOwner {
+        operator = _operator;
+    }
+
+    /**
+     * @notice Called by the owner to set net deposit limit
+     * @param _asset asset token address
+     * @param _limit asset net deposit limit amount
+     */
+    function setNetDepositLimit(address _asset, uint256 _limit) external onlyOwner {
+        uint32 assetId = registry.assetAddressToIndex(_asset);
+        require(assetId != 0, "Unknown asset");
+        netDepositLimits[_asset] = _limit;
+    }
+
+    /**
+     * @notice Get current rollup block id
+     * @return current rollup block id
+     */
+    function getCurrentBlockId() public view returns (uint256) {
+        return blocks.length - 1;
+    }
+
+    /*********************
+     * Private Functions *
+     *********************/
+
+    /**
+     * @notice internal deposit processing without actual token transfer.
+     *
+     * @param _asset The asset token address.
+     * @param _amount The asset token amount.
+     */
+    function _deposit(address _asset, uint256 _amount) private {
+        address account = msg.sender;
+        uint32 assetId = registry.assetAddressToIndex(_asset);
+
+        require(assetId != 0, "Unknown asset");
+
+        uint256 netDeposit = netDeposits[_asset].add(_amount);
+        require(netDeposit <= netDepositLimits[_asset], "net deposit exceeds limit");
+        netDeposits[_asset] = netDeposit;
+
+        // Add a pending deposit record.
+        uint256 depositId = pendingDepositsTail++;
+        pendingDeposits[depositId] = PendingDeposit({
+            account: account,
+            assetId: assetId,
+            amount: _amount,
+            blockId: blocks.length, // "pending": baseline of censorship delay
+            status: PendingDepositStatus.Pending
+        });
+
+        emit AssetDeposited(account, assetId, _amount, depositId);
+    }
+
+    /**
+     * @notice internal withdrawal processing without actual token transfer.
+     *
+     * @param _account The destination account.
+     * @param _asset The asset token address.
+     * @return amount to withdraw
+     */
+    function _withdraw(address _account, address _asset) private returns (uint256) {
+        uint32 assetId = registry.assetAddressToIndex(_asset);
+        require(assetId > 0, "Asset not registered");
+
+        uint256 amount = pendingWithdraws[_account][assetId];
+        require(amount > 0, "Nothing to withdraw");
+
+        if (netDeposits[_asset] < amount) {
+            netDeposits[_asset] = 0;
+        } else {
+            netDeposits[_asset] = netDeposits[_asset].sub(amount);
+        }
+        pendingWithdraws[_account][assetId] = 0;
+
+        emit AssetWithdrawn(_account, assetId, amount);
+        return amount;
+    }
+
+    /**
+     * @notice Revert rollup block on dispute success
+     *
+     * @param _blockId Rollup block id
+     * @param _reason Revert reason
+     */
+    function revertBlock(uint256 _blockId, string memory _reason) private {
         // pause contract
         _pause();
 
@@ -528,58 +640,6 @@ contract RollupChain is Ownable, Pausable {
             }
         }
 
-        emit RollupBlockReverted(_blockId, reason);
+        emit RollupBlockReverted(_blockId, _reason);
     }
-
-    /**
-     * @notice Dispute a transition in a block.  Provide the transition proofs of the previous (valid) transition
-     * and the disputed transition, the account proof, and the strategy proof. Both the account proof and
-     * strategy proof are always needed even if the disputed transition only updates the account or only
-     * updates the strategy because the transition stateRoot = hash(accountStateRoot, strategyStateRoot).
-     * If the transition is invalid, prune the chain from that invalid block.
-     *
-     * @param _prevTransitionProof The inclusion proof of the transition immediately before the fraudulent transition.
-     * @param _invalidTransitionProof The inclusion proof of the fraudulent transition.
-     * @param _accountProof The inclusion proof of the account involved.
-     * @param _strategyProof The inclusion proof of the strategy involved.
-     */
-    function disputeTransition(
-        dt.TransitionProof memory _prevTransitionProof,
-        dt.TransitionProof memory _invalidTransitionProof,
-        dt.AccountProof memory _accountProof,
-        dt.StrategyProof memory _strategyProof
-    ) public {
-        uint256 invalidTransitionBlockId = _invalidTransitionProof.blockId;
-        dt.Block memory invalidTransitionBlock = blocks[invalidTransitionBlockId];
-        require(
-            invalidTransitionBlock.blockTime + blockChallengePeriod > block.number,
-            "Block challenge period is over"
-        );
-
-        bool success;
-        bytes memory returnData;
-        (success, returnData) = address(transitionDisputer).call(
-            abi.encodeWithSelector(
-                transitionDisputer.disputeTransition.selector,
-                _prevTransitionProof,
-                _invalidTransitionProof,
-                _accountProof,
-                _strategyProof,
-                blocks[_prevTransitionProof.blockId],
-                invalidTransitionBlock,
-                registry
-            )
-        );
-
-        if (success) {
-            string memory reason = abi.decode((returnData), (string));
-            revertBlock(invalidTransitionBlockId, reason);
-        } else {
-            revert("Failed to dispute");
-        }
-    }
-
-    fallback() external payable {}
-
-    receive() external payable {}
 }

@@ -27,8 +27,8 @@ interface ILendingPool {
      * @param asset The address of the underlying asset to withdraw
      * @param amount The underlying amount to be withdrawn
      *   - Send the value type(uint256).max in order to withdraw the whole aToken balance
-     * @param to Address that will receive the underlying, same as msg.sender if the user 
-     *   wants to receive it on his own wallet, or a different address if the beneficiary is a 
+     * @param to Address that will receive the underlying, same as msg.sender if the user
+     *   wants to receive it on his own wallet, or a different address if the beneficiary is a
      *   different wallet
      * @return The finance amount withdrawn
      **/

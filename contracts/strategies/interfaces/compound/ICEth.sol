@@ -18,7 +18,7 @@ interface ICEth {
     /**
      * @notice Sender redeems cTokens in exchange for a specified amount fo underlying asset
      * @param redeemAmount The amount of underlying to redeem
-     * @return uint 0=success, otherwise a failure 
+     * @return uint 0=success, otherwise a failure
      */
     function redeemUnderlying(uint256 redeemAmount) external returns (uint256);
 }
