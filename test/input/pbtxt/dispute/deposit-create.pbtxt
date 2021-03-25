@@ -1,0 +1,18 @@
+tn {
+  dw {
+    type: Deposit
+    acnt_id: 1
+    asset_id: 1
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+  }
+}
+tn {
+  dw {
+    type: Deposit
+    acnt_id: 2
+    asset_id: 1
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+  }
+  # root will be wrong
+  flag: 1
+}

@@ -1,0 +1,18 @@
+tn {
+  cu {
+    type: Commit
+    acnt_id: 1
+    st_id: 1
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+    timestamp: 100
+  }
+}
+tn {
+  cu {
+    type: Uncommit
+    acnt_id: 1
+    st_id: 1
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+    timestamp: 200
+  }
+}

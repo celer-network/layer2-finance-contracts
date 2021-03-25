@@ -1,0 +1,7 @@
+tn {
+  init {
+    type: Init
+  }
+  # root will be wrong
+  flag: 1
+}
