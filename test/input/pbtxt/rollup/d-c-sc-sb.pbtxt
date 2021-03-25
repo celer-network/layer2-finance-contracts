@@ -1,0 +1,31 @@
+tn {
+  dw {
+    type: Deposit
+    acnt_id: 1
+    asset_id: 1
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+  }
+}
+tn {
+  cu {
+    type: Commit
+    acnt_id: 1
+    st_id: 1
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+    timestamp: 100
+  }
+}
+tn {
+  sync {
+    type: SyncCommit
+    st_id: 1
+    pending_commit_amt: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+  }
+}
+tn {
+  sync {
+    type: SyncBalance
+    st_id: 1
+    asset_delta: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+  }
+}
