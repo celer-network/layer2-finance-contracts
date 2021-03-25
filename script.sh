@@ -20,6 +20,8 @@ solFiles=(
   # strategies
   strategies/interfaces/IStrategy
   strategies/StrategyDummy
+  strategies/compound/StrategyCompoundEthLendingPool
+  strategies/compound/StrategyCompoundErc20LendingPool
 )
 
 dld_solc() {
