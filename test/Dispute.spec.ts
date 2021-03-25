@@ -32,7 +32,6 @@ describe('Dispute', function () {
     };
   }
 
-
   it('should dispute successfully for invalid state root', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
@@ -356,7 +355,7 @@ describe('Dispute', function () {
       .readFileSync('test/input/data/dispute/2nd-block-invalid-tn')
       .toString()
       .split('\n');
-    const {tns1, tns2} = await splitTns(tnData)
+    const tns = await splitTns(tnData)
 
     const disputeData =
       DISPUTE_METHOD_SIG +
@@ -367,8 +366,8 @@ describe('Dispute', function () {
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
-    await rollupChain.commitBlock(0, tns1);
-    await rollupChain.commitBlock(1, tns2);
+    await rollupChain.commitBlock(0, tns[0]);
+    await rollupChain.commitBlock(1, tns[1]);
 
     await expect(
       admin.sendTransaction({
@@ -387,7 +386,7 @@ describe('Dispute', function () {
       .readFileSync('test/input/data/dispute/2nd-block-valid-tn')
       .toString()
       .split('\n');
-    const {tns1, tns2} = await splitTns(tnData)
+    const tns = await splitTns(tnData)
 
     const disputeData =
       DISPUTE_METHOD_SIG +
@@ -398,8 +397,8 @@ describe('Dispute', function () {
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
-    await rollupChain.commitBlock(0, tns1);
-    await rollupChain.commitBlock(1, tns2);
+    await rollupChain.commitBlock(0, tns[0]);
+    await rollupChain.commitBlock(1, tns[1]);
 
     await expect(
       admin.sendTransaction({
@@ -408,7 +407,7 @@ describe('Dispute', function () {
       })
     ).to.be.revertedWith('Failed to dispute');
   });
-
+  
   it('should fail to dispute past challenge period', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs

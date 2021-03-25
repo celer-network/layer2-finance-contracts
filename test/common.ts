@@ -103,19 +103,17 @@ export async function getUsers(admin: Wallet, assets: TestERC20[], num: number) 
   return users;
 }
 
-export async function splitTns(tns: string[]) {
-  const tns1: string[] = [];
-  const tns2: string[] = [];
+export async function splitTns(tndata: string[]) {
+  const tns: string[][] = [];
+  tns.push([]);
   let j = 0;
-  for (var i = 0; i < tns.length; i++) {
-    if (tns[i] == '') {
-      j = i+1;
-      break
+  for (var i = 0; i < tndata.length; i++) {
+    if (tndata[i] == '') {
+      tns.push([]);
+      j++;
+    } else {
+      tns[j].push(tndata[i])
     }
-    tns1.push(tns[i])
   }
-  for (var i = j; i < tns.length; i++) {
-    tns2.push(tns[i])
-  }
-  return {tns1, tns2}
+  return tns
 }
