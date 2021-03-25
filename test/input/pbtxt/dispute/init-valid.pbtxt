@@ -2,4 +2,6 @@ tn {
   init {
     type: Init
   }
+  # generate dispute proof
+  flag: 1
 }

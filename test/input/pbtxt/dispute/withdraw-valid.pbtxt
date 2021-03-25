@@ -14,4 +14,6 @@ tn {
     amount: "\xa7\x64\x00\x00"
     timestamp: 200
   }
+  # generate dispute proof
+  flag: 1
 }

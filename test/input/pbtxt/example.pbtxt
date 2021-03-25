@@ -23,6 +23,8 @@ tn {
     amount: "\x03\x78\x2d\xac\xe9\xd9\x00\x00"
     timestamp: 200
   }
+  # end of block
+  flag: 99
 }
 tn {
   sync {
@@ -31,6 +33,8 @@ tn {
     pending_commit_amt: "\x06\xf0\x5b\x59\xd3\xb2\x00\x00"
     pending_uncommit_amt: "\x03\x78\x2d\xac\xe9\xd9\x00\x00"
   }
+  # root will be wrong
+  flag: 2
 }
 tn {
   sync {
@@ -46,6 +50,4 @@ tn {
     asset_id: 1
     amount: "\x06\xf0\x5b\x59\xd3\xb2\x00\x00"
   }
-  # root will be wrong
-  flag: 1
 }

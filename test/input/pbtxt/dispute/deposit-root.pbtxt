@@ -23,5 +23,5 @@ tn {
     amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
   }
   # root will be wrong
-  flag: 1
+  flag: 2
 }

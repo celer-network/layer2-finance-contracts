@@ -14,6 +14,6 @@ tn {
     amount: "\x1d\xe0\xb6\xb3\xa7\x64\x00\x00"
     timestamp: 200
   }
-  # not enough idle balance
-  flag: 2
+  # not enough idle balance, dispute
+  flag: 1
 }
