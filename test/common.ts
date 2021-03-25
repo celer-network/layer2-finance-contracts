@@ -112,8 +112,8 @@ export async function splitTns(tndata: string[]) {
       tns.push([]);
       j++;
     } else {
-      tns[j].push(tndata[i])
+      tns[j].push(tndata[i]);
     }
   }
-  return tns
+  return tns;
 }

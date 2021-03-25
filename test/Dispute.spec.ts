@@ -355,7 +355,7 @@ describe('Dispute', function () {
       .readFileSync('test/input/data/dispute/2nd-block-invalid-tn')
       .toString()
       .split('\n');
-    const tns = await splitTns(tnData)
+    const tns = await splitTns(tnData);
 
     const disputeData =
       DISPUTE_METHOD_SIG +
@@ -386,7 +386,7 @@ describe('Dispute', function () {
       .readFileSync('test/input/data/dispute/2nd-block-valid-tn')
       .toString()
       .split('\n');
-    const tns = await splitTns(tnData)
+    const tns = await splitTns(tnData);
 
     const disputeData =
       DISPUTE_METHOD_SIG +
@@ -407,7 +407,7 @@ describe('Dispute', function () {
       })
     ).to.be.revertedWith('Failed to dispute');
   });
-  
+
   it('should fail to dispute past challenge period', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
