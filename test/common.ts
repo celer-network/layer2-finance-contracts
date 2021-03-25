@@ -10,7 +10,6 @@ import { TransitionDisputer__factory } from '../typechain/factories/TransitionDi
 import { TransitionEvaluator__factory } from '../typechain/factories/TransitionEvaluator__factory';
 import { WETH9__factory } from '../typechain/factories/WETH9__factory';
 import { TestERC20 } from '../typechain/TestERC20';
-import { BytesLike } from '@ethersproject/bytes';
 
 const userPrivKeys = [
   '0x36f2243a51a0f879b1859fff1a663ac04aeebca1bcff4d7dc5a8b38e53211199',

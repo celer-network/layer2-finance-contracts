@@ -58,7 +58,7 @@ describe('RollupChain', function () {
       rollupChain.connect(users[0]).withdraw(users[0].address, tokenAddress)
     ).to.be.revertedWith('Nothing to withdraw');
 
-    const txs = fs.readFileSync('test/input/data/rollup/d-w-1u-a1-tn').toString().split('\n');
+    const txs = fs.readFileSync('test/input/data/rollup/dep-wd-tk1-tn').toString().split('\n');
     await rollupChain.commitBlock(0, txs);
 
     [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(0, 0);
@@ -98,7 +98,7 @@ describe('RollupChain', function () {
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
 
-    const txs = fs.readFileSync('test/input/data/rollup/d-w-1u-a2-tn').toString().split('\n');
+    const txs = fs.readFileSync('test/input/data/rollup/dep-wd-tk2-tn').toString().split('\n');
     await rollupChain.commitBlock(0, txs);
     expect(await rollupChain.getCurrentBlockId()).to.equal(0);
 
@@ -140,7 +140,7 @@ describe('RollupChain', function () {
     expect(status).to.equal(0);
     expect(await strategyDummy.getBalance()).to.equal(ethers.utils.parseEther('1'));
 
-    const txs = fs.readFileSync('test/input/data/rollup/d-c-sc-sb-tn').toString().split('\n');
+    const txs = fs.readFileSync('test/input/data/rollup/sync-cmt-bal-tn').toString().split('\n');
     await rollupChain.commitBlock(0, txs);
     const intents = [txs[2]]; // syncCommitment
     await rollupChain.executeBlock(intents);
