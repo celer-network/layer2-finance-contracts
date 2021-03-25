@@ -5,8 +5,22 @@ import '@typechain/hardhat';
 
 import { HardhatUserConfig } from 'hardhat/types';
 
+import { resolve } from "path";
+import * as dotenv from "dotenv";
+dotenv.config({ path: resolve(__dirname, "./.env.kovan")});
+
+const alchemyApiUrl = process.env.ALCHEMY_API_URL;
+const privateKey = process.env.PRIVATE_KEY;
+
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
+  networks: {
+    hardhat: {},
+    kovan: {
+      url: alchemyApiUrl,
+      accounts: [`0x${privateKey}`],
+    }
+  },
   solidity: {
     version: '0.7.6',
     settings: {

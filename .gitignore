@@ -12,3 +12,5 @@ genfiles/
 .DS_Store
 
 .vscode/
+
+/.env.kovan
