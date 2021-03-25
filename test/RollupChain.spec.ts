@@ -101,7 +101,7 @@ describe('RollupChain', function () {
     const txs = fs.readFileSync('test/input/data/rollup/d-w-1u-a2').toString().split('\n');
     await rollupChain.commitBlock(0, txs);
     expect(await rollupChain.getCurrentBlockId()).to.equal(0);
-  
+
     [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(0, 0);
     expect(account).to.equal(users[0].address);
     expect(assetID).to.equal(2);
@@ -114,7 +114,9 @@ describe('RollupChain', function () {
     expect(totalAmount).to.equal(depositAmount);
 
     const balanceBefore = await ethers.provider.getBalance(users[0].address);
-    const withdrawTx = await rollupChain.connect(users[0]).withdrawETH(users[0].address, weth.address);
+    const withdrawTx = await rollupChain
+      .connect(users[0])
+      .withdrawETH(users[0].address, weth.address);
     const gasSpent = (await withdrawTx.wait()).gasUsed.mul(withdrawTx.gasPrice);
     const balanceAfter = await ethers.provider.getBalance(users[0].address);
     expect(balanceAfter.sub(balanceBefore).add(gasSpent)).to.equal(depositAmount);

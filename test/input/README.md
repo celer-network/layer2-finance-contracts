@@ -12,6 +12,7 @@ Use the `l2gen` tool to generate contract inputs from transition proto list
 #### Transition flags
 
 Use the followings flag to mark invalid transition for testing:
+
 1. invalid root
 2. invalid amount
 3. invalid signature
