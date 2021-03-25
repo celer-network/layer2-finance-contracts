@@ -10,6 +10,7 @@ import { TransitionDisputer__factory } from '../typechain/factories/TransitionDi
 import { TransitionEvaluator__factory } from '../typechain/factories/TransitionEvaluator__factory';
 import { WETH9__factory } from '../typechain/factories/WETH9__factory';
 import { TestERC20 } from '../typechain/TestERC20';
+import { BytesLike } from '@ethersproject/bytes';
 
 const userPrivKeys = [
   '0x36f2243a51a0f879b1859fff1a663ac04aeebca1bcff4d7dc5a8b38e53211199',
@@ -100,4 +101,21 @@ export async function getUsers(admin: Wallet, assets: TestERC20[], num: number) 
     }
   }
   return users;
+}
+
+export async function splitTns(tns: string[]) {
+  const tns1: string[] = [];
+  const tns2: string[] = [];
+  let j = 0;
+  for (var i = 0; i < tns.length; i++) {
+    if (tns[i] == '') {
+      j = i+1;
+      break
+    }
+    tns1.push(tns[i])
+  }
+  for (var i = j; i < tns.length; i++) {
+    tns2.push(tns[i])
+  }
+  return {tns1, tns2}
 }

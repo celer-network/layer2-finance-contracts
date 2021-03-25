@@ -4,7 +4,7 @@ import { ethers } from 'hardhat';
 
 import { Wallet } from '@ethersproject/wallet';
 
-import { deployContracts, getUsers, loadFixture } from './common';
+import { deployContracts, getUsers, splitTns, loadFixture } from './common';
 
 const DISPUTE_METHOD_SIG = '0x8bdc6232';
 
@@ -31,6 +31,7 @@ describe('Dispute', function () {
       users
     };
   }
+
 
   it('should dispute successfully for invalid state root', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
@@ -350,14 +351,13 @@ describe('Dispute', function () {
 
   it('should dispute successfully for invalid first transition of a second block', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
-    const tnData0 = fs
-      .readFileSync('test/input/data/dispute/init-deposit-valid-tn')
-      .toString()
-      .split('\n');
-    const tnData1 = fs
+
+    const tnData = fs
       .readFileSync('test/input/data/dispute/2nd-block-invalid-tn')
       .toString()
       .split('\n');
+    const {tns1, tns2} = await splitTns(tnData)
+
     const disputeData =
       DISPUTE_METHOD_SIG +
       fs.readFileSync('test/input/data/dispute/2nd-block-invalid-pf').toString().trim();
@@ -367,8 +367,8 @@ describe('Dispute', function () {
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
-    await rollupChain.commitBlock(0, tnData0);
-    await rollupChain.commitBlock(1, tnData1);
+    await rollupChain.commitBlock(0, tns1);
+    await rollupChain.commitBlock(1, tns2);
 
     await expect(
       admin.sendTransaction({
@@ -382,14 +382,13 @@ describe('Dispute', function () {
 
   it('should fail to dispute valid first transition of a second block', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
-    const tnData0 = fs
-      .readFileSync('test/input/data/dispute/init-deposit-valid-tn')
-      .toString()
-      .split('\n');
-    const tnData1 = fs
+
+    const tnData = fs
       .readFileSync('test/input/data/dispute/2nd-block-valid-tn')
       .toString()
       .split('\n');
+    const {tns1, tns2} = await splitTns(tnData)
+
     const disputeData =
       DISPUTE_METHOD_SIG +
       fs.readFileSync('test/input/data/dispute/2nd-block-valid-pf').toString().trim();
@@ -399,8 +398,8 @@ describe('Dispute', function () {
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
-    await rollupChain.commitBlock(0, tnData0);
-    await rollupChain.commitBlock(1, tnData1);
+    await rollupChain.commitBlock(0, tns1);
+    await rollupChain.commitBlock(1, tns2);
 
     await expect(
       admin.sendTransaction({
