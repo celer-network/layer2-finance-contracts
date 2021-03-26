@@ -124,39 +124,44 @@ describe('RollupChain', function () {
     expect(balanceAfter.sub(balanceBefore).add(gasSpent)).to.equal(depositAmount);
   });
 
-  it('should execute block with sync commitment and sync balance', async function () {
-    const { admin, registry, rollupChain, strategyDummy, testERC20 } = await loadFixture(fixture);
+  it('should commit and execute blocks with sync commitment transitions', async function () {
+    const {
+      admin,
+      registry,
+      rollupChain,
+      strategyDummy,
+      strategyWeth,
+      testERC20,
+      weth
+    } = await loadFixture(fixture);
+    await registry.registerStrategy(strategyDummy.address);
+    await registry.registerStrategy(strategyWeth.address);
+
     const users = await getUsers(admin, [testERC20], 1);
-    const tokenAddress = testERC20.address;
-    const stAddress = strategyDummy.address;
-    await registry.registerStrategy(stAddress);
-    await testERC20.connect(users[0]).approve(rollupChain.address, parseEther('1'));
-    await rollupChain.connect(users[0]).deposit(tokenAddress, parseEther('1'));
-    await strategyDummy.harvest();
-    await rollupChain.syncBalance(1);
+    await testERC20.connect(users[0]).approve(rollupChain.address, parseEther('4'));
+    await rollupChain.connect(users[0]).deposit(testERC20.address, parseEther('4'));
+    await rollupChain.connect(users[0]).depositETH(weth.address, parseEther('4'), {
+      value: parseEther('4')
+    });
 
-    let [strategyID, delta, blockID, status] = await rollupChain.pendingBalanceSyncs(0);
-    expect(strategyID).to.equal(1);
-    expect(delta).to.equal(parseEther('1'));
-    expect(blockID).to.equal(0);
-    expect(status).to.equal(0);
-    expect(await strategyDummy.getBalance()).to.equal(parseEther('1'));
+    const tnData = fs.readFileSync('test/input/data/rollup/sync-commit-tn').toString().split('\n');
+    const tns = await splitTns(tnData);
 
-    const txs = fs.readFileSync('test/input/data/rollup/sync-cmt-bal-tn').toString().split('\n');
-    await rollupChain.commitBlock(0, txs);
+    await rollupChain.commitBlock(0, tns[0]);
+    let intents = [tns[0][4], tns[0][7]];
+    expect(await rollupChain.executeBlock(intents))
+      .to.emit(rollupChain, 'RollupBlockExecuted')
+      .withArgs(0);
 
-    const intents = [txs[2]]; // syncCommitment
+    expect(await strategyDummy.getBalance()).to.equal(parseEther('2'));
+    expect(await strategyWeth.getBalance()).to.equal(parseEther('3'));
+
+    await rollupChain.commitBlock(1, tns[1]);
+    intents = [tns[1][3], tns[1][4]];
     await rollupChain.executeBlock(intents);
 
-    // Check fund committed
-    expect(await strategyDummy.getBalance()).to.equal(parseEther('2'));
-
-    // Check pending balance sync cleared
-    [strategyID, delta, blockID, status] = await rollupChain.pendingBalanceSyncs(0);
-    expect(strategyID).to.equal(0);
-    expect(delta).to.equal(0);
-    expect(blockID).to.equal(0);
-    expect(status).to.equal(0);
+    expect(await strategyDummy.getBalance()).to.equal(parseEther('1'));
+    expect(await strategyWeth.getBalance()).to.equal(parseEther('1'));
   });
 
   it('should commit and execute blocks with deposit and sync balance transitions', async function () {
@@ -242,6 +247,10 @@ describe('RollupChain', function () {
     const tnData = fs.readFileSync('test/input/data/rollup/dep-syncbal-tn').toString().split('\n');
     const tns = await splitTns(tnData);
 
+    await expect(rollupChain.commitBlock(0, tns[1])).to.be.revertedWith(
+      'invalid balance sync transition, mismatch or wrong ordering'
+    );
+
     await rollupChain.commitBlock(0, tns[0]);
 
     [, , , , status] = await rollupChain.pendingDeposits(2);
@@ -263,7 +272,6 @@ describe('RollupChain', function () {
     await expect(rollupChain.executeBlock([]))
       .to.emit(rollupChain, 'RollupBlockExecuted')
       .withArgs(0);
-
 
     [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(2);
     expect(account).to.equal('0x0000000000000000000000000000000000000000');
