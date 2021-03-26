@@ -1,0 +1,63 @@
+tn {
+  dw {
+    type: Deposit
+    acnt_id: 1
+    asset_id: 1
+    # 1e18
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+  }
+}
+tn {
+  sync {
+    type: SyncBalance
+    st_id: 1
+    # 1e18
+    asset_delta: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+  }
+}
+tn {
+  dw {
+    type: Deposit
+    acnt_id: 2
+    asset_id: 2
+    # 2e18
+    amount: "\x1b\xc1\x6d\x67\x4e\xc8\x00\x00"
+  }
+}
+tn {
+  dw {
+    type: Deposit
+    acnt_id: 2
+    asset_id: 1
+    # 3e18
+    amount: "\x29\xa2\x24\x1a\xf6\x2c\x00\x00"
+  }
+  # end of block
+  flag: 99
+}
+
+tn {
+  sync {
+    type: SyncBalance
+    st_id: 1
+    # 1e18
+    asset_delta: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+  }
+}
+tn {
+  sync {
+    type: SyncBalance
+    st_id: 2
+    # 2e18
+    asset_delta: "\x1b\xc1\x6d\x67\x4e\xc8\x00\x00"
+  }
+}
+tn {
+  dw {
+    type: Deposit
+    acnt_id: 1
+    asset_id: 2
+    # 4e18
+    amount: "\x37\x82\xda\xce\x9d\x90\x00\x00"
+  }
+}
