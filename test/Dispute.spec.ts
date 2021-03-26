@@ -8,6 +8,8 @@ import { deployContracts, getUsers, splitTns, loadFixture } from './common';
 
 const DISPUTE_METHOD_SIG = '0x8bdc6232';
 
+const parseEther = ethers.utils.parseEther;
+
 describe('Dispute', function () {
   async function fixture([admin]: Wallet[]) {
     const { registry, rollupChain, strategyDummy, testERC20 } = await deployContracts(admin);
@@ -15,7 +17,7 @@ describe('Dispute', function () {
     const tokenAddress = testERC20.address;
     await registry.registerAsset(tokenAddress);
 
-    await rollupChain.setNetDepositLimit(tokenAddress, ethers.utils.parseEther('10000'));
+    await rollupChain.setNetDepositLimit(tokenAddress, parseEther('10000'));
     await rollupChain.setBlockChallengePeriod(10);
 
     const users = await getUsers(admin, [testERC20], 2);
@@ -43,7 +45,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/deposit-root-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
@@ -70,7 +72,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/deposit-acctid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
@@ -97,7 +99,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/deposit-create-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
     await testERC20.connect(users[1]).approve(rollupChain.address, depositAmount.mul(2));
@@ -125,7 +127,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/deposit-valid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
@@ -150,7 +152,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/init-deposit-valid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
@@ -174,7 +176,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/init-deposit-invalid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
@@ -234,7 +236,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/commit-amt-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
@@ -258,7 +260,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/commit-sig-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
@@ -285,7 +287,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/commit-valid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
@@ -309,7 +311,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/withdraw-amt-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
@@ -335,7 +337,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/withdraw-valid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
@@ -362,7 +364,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/2nd-block-invalid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
@@ -393,7 +395,7 @@ describe('Dispute', function () {
       fs.readFileSync('test/input/data/dispute/2nd-block-valid-pf').toString().trim();
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
 
@@ -421,7 +423,7 @@ describe('Dispute', function () {
     await rollupChain.setBlockChallengePeriod(0);
 
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
@@ -438,7 +440,7 @@ describe('Dispute', function () {
   it('should fail to dispute with invalid empty input', async function () {
     const { rollupChain, testERC20, users } = await loadFixture(fixture);
     const tokenAddress = testERC20.address;
-    const depositAmount = ethers.utils.parseEther('1');
+    const depositAmount = parseEther('1');
     await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
     await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);

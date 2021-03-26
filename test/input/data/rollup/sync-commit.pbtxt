@@ -1,0 +1,115 @@
+tn {
+  dw {
+    type: Deposit
+    acnt_id: 1
+    asset_id: 1
+    # 4e18
+    amount: "\x37\x82\xda\xce\x9d\x90\x00\x00"
+  }
+}
+tn {
+  dw {
+    type: Deposit
+    acnt_id: 1
+    asset_id: 2
+    # 4e18
+    amount: "\x37\x82\xda\xce\x9d\x90\x00\x00"
+  }
+}
+tn {
+  cu {
+    type: Commit
+    acnt_id: 1
+    st_id: 1
+    # 3e18
+    amount: "\x29\xa2\x24\x1a\xf6\x2c\x00\x00"
+    timestamp: 100
+  }
+}
+tn {
+  cu {
+    type: Uncommit
+    acnt_id: 1
+    st_id: 1
+    # 1e18
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+    timestamp: 200
+  }
+}
+tn {
+  sync {
+    type: SyncCommit
+    st_id: 1
+  }
+}
+tn {
+  cu {
+    type: Commit
+    acnt_id: 1
+    st_id: 2
+    # 4e18
+    amount: "\x37\x82\xda\xce\x9d\x90\x00\x00"
+    timestamp: 300
+  }
+}
+tn {
+  cu {
+    type: Uncommit
+    acnt_id: 1
+    st_id: 2
+    # 1e18
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+    timestamp: 400
+  }
+}
+tn {
+  sync {
+    type: SyncCommit
+    st_id: 2
+  }
+  # end of block
+  flag: 99
+}
+
+tn {
+  cu {
+    type: Uncommit
+    acnt_id: 1
+    st_id: 1
+    # 1e18
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+    timestamp: 500
+  }
+}
+tn {
+  cu {
+    type: Commit
+    acnt_id: 1
+    st_id: 2
+    # 1e18
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+    timestamp: 500
+  }
+}
+tn {
+  cu {
+    type: Uncommit
+    acnt_id: 1
+    st_id: 2
+    # 3e18
+    amount: "\x29\xa2\x24\x1a\xf6\x2c\x00\x00"
+    timestamp: 500
+  }
+}
+tn {
+  sync {
+    type: SyncCommit
+    st_id: 1
+  }
+}
+tn {
+  sync {
+    type: SyncCommit
+    st_id: 2
+  }
+}

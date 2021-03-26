@@ -10,7 +10,6 @@ import { TransitionDisputer__factory } from '../typechain/factories/TransitionDi
 import { TransitionEvaluator__factory } from '../typechain/factories/TransitionEvaluator__factory';
 import { WETH9__factory } from '../typechain/factories/WETH9__factory';
 import { TestERC20 } from '../typechain/TestERC20';
-import { BytesLike } from '@ethersproject/bytes';
 
 const userPrivKeys = [
   '0x36f2243a51a0f879b1859fff1a663ac04aeebca1bcff4d7dc5a8b38e53211199',
@@ -20,6 +19,8 @@ const userPrivKeys = [
   '0xab4c840e48b11840f923a371ba453e4d8884fd23eee1b579f5a3910c9b00a4b6',
   '0x0168ea2aa71023864b1c8eb65997996d726e5068c12b20dea81076ef56380465'
 ];
+
+const parseEther = ethers.utils.parseEther;
 
 // Workaround for https://github.com/nomiclabs/hardhat/issues/849
 // TODO: Remove once fixed upstream.
@@ -64,6 +65,7 @@ export async function deployContracts(admin: Wallet) {
   const wethFactory = (await ethers.getContractFactory('WETH9')) as WETH9__factory;
   const weth = await wethFactory.deploy();
   await weth.deployed();
+  await weth.deposit({ value: parseEther('20') });
 
   const strategyDummyFactory = (await ethers.getContractFactory(
     'StrategyDummy'
@@ -72,18 +74,19 @@ export async function deployContracts(admin: Wallet) {
     rollupChain.address,
     testERC20.address,
     admin.address,
-    ethers.utils.parseEther('1')
+    parseEther('1')
   );
   await strategyDummy.deployed();
-  await testERC20.approve(strategyDummy.address, ethers.utils.parseEther('1000'));
+  await testERC20.approve(strategyDummy.address, parseEther('1000'));
 
   const strategyWeth = await strategyDummyFactory.deploy(
     rollupChain.address,
     weth.address,
     admin.address,
-    ethers.utils.parseEther('1')
+    parseEther('1')
   );
-  await weth.approve(strategyDummy.address, ethers.utils.parseEther('1000'));
+  await strategyWeth.deployed();
+  await weth.approve(strategyWeth.address, parseEther('1000'));
 
   return { admin, registry, rollupChain, strategyDummy, strategyWeth, testERC20, weth };
 }
@@ -94,10 +97,10 @@ export async function getUsers(admin: Wallet, assets: TestERC20[], num: number) 
     users.push(new ethers.Wallet(userPrivKeys[i]).connect(ethers.provider));
     await admin.sendTransaction({
       to: users[i].address,
-      value: ethers.utils.parseEther('10')
+      value: parseEther('10')
     });
     for (var j = 0; j < assets.length; j++) {
-      await assets[j].transfer(users[i].address, ethers.utils.parseEther('1000'));
+      await assets[j].transfer(users[i].address, parseEther('1000'));
     }
   }
   return users;
