@@ -1,0 +1,53 @@
+tn {
+  dw {
+    type: Deposit
+    acnt_id: 1
+    asset_id: 1
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+  }
+}
+tn {
+  cu {
+    type: Commit
+    acnt_id: 1
+    st_id: 1
+    amount: "\x06\xf0\x5b\x59\xd3\xb2\x00\x00"
+    timestamp: 100
+  }
+}
+tn {
+  cu {
+    type: Uncommit
+    acnt_id: 1
+    st_id: 1
+    amount: "\x03\x78\x2d\xac\xe9\xd9\x00\x00"
+    timestamp: 200
+  }
+  # end of block
+  flag: 99
+}
+tn {
+  sync {
+    type: SyncCommit
+    st_id: 1
+    pending_commit_amt: "\x06\xf0\x5b\x59\xd3\xb2\x00\x00"
+    pending_uncommit_amt: "\x03\x78\x2d\xac\xe9\xd9\x00\x00"
+  }
+  # root will be wrong
+  flag: 2
+}
+tn {
+  sync {
+    type: SyncBalance
+    st_id: 1
+    asset_delta: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+  }
+}
+tn {
+  dw {
+    type: Withdraw
+    acnt_id: 1
+    asset_id: 1
+    amount: "\x06\xf0\x5b\x59\xd3\xb2\x00\x00"
+  }
+}

@@ -1,0 +1,19 @@
+tn {
+  dw {
+    type: Deposit
+    acnt_id: 1
+    asset_id: 1
+    amount: "\x0d\xe0\xb6\xb3\xa7\x64\x00\x00"
+  }
+}
+tn {
+  dw {
+    type: Withdraw
+    acnt_id: 1
+    asset_id: 1
+    amount: "\xa7\x64\x00\x00"
+    timestamp: 200
+  }
+  # generate dispute proof
+  flag: 1
+}
