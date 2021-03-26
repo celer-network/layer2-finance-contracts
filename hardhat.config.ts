@@ -4,21 +4,15 @@ import 'hardhat-gas-reporter';
 import '@typechain/hardhat';
 
 import { HardhatUserConfig } from 'hardhat/types';
-
-import { resolve } from "path";
-import * as dotenv from "dotenv";
-dotenv.config({ path: resolve(__dirname, "./.env.kovan")});
-
-const alchemyApiUrl = process.env.ALCHEMY_API_URL;
-const privateKey = process.env.PRIVATE_KEY;
+import kovan from './kovan.json';
 
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
     hardhat: {},
     kovan: {
-      url: alchemyApiUrl,
-      accounts: [`0x${privateKey}`],
+      url: kovan.AlchemyApiUrl,
+      accounts: [`0x${kovan.privateKey}`],
     }
   },
   solidity: {

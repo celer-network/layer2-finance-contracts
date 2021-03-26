@@ -1,11 +1,11 @@
 const expect = require("chai").expect;
-const ethers = require("ethers");
 const { createAlchemyWeb3 } = require("@alch/alchemy-web3");
 const { 
-    ALCHEMY_API_URL,　privateKey, controllerAddress, 
-    fromController, aggregateCommit, aggregateUncommit
+    AlchemyApiUrl,　privateKey, controllerAddress, 
+    fromController, etherBigNumber, parseEther,
+    aggregateCommit, aggregateUncommit
 } = require("./utils.js");
-const web3 = createAlchemyWeb3(ALCHEMY_API_URL);
+const web3 = createAlchemyWeb3(AlchemyApiUrl);
 web3.eth.accounts.wallet.add('0x' + privateKey);
 
 const _strategyContract = require("../../artifacts/contracts/strategies/compound/StrategyCompoundErc20LendingPool.sol/StrategyCompoundErc20LendingPool.json");
@@ -40,7 +40,7 @@ async function main() {
     
     let allowance = await daiContract.methods.allowance(controllerAddress, strategyAddress).call();
     await sleep(1000);
-    await expect(ethers.BigNumber.from(allowance).eq(ethers.utils.parseEther('1'))).to.be.true;
+    await expect(etherBigNumber(allowance).eq(parseEther('1'))).to.be.true;
     console.log("allowance of strategy contract:", allowance/1e18);
 
     
@@ -51,13 +51,13 @@ async function main() {
     await sleep(12000);
 
     let afterDepositContractBalance = await strategyContract.methods.getBalance().call();
-    await expect(ethers.BigNumber.from(afterDepositContractBalance).sub(ethers.BigNumber.from(contractBalance))
-            .gt(ethers.utils.parseEther('0.001'))).to.be.true;
+    await expect(etherBigNumber(afterDepositContractBalance).sub(etherBigNumber(contractBalance))
+            .gt(parseEther('0.001'))).to.be.true;
     console.log('dai balance of strategy contract:', afterDepositContractBalance);
 
     let afterDepositControllerBalance = await daiContract.methods.balanceOf(controllerAddress).call();
-    await expect(ethers.BigNumber.from(controllerBalance).sub(ethers.BigNumber.from(afterDepositControllerBalance))
-            .eq(ethers.utils.parseEther('0.001'))).to.be.true;
+    await expect(etherBigNumber(controllerBalance).sub(etherBigNumber(afterDepositControllerBalance))
+            .eq(parseEther('0.001'))).to.be.true;
     console.log('dai balance of controller:', afterDepositControllerBalance);
     
 
@@ -68,13 +68,13 @@ async function main() {
     await sleep(12000);
     
     let afterWithdrawContractBalance = await strategyContract.methods.getBalance().call();
-    await expect(ethers.BigNumber.from(afterWithdrawContractBalance).add(ethers.utils.parseEther('0.0007'))
-            .gt(ethers.BigNumber.from(afterDepositContractBalance))).to.be.true;
+    await expect(etherBigNumber(afterWithdrawContractBalance).add(parseEther('0.0007'))
+            .gt(etherBigNumber(afterDepositContractBalance))).to.be.true;
     console.log('dai balance of strategy contract:', afterWithdrawContractBalance);
 
     let afterWithdrawControllerBalance = await daiContract.methods.balanceOf(controllerAddress).call();
-    await expect(ethers.BigNumber.from(afterWithdrawControllerBalance).sub(ethers.BigNumber.from(afterDepositControllerBalance))
-            .eq(ethers.utils.parseEther('0.0007'))).to.be.true;
+    await expect(etherBigNumber(afterWithdrawControllerBalance).sub(etherBigNumber(afterDepositControllerBalance))
+            .eq(parseEther('0.0007'))).to.be.true;
     console.log('dai balance of cotroller:', afterWithdrawControllerBalance);
 }
 

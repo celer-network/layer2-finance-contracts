@@ -13,4 +13,4 @@ genfiles/
 
 .vscode/
 
-/.env.kovan
+kovan.json

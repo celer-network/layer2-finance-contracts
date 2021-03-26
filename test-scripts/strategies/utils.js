@@ -1,10 +1,9 @@
-const ENV_PATH = "../../.env.kovan"
-require('dotenv').config({ path: ENV_PATH });
+const kovanJson = require('../../kovan.json');
 const { createAlchemyWeb3 } = require("@alch/alchemy-web3");
-const ALCHEMY_API_URL = process.env.ALCHEMY_API_URL;
-const web3 = createAlchemyWeb3(ALCHEMY_API_URL);
+const AlchemyApiUrl = kovanJson.AlchemyApiUrl;
+const web3 = createAlchemyWeb3(AlchemyApiUrl);
 const controllerAddress = "0xa747eD5Ca0Aa67f8D9519d0a05149dC89c0d05FA";
-const privateKey = process.env.PRIVATE_KEY;
+const privateKey = kovanJson.privateKey;
 
 const fromController = {
     from: controllerAddress,
@@ -13,10 +12,16 @@ const fromController = {
     value: web3.utils.toWei('0', 'wei')
 };
 
-exports.ALCHEMY_API_URL = ALCHEMY_API_URL;
+const ethers = require("ethers");
+const etherBigNumber = ethers.BigNumber.from;
+const parseEther = ethers.utils.parseEther;
+
+exports.AlchemyApiUrl = AlchemyApiUrl;
 exports.privateKey = privateKey;
 exports.controllerAddress = controllerAddress;
 exports.fromController = fromController;
+exports.etherBigNumber = etherBigNumber;
+exports.parseEther = parseEther;
 
 module.exports.aggregateCommit = async function (strategyAddress, strategyContract, nonce, commitAmount) {
     const tx = {
