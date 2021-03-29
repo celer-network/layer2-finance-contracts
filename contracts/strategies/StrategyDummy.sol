@@ -20,11 +20,11 @@ contract StrategyDummy is IStrategy, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
-    address controller;
-    address asset;
+    address public controller;
+    address public asset;
 
-    address funder;
-    uint256 harvestGain;
+    address public funder;
+    uint256 public harvestGain;
 
     constructor(
         address _controller,
