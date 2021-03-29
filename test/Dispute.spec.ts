@@ -410,6 +410,66 @@ describe('Dispute', function () {
     ).to.be.revertedWith('Failed to dispute');
   });
 
+  it('should dispute successfully for invalid first transition of a second block with single transition', async function () {
+    const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
+
+    const tnData = fs
+      .readFileSync('test/input/data/dispute/2nd-block-1tn-invalid-tn')
+      .toString()
+      .split('\n');
+    const tns = await splitTns(tnData);
+
+    const disputeData =
+      DISPUTE_METHOD_SIG +
+      fs.readFileSync('test/input/data/dispute/2nd-block-1tn-invalid-pf').toString().trim();
+
+    const tokenAddress = testERC20.address;
+    const depositAmount = parseEther('1');
+    await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
+
+    await rollupChain.commitBlock(0, tns[0]);
+    await rollupChain.commitBlock(1, tns[1]);
+
+    await expect(
+      admin.sendTransaction({
+        to: rollupChain.address,
+        data: disputeData
+      })
+    )
+      .to.emit(rollupChain, 'RollupBlockReverted')
+      .withArgs(1, 'invalid post-state root');
+  });
+
+  it('should fail to dispute valid first transition of a second block with single transition', async function () {
+    const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
+
+    const tnData = fs
+      .readFileSync('test/input/data/dispute/2nd-block-1tn-valid-tn')
+      .toString()
+      .split('\n');
+    const tns = await splitTns(tnData);
+
+    const disputeData =
+      DISPUTE_METHOD_SIG +
+      fs.readFileSync('test/input/data/dispute/2nd-block-1tn-valid-pf').toString().trim();
+
+    const tokenAddress = testERC20.address;
+    const depositAmount = parseEther('1');
+    await testERC20.connect(users[0]).approve(rollupChain.address, depositAmount.mul(2));
+    await rollupChain.connect(users[0]).deposit(tokenAddress, depositAmount);
+
+    await rollupChain.commitBlock(0, tns[0]);
+    await rollupChain.commitBlock(1, tns[1]);
+
+    await expect(
+      admin.sendTransaction({
+        to: rollupChain.address,
+        data: disputeData
+      })
+    ).to.be.revertedWith('Failed to dispute');
+  });
+
   it('should fail to dispute past challenge period', async function () {
     const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
     const tnData = fs
