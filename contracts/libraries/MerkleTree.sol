@@ -46,7 +46,7 @@ library MerkleTree {
     function getMerkleRoot(bytes32[] memory _elements) internal pure returns (bytes32) {
         require(_elements.length > 0, "MerkleTree: Must provide at least one leaf hash.");
 
-        if (_elements.length == 0) {
+        if (_elements.length == 1) {
             return _elements[0];
         }
 
