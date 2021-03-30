@@ -48,12 +48,16 @@ describe('RollupChain', function () {
       .to.emit(rollupChain, 'AssetDeposited')
       .withArgs(users[0].address, 1, depositAmount, 0);
 
-    let [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(0);
-    expect(account).to.equal(users[0].address);
-    expect(assetID).to.equal(1);
-    expect(amount).to.equal(depositAmount);
+
+    let [dhash, blockID, status] = await rollupChain.pendingDeposits(0);
+    const h =  ethers.utils.solidityKeccak256(
+      ["address", "uint32", "uint256"],
+      [users[0].address, 1, depositAmount],
+    );
+    expect(dhash).to.equal(h)
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
+
 
     const withdrawAmount = parseEther('1');
     await expect(
@@ -63,7 +67,7 @@ describe('RollupChain', function () {
     const txs = fs.readFileSync('test/input/data/rollup/dep-wd-tk1-tn').toString().split('\n');
     await rollupChain.commitBlock(0, txs);
 
-    [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(0, 0);
+    let [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(0, 0);
     expect(account).to.equal(users[0].address);
     expect(assetID).to.equal(1);
     expect(amount).to.equal(withdrawAmount);
@@ -93,10 +97,12 @@ describe('RollupChain', function () {
       .to.emit(rollupChain, 'AssetDeposited')
       .withArgs(users[0].address, 2, depositAmount, 0);
 
-    let [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(0);
-    expect(account).to.equal(users[0].address);
-    expect(assetID).to.equal(2);
-    expect(amount).to.equal(depositAmount);
+    let [dhash, blockID, status] = await rollupChain.pendingDeposits(0);
+    const h =  ethers.utils.solidityKeccak256(
+      ["address", "uint32", "uint256"],
+      [users[0].address, 2, depositAmount],
+    );
+    expect(dhash).to.equal(h)
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
 
@@ -104,7 +110,7 @@ describe('RollupChain', function () {
     await rollupChain.commitBlock(0, txs);
     expect(await rollupChain.getCurrentBlockId()).to.equal(0);
 
-    [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(0, 0);
+    let [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(0, 0);
     expect(account).to.equal(users[0].address);
     expect(assetID).to.equal(2);
     expect(amount).to.equal(depositAmount);
@@ -189,31 +195,39 @@ describe('RollupChain', function () {
       value: parseEther('4')
     });
 
-    let [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(0);
-    expect(account).to.equal(users[0].address);
-    expect(assetID).to.equal(1);
-    expect(amount).to.equal(parseEther('1'));
+    let [dhash, blockID, status] = await rollupChain.pendingDeposits(0);
+    let h =  ethers.utils.solidityKeccak256(
+      ["address", "uint32", "uint256"],
+      [users[0].address, 1, parseEther('1')],
+    );
+    expect(dhash).to.equal(h)
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
 
-    [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(1);
-    expect(account).to.equal(users[1].address);
-    expect(assetID).to.equal(2);
-    expect(amount).to.equal(parseEther('2'));
+    [dhash, blockID, status] = await rollupChain.pendingDeposits(1);
+    h =  ethers.utils.solidityKeccak256(
+      ["address", "uint32", "uint256"],
+      [users[1].address, 2, parseEther('2')],
+    );
+    expect(dhash).to.equal(h)
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
 
-    [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(2);
-    expect(account).to.equal(users[1].address);
-    expect(assetID).to.equal(1);
-    expect(amount).to.equal(parseEther('3'));
+    [dhash, blockID, status] = await rollupChain.pendingDeposits(2);
+    h =  ethers.utils.solidityKeccak256(
+      ["address", "uint32", "uint256"],
+      [users[1].address, 1, parseEther('3')],
+    );
+    expect(dhash).to.equal(h)
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
 
-    [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(3);
-    expect(account).to.equal(users[0].address);
-    expect(assetID).to.equal(2);
-    expect(amount).to.equal(parseEther('4'));
+    [dhash, blockID, status] = await rollupChain.pendingDeposits(3);
+    h =  ethers.utils.solidityKeccak256(
+      ["address", "uint32", "uint256"],
+      [users[0].address, 2, parseEther('4')],
+    );
+    expect(dhash).to.equal(h)
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
 
@@ -253,9 +267,9 @@ describe('RollupChain', function () {
 
     await rollupChain.commitBlock(0, tns[0]);
 
-    [, , , , status] = await rollupChain.pendingDeposits(2);
+    [, , status] = await rollupChain.pendingDeposits(2);
     expect(status).to.equal(1);
-    [, , , , status] = await rollupChain.pendingDeposits(3);
+    [, , status] = await rollupChain.pendingDeposits(3);
     expect(status).to.equal(0);
     [, , , status] = await rollupChain.pendingBalanceSyncs(0);
     expect(status).to.equal(1);
@@ -264,7 +278,7 @@ describe('RollupChain', function () {
 
     await rollupChain.commitBlock(1, tns[1]);
 
-    [, , , , status] = await rollupChain.pendingDeposits(3);
+    [, , status] = await rollupChain.pendingDeposits(3);
     expect(status).to.equal(1);
     [, , , status] = await rollupChain.pendingBalanceSyncs(2);
     expect(status).to.equal(1);
@@ -273,17 +287,17 @@ describe('RollupChain', function () {
       .to.emit(rollupChain, 'RollupBlockExecuted')
       .withArgs(0);
 
-    [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(2);
-    expect(account).to.equal('0x0000000000000000000000000000000000000000');
-    expect(assetID).to.equal(0);
-    expect(amount).to.equal(0);
+    [dhash, blockID, status] = await rollupChain.pendingDeposits(2);
+    expect(dhash).to.equal('0x0000000000000000000000000000000000000000000000000000000000000000')
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
 
-    [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(3);
-    expect(account).to.equal(users[0].address);
-    expect(assetID).to.equal(2);
-    expect(amount).to.equal(parseEther('4'));
+    [dhash, blockID, status] = await rollupChain.pendingDeposits(3);
+    h =  ethers.utils.solidityKeccak256(
+      ["address", "uint32", "uint256"],
+      [users[0].address, 2, parseEther('4')],
+    );
+    expect(dhash).to.equal(h);
     expect(blockID).to.equal(1);
     expect(status).to.equal(1);
 
@@ -302,11 +316,9 @@ describe('RollupChain', function () {
     await expect(rollupChain.executeBlock([]))
       .to.emit(rollupChain, 'RollupBlockExecuted')
       .withArgs(1);
-
-    [account, assetID, amount, blockID, status] = await rollupChain.pendingDeposits(3);
-    expect(account).to.equal('0x0000000000000000000000000000000000000000');
-    expect(assetID).to.equal(0);
-    expect(amount).to.equal(0);
+    
+    [dhash, blockID, status] = await rollupChain.pendingDeposits(3);
+    expect(dhash).to.equal('0x0000000000000000000000000000000000000000000000000000000000000000');
     expect(blockID).to.equal(0);
     expect(status).to.equal(0);
 
