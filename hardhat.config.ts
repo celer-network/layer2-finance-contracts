@@ -4,15 +4,17 @@ import 'hardhat-gas-reporter';
 import '@typechain/hardhat';
 
 import { HardhatUserConfig } from 'hardhat/types';
-import kovan from './kovan.json';
+
+const kovanAlchemyApiUrl = process.env.KOVAN_ALCHEMY_API_URL || "https://eth-kovan.alchemyapi.io/v2/ffffffffff";
+const kovanPrivateKey = process.env.KOVAN_PRIVATE_KEY || "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
     hardhat: {},
     kovan: {
-      url: kovan.AlchemyApiUrl,
-      accounts: [`0x${kovan.privateKey}`],
+      url: kovanAlchemyApiUrl,
+      accounts: [`0x${kovanPrivateKey}`],
     }
   },
   solidity: {

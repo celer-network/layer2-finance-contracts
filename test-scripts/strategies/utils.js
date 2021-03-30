@@ -1,9 +1,8 @@
-const kovanJson = require('../../kovan.json');
 const { createAlchemyWeb3 } = require("@alch/alchemy-web3");
-const AlchemyApiUrl = kovanJson.AlchemyApiUrl;
+const AlchemyApiUrl = process.env.KOVAN_ALCHEMY_API_URL;
 const web3 = createAlchemyWeb3(AlchemyApiUrl);
 const controllerAddress = "0xa747eD5Ca0Aa67f8D9519d0a05149dC89c0d05FA";
-const privateKey = kovanJson.privateKey;
+const privateKey = process.env.KOVAN_PRIVATE_KEY;
 
 const fromController = {
     from: controllerAddress,
