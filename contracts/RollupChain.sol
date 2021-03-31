@@ -77,8 +77,7 @@ contract RollupChain is Ownable, Pausable {
     // - executeBlock() deletes it
     enum PendingBalanceSyncStatus {Pending, Done}
     struct PendingBalanceSync {
-        uint32 strategyId;
-        int256 delta;
+        bytes32 bhash; // keccak256(abi.encodePacked(strategyId, delta))
         uint64 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
         PendingBalanceSyncStatus status;
     }
@@ -241,10 +240,8 @@ contract RollupChain is Ownable, Pausable {
                 require(syncId < pendingBalanceSyncsTail, "invalid balance sync transition, no pending balance syncs");
 
                 PendingBalanceSync memory pend = pendingBalanceSyncs[syncId];
-                require(
-                    pend.strategyId == bs.strategyId && pend.delta == bs.newAssetDelta,
-                    "invalid balance sync transition, mismatch or wrong ordering"
-                );
+                bytes32 bhash = keccak256(abi.encodePacked(bs.strategyId, bs.newAssetDelta));
+                require(pend.bhash == bhash, "invalid balance sync transition, mismatch or wrong ordering");
 
                 pendingBalanceSyncs[syncId].status = PendingBalanceSyncStatus.Done;
                 pendingBalanceSyncs[syncId].blockId = uint64(_blockId); // "done": block holding the transition
@@ -377,9 +374,9 @@ contract RollupChain is Ownable, Pausable {
 
         // Add a pending balance sync record.
         uint256 syncId = pendingBalanceSyncsTail++;
+        bytes32 bhash = keccak256(abi.encodePacked(_strategyId, delta));
         pendingBalanceSyncs[syncId] = PendingBalanceSync({
-            strategyId: _strategyId,
-            delta: delta,
+            bhash: bhash,
             blockId: uint64(blocks.length), // "pending": baseline of censorship delay
             status: PendingBalanceSyncStatus.Pending
         });
