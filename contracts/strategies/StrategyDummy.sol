@@ -20,11 +20,11 @@ contract StrategyDummy is IStrategy, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
-    address controller;
-    address asset;
+    address public controller;
+    address public asset;
 
-    address funder;
-    uint256 harvestGain;
+    address public funder;
+    uint256 public harvestGain;
 
     constructor(
         address _controller,
@@ -64,6 +64,14 @@ contract StrategyDummy is IStrategy, Ownable {
 
     function setHarvestGain(uint256 _harvestGain) external onlyOwner {
         harvestGain = _harvestGain;
+    }
+
+    function decreaseBalance(uint256 _amount) external onlyOwner {
+        IERC20(asset).safeTransfer(funder, _amount);
+    }
+
+    function setFunder(address _funder) external onlyOwner {
+        funder = _funder;
     }
 
     function setController(address _controller) external onlyOwner {
