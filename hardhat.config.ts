@@ -5,8 +5,18 @@ import '@typechain/hardhat';
 
 import { HardhatUserConfig } from 'hardhat/types';
 
+const kovanAlchemyApiUrl = process.env.KOVAN_ALCHEMY_API_URL || "https://eth-kovan.alchemyapi.io/v2/ffffffffff";
+const kovanPrivateKey = process.env.KOVAN_PRIVATE_KEY || "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
+  networks: {
+    hardhat: {},
+    kovan: {
+      url: kovanAlchemyApiUrl,
+      accounts: [`0x${kovanPrivateKey}`],
+    }
+  },
   solidity: {
     version: '0.7.6',
     settings: {
