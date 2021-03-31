@@ -79,7 +79,7 @@ contract RollupChain is Ownable, Pausable {
     struct PendingBalanceSync {
         uint32 strategyId;
         int256 delta;
-        uint256 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
+        uint64 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
         PendingBalanceSyncStatus status;
     }
     mapping(uint256 => PendingBalanceSync) public pendingBalanceSyncs;
@@ -247,7 +247,7 @@ contract RollupChain is Ownable, Pausable {
                 );
 
                 pendingBalanceSyncs[syncId].status = PendingBalanceSyncStatus.Done;
-                pendingBalanceSyncs[syncId].blockId = _blockId; // "done": block holding the transition
+                pendingBalanceSyncs[syncId].blockId = uint64(_blockId); // "done": block holding the transition
                 pendingBalanceSyncsCommitHead++;
             }
         }
@@ -380,7 +380,7 @@ contract RollupChain is Ownable, Pausable {
         pendingBalanceSyncs[syncId] = PendingBalanceSync({
             strategyId: _strategyId,
             delta: delta,
-            blockId: blocks.length, // "pending": baseline of censorship delay
+            blockId: uint64(blocks.length), // "pending": baseline of censorship delay
             status: PendingBalanceSyncStatus.Pending
         });
 
@@ -630,7 +630,7 @@ contract RollupChain is Ownable, Pausable {
                     pendingBalanceSyncsCommitHead = i;
                     first = true;
                 }
-                pendingBalanceSyncs[i].blockId = _blockId;
+                pendingBalanceSyncs[i].blockId = uint64(_blockId);
                 pendingBalanceSyncs[i].status = PendingBalanceSyncStatus.Pending;
             }
         }
