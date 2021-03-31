@@ -40,10 +40,8 @@ contract RollupChain is Ownable, Pausable {
     // - executeBlock() deletes it
     enum PendingDepositStatus {Pending, Done}
     struct PendingDeposit {
-        address account;
-        uint32 assetId;
-        uint256 amount;
-        uint256 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
+        bytes32 dhash; // keccak256(abi.encodePacked(account, assetId, amount))
+        uint64 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
         PendingDepositStatus status;
     }
     mapping(uint256 => PendingDeposit) public pendingDeposits;
@@ -79,9 +77,8 @@ contract RollupChain is Ownable, Pausable {
     // - executeBlock() deletes it
     enum PendingBalanceSyncStatus {Pending, Done}
     struct PendingBalanceSync {
-        uint32 strategyId;
-        int256 delta;
-        uint256 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
+        bytes32 bhash; // keccak256(abi.encodePacked(strategyId, delta))
+        uint64 blockId; // rollup block; "pending": baseline of censorship, "done": block holding L2 transition
         PendingBalanceSyncStatus status;
     }
     mapping(uint256 => PendingBalanceSync) public pendingBalanceSyncs;
@@ -224,13 +221,11 @@ contract RollupChain is Ownable, Pausable {
                 require(depositId < pendingDepositsTail, "invalid deposit transition, no pending deposits");
 
                 PendingDeposit memory pend = pendingDeposits[depositId];
-                require(
-                    pend.account == dp.account && pend.assetId == dp.assetId && pend.amount == dp.amount,
-                    "invalid deposit transition, mismatch or wrong ordering"
-                );
+                bytes32 dhash = keccak256(abi.encodePacked(dp.account, dp.assetId, dp.amount));
+                require(pend.dhash == dhash, "invalid deposit transition, mismatch or wrong ordering");
 
                 pendingDeposits[depositId].status = PendingDepositStatus.Done;
-                pendingDeposits[depositId].blockId = _blockId; // "done": block holding the transition
+                pendingDeposits[depositId].blockId = uint64(_blockId); // "done": block holding the transition
                 pendingDepositsCommitHead++;
             } else if (transitionType == Transitions.TRANSITION_TYPE_WITHDRAW) {
                 // Append the pending withdraw-commit record for this blockId.
@@ -245,13 +240,11 @@ contract RollupChain is Ownable, Pausable {
                 require(syncId < pendingBalanceSyncsTail, "invalid balance sync transition, no pending balance syncs");
 
                 PendingBalanceSync memory pend = pendingBalanceSyncs[syncId];
-                require(
-                    pend.strategyId == bs.strategyId && pend.delta == bs.newAssetDelta,
-                    "invalid balance sync transition, mismatch or wrong ordering"
-                );
+                bytes32 bhash = keccak256(abi.encodePacked(bs.strategyId, bs.newAssetDelta));
+                require(pend.bhash == bhash, "invalid balance sync transition, mismatch or wrong ordering");
 
                 pendingBalanceSyncs[syncId].status = PendingBalanceSyncStatus.Done;
-                pendingBalanceSyncs[syncId].blockId = _blockId; // "done": block holding the transition
+                pendingBalanceSyncs[syncId].blockId = uint64(_blockId); // "done": block holding the transition
                 pendingBalanceSyncsCommitHead++;
             }
         }
@@ -381,10 +374,10 @@ contract RollupChain is Ownable, Pausable {
 
         // Add a pending balance sync record.
         uint256 syncId = pendingBalanceSyncsTail++;
+        bytes32 bhash = keccak256(abi.encodePacked(_strategyId, delta));
         pendingBalanceSyncs[syncId] = PendingBalanceSync({
-            strategyId: _strategyId,
-            delta: delta,
-            blockId: blocks.length, // "pending": baseline of censorship delay
+            bhash: bhash,
+            blockId: uint64(blocks.length), // "pending": baseline of censorship delay
             status: PendingBalanceSyncStatus.Pending
         });
 
@@ -566,11 +559,10 @@ contract RollupChain is Ownable, Pausable {
 
         // Add a pending deposit record.
         uint256 depositId = pendingDepositsTail++;
+        bytes32 dhash = keccak256(abi.encodePacked(account, assetId, _amount));
         pendingDeposits[depositId] = PendingDeposit({
-            account: account,
-            assetId: assetId,
-            amount: _amount,
-            blockId: blocks.length, // "pending": baseline of censorship delay
+            dhash: dhash,
+            blockId: uint64(blocks.length), // "pending": baseline of censorship delay
             status: PendingDepositStatus.Pending
         });
 
@@ -624,7 +616,7 @@ contract RollupChain is Ownable, Pausable {
                     pendingDepositsCommitHead = i;
                     first = true;
                 }
-                pendingDeposits[i].blockId = _blockId;
+                pendingDeposits[i].blockId = uint64(_blockId);
                 pendingDeposits[i].status = PendingDepositStatus.Pending;
             }
         }
@@ -635,7 +627,7 @@ contract RollupChain is Ownable, Pausable {
                     pendingBalanceSyncsCommitHead = i;
                     first = true;
                 }
-                pendingBalanceSyncs[i].blockId = _blockId;
+                pendingBalanceSyncs[i].blockId = uint64(_blockId);
                 pendingBalanceSyncs[i].status = PendingBalanceSyncStatus.Pending;
             }
         }
