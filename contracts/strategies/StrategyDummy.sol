@@ -66,6 +66,10 @@ contract StrategyDummy is IStrategy, Ownable {
         harvestGain = _harvestGain;
     }
 
+    function increaseBalance(uint256 _amount) external onlyOwner {
+        IERC20(asset).safeTransferFrom(funder, address(this), _amount);
+    }
+
     function decreaseBalance(uint256 _amount) external onlyOwner {
         IERC20(asset).safeTransfer(funder, _amount);
     }
