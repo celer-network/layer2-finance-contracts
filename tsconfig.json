@@ -16,6 +16,7 @@
   "include": [
     "artifacts/**/*",
     "artifacts/**/*.json",
+    "deploy/**/*",
     "benchmark/**/*",
     "scripts/**/*",
     "tasks/**/*",
