@@ -96,6 +96,7 @@ contract StrategyCompoundErc20LendingPool is IStrategy, Ownable {
 
             // Deposit supplying token to Compound Erc20 Lending Pool and mint cToken.
             uint256 obtainedSupplytokenAmount = IERC20(supplyToken).balanceOf(address(this));
+            IERC20(supplyToken).safeIncreaseAllowance(cErc20, obtainedSupplytokenAmount);
             uint256 mintResult = ICErc20(cErc20).mint(obtainedSupplytokenAmount);
             require(mintResult == 0, "Couldn't mint cToken");
         }
