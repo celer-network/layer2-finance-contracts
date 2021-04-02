@@ -1,10 +1,11 @@
-bin/
-cache/
-node_modules/
-build/
-typechain/
 artifacts/
+bin/
+build/
+cache/
+deployments/
 genfiles/
+node_modules/
+typechain/
 
 *.pid
 *.log
@@ -12,3 +13,4 @@ genfiles/
 .DS_Store
 
 .vscode/
+.env

@@ -2,6 +2,7 @@ import { Fixture } from 'ethereum-waffle';
 import { ethers, waffle } from 'hardhat';
 
 import { Wallet } from '@ethersproject/wallet';
+
 import { Registry__factory } from '../typechain';
 import { RollupChain__factory } from '../typechain/factories/RollupChain__factory';
 import { StrategyDummy__factory } from '../typechain/factories/StrategyDummy__factory';
