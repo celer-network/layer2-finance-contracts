@@ -14,3 +14,4 @@ typechain/
 
 .vscode/
 .env
+solc-input-*.json
