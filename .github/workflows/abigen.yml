@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - 'contracts/**'
+      - 'scripts/**'
 
 jobs:
   build:
@@ -19,7 +20,7 @@ jobs:
           BRANCH: ${{ github.head_ref }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          source script.sh
+          source scripts/solc_abigen.sh
           setup_git
           dld_solc && run_solc
           dld_abigen && run_abigen
