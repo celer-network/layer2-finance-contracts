@@ -21,11 +21,11 @@
   },
   "homepage": "https://github.com/celer-network/layer2-finance-contracts#readme",
   "devDependencies": {
-    "@alch/alchemy-web3": "^1.0.1",
-    "@nomiclabs/hardhat-ethers": "^2.0.1",
+    "@alch/alchemy-web3": "^1.0.2",
+    "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@openzeppelin/contracts": "^3.4.0",
-    "@typechain/ethers-v5": "^5.0.0",
+    "@typechain/ethers-v5": "^6.0.5",
     "@typechain/hardhat": "^1.0.1",
     "@types/chai": "^4.2.15",
     "@types/mocha": "^8.2.0",
@@ -33,20 +33,22 @@
     "@types/sinon-chai": "^3.2.5",
     "chai": "^4.3.0",
     "erc-20-abi": "^1.0.0",
-    "ethereum-waffle": "^3.2.2",
-    "ethers": "^5.0.31",
+    "ethereum-waffle": "^3.3.0",
+    "ethers": "^5.1.0",
     "fs-extra": "^9.1.0",
-    "hardhat": "^2.0.10",
+    "hardhat": "^2.1.2",
     "hardhat-contract-sizer": "^2.0.3",
+    "hardhat-deploy": "^0.7.0-beta.57",
     "hardhat-gas-reporter": "^1.0.4",
     "husky": "^5.0.9",
     "prettier": "^2.2.1",
     "prettier-plugin-solidity": "^1.0.0-beta.5",
+    "solc": "0.7.6",
     "ts-node": "^9.1.1",
-    "typechain": "^4.0.1",
-    "typescript": "^4.1.5"
+    "typechain": "^4.0.3",
+    "typescript": "^4.2.3"
   },
   "dependencies": {
-    "solc": "0.7.6"
+    "dotenv": "^8.2.0"
   }
 }

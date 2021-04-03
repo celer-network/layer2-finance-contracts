@@ -1,28 +1,48 @@
-import '@nomiclabs/hardhat-waffle';
 import 'hardhat-contract-sizer';
+import 'hardhat-deploy';
 import 'hardhat-gas-reporter';
+import '@nomiclabs/hardhat-ethers';
+import '@nomiclabs/hardhat-waffle';
 import '@typechain/hardhat';
 
+import * as dotenv from 'dotenv';
 import { HardhatUserConfig } from 'hardhat/types';
 
-const kovanAlchemyApiUrl = process.env.KOVAN_ALCHEMY_API_URL || "https://eth-kovan.alchemyapi.io/v2/ffffffffff";
-const kovanPrivateKey = process.env.KOVAN_PRIVATE_KEY || "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+dotenv.config();
+
+const DEFAULT_ENDPOINT = 'http://localhost:8545';
+const DEFAULT_PRIVATE_KEY = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+
+const kovanEndpoint = process.env.KOVAN_ENDPOINT || DEFAULT_ENDPOINT;
+const kovanPrivateKey = process.env.KOVAN_PRIVATE_KEY || DEFAULT_PRIVATE_KEY;
+
+const ropstenEndpoint = process.env.ROPSTEN_ENDPOINT || DEFAULT_ENDPOINT;
+const ropstenPrivateKey = process.env.ROPSTEN_PRIVATE_KEY || DEFAULT_PRIVATE_KEY;
 
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
     hardhat: {},
     kovan: {
-      url: kovanAlchemyApiUrl,
-      accounts: [`0x${kovanPrivateKey}`],
+      url: kovanEndpoint,
+      accounts: [`0x${kovanPrivateKey}`]
+    },
+    ropsten: {
+      url: ropstenEndpoint,
+      accounts: [`0x${ropstenPrivateKey}`]
+    }
+  },
+  namedAccounts: {
+    deployer: {
+      default: 0
     }
   },
   solidity: {
     version: '0.7.6',
     settings: {
       optimizer: {
-        enabled: process.env.DEBUG ? false : true,
-        runs: 200
+        enabled: true, // TODO: Investigate contract size issue with optimizer off
+        runs: 800
       }
     }
   },
@@ -32,7 +52,7 @@ const config: HardhatUserConfig = {
     disambiguatePaths: false
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS ? true : false,
+    enabled: process.env.REPORT_GAS === 'true' ? true : false,
     noColors: true,
     outputFile: 'reports/gas_usage/summary.txt'
   },
