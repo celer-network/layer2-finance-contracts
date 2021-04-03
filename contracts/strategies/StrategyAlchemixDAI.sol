@@ -119,7 +119,7 @@ contract StrategyAlchemixDAI is IStrategy, Ownable {
         ITransmuter(transmuter).unstake(alUsdRepayAmount);
         // Repay debt with alUSD 
         IERC20(alUsd).safeIncreaseAllowance(alchemist, alUsdRepayAmount);
-        IAlchemist(alchemist).repay(0, alUsdRepayAmount);
+        IAlchemist(alchemist).repay(uint256(0), alUsdRepayAmount);
         // Withdraw DAI from Alchemix vaults.
         IAlchemist(alchemist).withdraw(_uncommitAmount);
 
