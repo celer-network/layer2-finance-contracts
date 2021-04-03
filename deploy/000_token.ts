@@ -15,6 +15,7 @@ const deployFunc: DeployFunction = async function (hre: HardhatRuntimeEnvironmen
     args: [
       process.env.TEST_TOKEN_NAME,
       process.env.TEST_TOKEN_SYMBOL,
+      process.env.TEST_TOKEN_DECIMALS,
       process.env.TEST_TOKEN_SUPPLY
     ],
     log: true
