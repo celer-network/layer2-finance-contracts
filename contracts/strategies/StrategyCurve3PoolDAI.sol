@@ -95,6 +95,7 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
 
             // Re-invest DAI to obtain more 3CRV
             uint256 obtainedDaiAmount = IERC20(dai).balanceOf(address(this));
+            IERC20(dai).safeIncreaseAllowance(triPool, obtainedDaiAmount);
             uint256 virtualPrice = obtainedDaiAmount.mul(1e18).div(ICurveFi(triPool).get_virtual_price());
             ICurveFi(triPool).add_liquidity(
                 [obtainedDaiAmount, 0, 0],
@@ -103,6 +104,7 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
 
             // Stake 3CRV in Gauge to farm more CRV
             uint256 obtainedTriCrvBalance = IERC20(triCrv).balanceOf(address(this));
+            IERC20(triCrv).safeIncreaseAllowance(gauge, obtainedTriCrvBalance);
             IGauge(gauge).deposit(obtainedTriCrvBalance);
         }
     }
@@ -124,6 +126,7 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
 
         // Stake 3CRV in Gauge to farm CRV
         uint256 triCrvBalance = IERC20(triCrv).balanceOf(address(this));
+        IERC20(triCrv).safeIncreaseAllowance(gauge, triCrvBalance);
         IGauge(gauge).deposit(triCrvBalance);
 
         emit Committed(_daiAmount);
