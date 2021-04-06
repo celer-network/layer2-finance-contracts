@@ -12,7 +12,7 @@ import "./TransitionEvaluator.sol";
 import "./Registry.sol";
 
 contract TransitionDisputer {
-    // state root of empy strategy set and empty account set
+    // state root of empty strategy set and empty account set
     bytes32 public constant INIT_TRANSITION_STATE_ROOT =
         bytes32(0xcf277fb80a82478460e8988570b718f1e083ceb76f7e271a1a1497e5975f53ae);
 
@@ -135,12 +135,12 @@ contract TransitionDisputer {
 
     /**
      * @notice Evaluate a disputed transition
-     * @dev This was splitted from the disputeTransition fucntion to address "stack too deep" compiler error
+     * @dev This was split from the disputeTransition function to address "stack too deep" compiler error
      *
      * @param _invalidTransition The disputed transition.
      * @param _accountProof The inclusion proof of the account involved.
      * @param _strategyProof The inclusion proof of the strategy involved.
-     * @param _postStateRoot State root of the disputed transtion.
+     * @param _postStateRoot State root of the disputed transition.
      * @param _registry The address of the Registry contract.
      */
     function _evaluateInvalidTransition(
@@ -319,7 +319,7 @@ contract TransitionDisputer {
     ) private pure returns (bool) {
         // Start by checking if they are in the same block
         if (_tp0.blockId == _tp1.blockId) {
-            // If the blocknumber is the same, check that tp0 preceeds tp1
+            // If the blocknumber is the same, check that tp0 precedes tp1
             require(_tp0.index + 1 == _tp1.index, "Transitions must be sequential");
             require(_tp1.index < _invalidTransitionBlock.blockSize, "_tp1 outside block range");
         } else {
