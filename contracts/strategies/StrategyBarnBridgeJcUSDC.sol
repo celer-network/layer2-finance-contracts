@@ -12,7 +12,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/BarnBridge/IISmartYield.sol";
 import "./interfaces/BarnBridge/IYieldFarmContinuous.sol";
 import "./dependencies/BarnBridge/SmartYield.sol";
-import "./dependencies/BarnBridge/ISmartYield.sol";
 import "./dependencies/BarnBridge/YieldFarm/YieldFarmContinuous.sol";
 
 import "./interfaces/IStrategy.sol";
@@ -75,7 +74,7 @@ contract StrategyBarnBridgeJcUSDCYield is IStrategy, Ownable {
 
     function getBalance() external override returns (uint256) {
         uint256 jcUsdcBalance = yieldFarmContract.balances(address(this));
-        uint256 jcUsdcPrice = ISmartYield(smartYield).price();
+        uint256 jcUsdcPrice = IISmartYield(smartYield).price();
         return jcUsdcBalance.mul(1e18).div(jcUsdcPrice);
     }
 
@@ -170,7 +169,7 @@ contract StrategyBarnBridgeJcUSDCYield is IStrategy, Ownable {
             uint256 juniorBondId = pendingJBonds[i];
             ( ,uint256 maturesAt) = smartYieldContract.juniorBonds(juniorBondId);
             if (maturesAt <= block.timestamp) {
-                ISmartYield(smartYield).redeemJuniorBond(juniorBondId);
+                IISmartYield(smartYield).redeemJuniorBond(juniorBondId);
                 pendingJBonds[i] = pendingJBonds[arrayLength - 1];
                 delete pendingJBonds[arrayLength - 1];
                 arrayLength--;
