@@ -66,7 +66,7 @@ contract StrategyCompoundErc20LendingPool is IStrategy, Ownable {
         return supplyToken;
     }
 
-    function getBalance() external override returns (uint256) {
+    function getBalance() external view override returns (uint256) {
         // Supplying token(e.g. DAI, USDT) balance of this contract.
         // supplyTokenBalance is equal to the cToken balance multiplied by the Exchange Rate.
         uint256 supplyTokenBalance = ICErc20(cErc20).balanceOfUnderlying(address(this));

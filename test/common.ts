@@ -1,6 +1,7 @@
 import { Fixture } from 'ethereum-waffle';
 import { ethers, waffle } from 'hardhat';
 
+import { parseEther } from '@ethersproject/units';
 import { Wallet } from '@ethersproject/wallet';
 
 import { Registry__factory } from '../typechain';
@@ -20,8 +21,6 @@ const userPrivKeys = [
   '0xab4c840e48b11840f923a371ba453e4d8884fd23eee1b579f5a3910c9b00a4b6',
   '0x0168ea2aa71023864b1c8eb65997996d726e5068c12b20dea81076ef56380465'
 ];
-
-const parseEther = ethers.utils.parseEther;
 
 // Workaround for https://github.com/nomiclabs/hardhat/issues/849
 // TODO: Remove once fixed upstream.
@@ -47,9 +46,7 @@ export async function deployContracts(admin: Wallet) {
   const transitionDisputer = await transitionDisputerFactory.deploy(transitionEvaluator.address);
   await transitionDisputer.deployed();
 
-  const rollupChainFactory = (await ethers.getContractFactory(
-    'RollupChain'
-  )) as RollupChain__factory;
+  const rollupChainFactory = (await ethers.getContractFactory('RollupChain')) as RollupChain__factory;
   const rollupChain = await rollupChainFactory.deploy(
     0,
     0,
@@ -68,9 +65,7 @@ export async function deployContracts(admin: Wallet) {
   await weth.deployed();
   await weth.deposit({ value: parseEther('20') });
 
-  const strategyDummyFactory = (await ethers.getContractFactory(
-    'StrategyDummy'
-  )) as StrategyDummy__factory;
+  const strategyDummyFactory = (await ethers.getContractFactory('StrategyDummy')) as StrategyDummy__factory;
   const strategyDummy = await strategyDummyFactory.deploy(
     rollupChain.address,
     testERC20.address,
@@ -94,29 +89,29 @@ export async function deployContracts(admin: Wallet) {
 
 export async function getUsers(admin: Wallet, assets: TestERC20[], num: number) {
   const users: Wallet[] = [];
-  for (var i = 0; i < num; i++) {
+  for (let i = 0; i < num; i++) {
     users.push(new ethers.Wallet(userPrivKeys[i]).connect(ethers.provider));
     await admin.sendTransaction({
       to: users[i].address,
       value: parseEther('10')
     });
-    for (var j = 0; j < assets.length; j++) {
+    for (let j = 0; j < assets.length; j++) {
       await assets[j].transfer(users[i].address, parseEther('1000'));
     }
   }
   return users;
 }
 
-export async function splitTns(tndata: string[]) {
+export async function splitTns(tnData: string[]) {
   const tns: string[][] = [];
   tns.push([]);
   let j = 0;
-  for (var i = 0; i < tndata.length; i++) {
-    if (tndata[i] == '') {
+  for (let i = 0; i < tnData.length; i++) {
+    if (tnData[i] == '') {
       tns.push([]);
       j++;
     } else {
-      tns[j].push(tndata[i]);
+      tns[j].push(tnData[i]);
     }
   }
   return tns;
