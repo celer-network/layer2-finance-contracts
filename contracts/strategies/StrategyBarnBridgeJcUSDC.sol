@@ -177,7 +177,7 @@ contract StrategyBarnBridgeJcUSDCYield is IStrategy, Ownable {
         }
 
         uint256 usdcBalance = IERC20(usdc).balanceOf(address(this));
-        IERC20(usdc).safeTransfer(msg.sender, usdcBalance);
+        IERC20(usdc).safeTransfer(controller, usdcBalance);
     }
 
     function setController(address _controller) external onlyOwner {
