@@ -50,6 +50,7 @@ contract StrategyBarnBridgeJcUSDCYield is IStrategy, Ownable {
 
     constructor(
         address _smartYield,
+        address _compProviderPool,
         address _yieldFarm,
         address _usdc,
         address _jcUsdc,
@@ -59,10 +60,11 @@ contract StrategyBarnBridgeJcUSDCYield is IStrategy, Ownable {
     ) {
         smartYield = _smartYield;
         smartYieldContract = SmartYield(_smartYield);
-        yieldFarm = _yieldFarm;
-        yieldFarmContract = YieldFarmContinuous(_yieldFarm);
+        compProviderPool = _compProviderPool;
         usdc = _usdc;
         jcUsdc = _jcUsdc;
+        yieldFarm = _yieldFarm;
+        yieldFarmContract = YieldFarmContinuous(_yieldFarm);
         bond = _bond;
         uniswap = _uniswap;
         controller = _controller;
