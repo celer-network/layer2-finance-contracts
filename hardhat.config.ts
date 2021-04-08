@@ -41,7 +41,7 @@ const config: HardhatUserConfig = {
     version: '0.7.6',
     settings: {
       optimizer: {
-        enabled: true, // TODO: Investigate contract size issue with optimizer off
+        enabled: true, // TODO: Maybe investigate contract size issue with optimizer off
         runs: 800
       }
     }

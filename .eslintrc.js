@@ -1,17 +1,44 @@
 module.exports = {
-  parser: 'babel-eslint',
-  extends: 'standard',
   env: {
-    node: true,
-    es6: true,
-    mocha: true
+    es2021: true,
+    mocha: true,
+    node: true
   },
+  root: true,
+  extends: ['airbnb', 'prettier', 'eslint:recommended', 'plugin:@typescript-eslint/recommended'],
+  plugins: ['babel', '@typescript-eslint'],
   rules: {
-    'space-before-function-paren': ['error', 'never']
+    '@typescript-eslint/no-empty-function': 'off',
+    '@typescript-eslint/no-unused-vars': 'error',
+    '@typescript-eslint/no-use-before-define': 'error',
+    'arrow-body-style': 'off',
+    camelcase: ['error', { allow: ['^.*__factory$'] }],
+    'import/extensions': [
+      'error',
+      'ignorePackages',
+      {
+        js: 'never',
+        ts: 'never'
+      }
+    ],
+    'import/no-extraneous-dependencies': 'off',
+    'import/no-useless-path-segments': 'off',
+    'import/prefer-default-export': 'off',
+    'no-console': 'off',
+    'no-empty-function': 'off',
+    'no-param-reassign': 'warn',
+    'no-plusplus': ['error', { allowForLoopAfterthoughts: true }],
+    'no-underscore-dangle': 'warn',
+    'no-unused-vars': 'off',
+    'no-use-before-define': 'off',
+    'prefer-destructuring': 'off',
+    'prefer-template': 'off'
   },
-  globals: {
-    contract: true,
-    web3: true,
-    assert: true
+  settings: {
+    'import/resolver': {
+      node: {
+        extensions: ['.d.ts', '.js', '.ts']
+      }
+    }
   }
-}
+};
