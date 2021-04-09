@@ -8,7 +8,7 @@ interface ICErc20 {
      * @param owner The address of the account to query
      * @return The amount of underlying owned by `owner`
      */
-    function balanceOfUnderlying(address owner) external returns (uint256);
+    function balanceOfUnderlying(address owner) external view returns (uint256);
 
     /**
      * @notice Sender supplies erc20 token into the market receives cTokens in exchange

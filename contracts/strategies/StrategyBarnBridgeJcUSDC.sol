@@ -45,7 +45,7 @@ contract StrategyBarnBridgeJcUSDCYield is IStrategy, Ownable {
 
     address public controller;
 
-    // NFT Id array of oending junior bond
+    // NFT Id array of pending junior bond
     uint256[] public pendingJBonds;
 
     constructor(

@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 
+import { parseEther } from '@ethersproject/units';
 import { Wallet } from '@ethersproject/wallet';
 
 import { deployContracts, loadFixture } from './common';
@@ -26,18 +27,14 @@ describe('Admin', function () {
     const { rollupChain, testERC20 } = await loadFixture(fixture);
     const tokenAddress = testERC20.address;
     await rollupChain.setNetDepositLimit(tokenAddress, 1);
-    await expect(rollupChain.deposit(tokenAddress, 5)).to.be.revertedWith(
-      'net deposit exceeds limit'
-    );
+    await expect(rollupChain.deposit(tokenAddress, 5)).to.be.revertedWith('net deposit exceeds limit');
   });
 
   it('should fail to drain token when not paused', async function () {
     const { rollupChain, testERC20 } = await loadFixture(fixture);
     const tokenAddress = testERC20.address;
     await rollupChain.deposit(tokenAddress, 10);
-    await expect(rollupChain.drainToken(tokenAddress, 10)).to.be.revertedWith(
-      'Pausable: not paused'
-    );
+    await expect(rollupChain.drainToken(tokenAddress, 10)).to.be.revertedWith('Pausable: not paused');
   });
 
   it('should drainToken successfully when paused', async function () {
@@ -56,7 +53,7 @@ describe('Admin', function () {
     const { admin, rollupChain } = await loadFixture(fixture);
     await admin.sendTransaction({
       to: rollupChain.address,
-      value: ethers.utils.parseEther('1.0')
+      value: parseEther('1.0')
     });
     await expect(rollupChain.drainETH(10)).to.be.revertedWith('Pausable: not paused');
   });
@@ -65,7 +62,7 @@ describe('Admin', function () {
     const { admin, rollupChain } = await loadFixture(fixture);
     await admin.sendTransaction({
       to: rollupChain.address,
-      value: ethers.utils.parseEther('1.0')
+      value: parseEther('1.0')
     });
     await rollupChain.pause();
 

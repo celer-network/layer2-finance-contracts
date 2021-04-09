@@ -21,6 +21,7 @@
     "scripts/**/*",
     "tasks/**/*",
     "test/**/*",
+    "test-strategy/**/*",
     "typechain/**/*",
     "types/**/*",
     "hardhat.config.ts"
