@@ -76,8 +76,10 @@ contract StrategyBarnBridgeJcUSDCYield is IStrategy, Ownable {
 
     function getBalance() external override returns (uint256) {
         uint256 jcUsdcBalance = yieldFarmContract.balances(address(this));
+        // jcUsdcPice is jcUsdc price * 1e18
         uint256 jcUsdcPrice = IISmartYield(smartYield).price();
-        return jcUsdcBalance.mul(1e18).div(jcUsdcPrice);
+        // return USDC balance
+        return jcUsdcBalance.mul(jcUsdcPrice).div(1e18);
     }
 
     function harvest() external override {
@@ -142,6 +144,7 @@ contract StrategyBarnBridgeJcUSDCYield is IStrategy, Ownable {
         require(_uncommitAmount > 0, "Nothing to uncommit");
 
         // Unstake jcUSDC token from Yield Farm
+        // jcUsdcPrice is jcUsdc price * 1e18
         uint256 jcUsdcPrice = ISmartYield(smartYield).price();
         uint256 jcUsdcWithdrawAmount = _uncommitAmount.mul(1e18).div(jcUsdcPrice);
         IYieldFarmContinuous(yieldFarm).withdraw(jcUsdcWithdrawAmount);
