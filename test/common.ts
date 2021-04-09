@@ -11,7 +11,11 @@ import { TestERC20__factory } from '../typechain/factories/TestERC20__factory';
 import { TransitionDisputer__factory } from '../typechain/factories/TransitionDisputer__factory';
 import { TransitionEvaluator__factory } from '../typechain/factories/TransitionEvaluator__factory';
 import { WETH9__factory } from '../typechain/factories/WETH9__factory';
+import { Registry } from '../typechain/Registry.d';
+import { RollupChain } from '../typechain/RollupChain.d';
+import { StrategyDummy } from '../typechain/StrategyDummy.d';
 import { TestERC20 } from '../typechain/TestERC20';
+import { WETH9 } from '../typechain/WETH9.d';
 
 const userPrivKeys = [
   '0x36f2243a51a0f879b1859fff1a663ac04aeebca1bcff4d7dc5a8b38e53211199',
@@ -29,7 +33,17 @@ export function loadFixture<T>(fixture: Fixture<T>): Promise<T> {
   return waffle.createFixtureLoader(provider.getWallets(), provider)(fixture);
 }
 
-export async function deployContracts(admin: Wallet) {
+interface DeploymentInfo {
+  admin: Wallet;
+  registry: Registry;
+  rollupChain: RollupChain;
+  strategyDummy: StrategyDummy;
+  strategyWeth: StrategyDummy;
+  testERC20: TestERC20;
+  weth: WETH9;
+}
+
+export async function deployContracts(admin: Wallet): Promise<DeploymentInfo> {
   const registryFactory = (await ethers.getContractFactory('Registry')) as Registry__factory;
   const registry = await registryFactory.deploy();
   await registry.deployed();
@@ -87,7 +101,7 @@ export async function deployContracts(admin: Wallet) {
   return { admin, registry, rollupChain, strategyDummy, strategyWeth, testERC20, weth };
 }
 
-export async function getUsers(admin: Wallet, assets: TestERC20[], num: number) {
+export async function getUsers(admin: Wallet, assets: TestERC20[], num: number): Promise<Wallet[]> {
   const users: Wallet[] = [];
   for (let i = 0; i < num; i++) {
     users.push(new ethers.Wallet(userPrivKeys[i]).connect(ethers.provider));
@@ -102,7 +116,7 @@ export async function getUsers(admin: Wallet, assets: TestERC20[], num: number) 
   return users;
 }
 
-export async function splitTns(tnData: string[]) {
+export async function splitTns(tnData: string[]): Promise<string[][]> {
   const tns: string[][] = [];
   tns.push([]);
   let j = 0;

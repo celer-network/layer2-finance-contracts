@@ -34,7 +34,7 @@ describe('StrategyDummy', function () {
     const { strategyDummy, testERC20 } = await loadFixture(fixture);
     await testERC20.approve(strategyDummy.address, parseEther('1'));
     await strategyDummy.harvest();
-    expect(await strategyDummy.getBalance()).to.equal(parseEther('1'));
+    expect(await strategyDummy.syncBalance()).to.equal(parseEther('1'));
   });
 
   it('should aggregate commit', async function () {
@@ -42,7 +42,7 @@ describe('StrategyDummy', function () {
     await testERC20.approve(strategyDummy.address, parseEther('2'));
     await strategyDummy.aggregateCommit(parseEther('1'));
     await strategyDummy.harvest();
-    expect(await strategyDummy.getBalance()).to.equal(parseEther('2'));
+    expect(await strategyDummy.syncBalance()).to.equal(parseEther('2'));
   });
 
   it('should aggregate uncommit', async function () {
@@ -51,6 +51,6 @@ describe('StrategyDummy', function () {
     expect(await strategyDummy.aggregateCommit(parseEther('3'))).to.not.throw;
     await strategyDummy.aggregateUncommit(parseEther('1'));
     await strategyDummy.harvest();
-    expect(await strategyDummy.getBalance()).to.equal(parseEther('3'));
+    expect(await strategyDummy.syncBalance()).to.equal(parseEther('3'));
   });
 });

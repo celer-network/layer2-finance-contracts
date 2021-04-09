@@ -362,7 +362,7 @@ contract RollupChain is Ownable, Pausable {
         address stAddr = registry.strategyIndexToAddress(_strategyId);
         require(stAddr != address(0), "Unknown strategy ID");
 
-        uint256 newBalance = IStrategy(stAddr).getBalance();
+        uint256 newBalance = IStrategy(stAddr).syncBalance();
         uint256 oldBalance = strategyAssetBalances[_strategyId];
         int256 delta;
         if (newBalance >= oldBalance) {

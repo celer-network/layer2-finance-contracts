@@ -15,7 +15,7 @@ const deployFunc: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   await deploy(strategyContractName, {
     from: deployer,
     log: true,
-    args: [process.env.AAVE_LENDING_POOL, 'DAI', process.env.AAVE_DAI, process.env.AAVE_ADAI, process.env.CONTROLLER]
+    args: [process.env.AAVE_LENDING_POOL, 'DAI', process.env.AAVE_DAI, process.env.AAVE_ADAI, process.env.ROLLUP_CHAIN]
   });
 };
 
