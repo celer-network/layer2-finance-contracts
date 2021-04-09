@@ -74,7 +74,7 @@ contract StrategyBarnBridgeJcUSDCYield is IStrategy, Ownable {
         return usdc;
     }
 
-    function getBalance() external override returns (uint256) {
+    function getBalance() external view override returns (uint256) {
         uint256 jcUsdcBalance = yieldFarmContract.balances(address(this));
         // jcUsdcPice is jcUsdc price * 1e18
         uint256 jcUsdcPrice = IISmartYield(smartYield).price();
