@@ -54,7 +54,7 @@ contract StrategyDummy is IStrategy, Ownable {
         IERC20(asset).safeTransfer(controller, _uncommitAmount);
     }
 
-    function getBalance() external view override returns (uint256) {
+    function syncBalance() external view override returns (uint256) {
         return IERC20(asset).balanceOf(address(this));
     }
 

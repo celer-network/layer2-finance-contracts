@@ -5,8 +5,14 @@ module.exports = {
     node: true
   },
   root: true,
-  extends: ['airbnb', 'prettier', 'eslint:recommended', 'plugin:@typescript-eslint/recommended'],
-  plugins: ['babel', '@typescript-eslint'],
+  extends: [
+    'prettier',
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:import/errors',
+    'plugin:import/warnings'
+  ],
+  plugins: ['@typescript-eslint'],
   rules: {
     '@typescript-eslint/no-empty-function': 'off',
     '@typescript-eslint/no-unused-vars': 'error',
@@ -27,7 +33,7 @@ module.exports = {
     'no-console': 'off',
     'no-empty-function': 'off',
     'no-param-reassign': 'warn',
-    'no-plusplus': ['error', { allowForLoopAfterthoughts: true }],
+    'no-plusplus': ['off'],
     'no-underscore-dangle': 'warn',
     'no-unused-vars': 'off',
     'no-use-before-define': 'off',

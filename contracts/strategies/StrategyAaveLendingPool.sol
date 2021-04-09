@@ -53,7 +53,7 @@ contract StrategyAaveLendingPool is IStrategy, Ownable {
         return supplyToken;
     }
 
-    function getBalance() external view override returns (uint256) {
+    function syncBalance() external view override returns (uint256) {
         // Supplying token(e.g. DAI, USDT) balance of this contract.
         // aToken value is pegged to the value of supplying erc20 token at a 1:1 ratio.
         uint256 supplyTokenBalance = IAToken(aToken).balanceOf(address(this));

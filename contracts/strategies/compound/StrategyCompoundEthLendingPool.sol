@@ -60,7 +60,7 @@ contract StrategyCompoundEthLendingPool is IStrategy, Ownable {
         return weth;
     }
 
-    function getBalance() external view override returns (uint256) {
+    function syncBalance() external override returns (uint256) {
         // ETH balance of this contract.
         // ETH balance is equal to the cETH balance multiplied by the Exchange Rate.
         uint256 ethBalance = ICEth(cEth).balanceOfUnderlying(address(this));
