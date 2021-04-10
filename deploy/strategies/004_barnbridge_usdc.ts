@@ -23,7 +23,7 @@ const deployFunc: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
       process.env.JCUSDC,
       process.env.BOND,
       process.env.UNISWAP_ROUTER,
-      process.env.CONTROLLER
+      process.env.ROLLUP_CHAIN
     ]
   });
 };
