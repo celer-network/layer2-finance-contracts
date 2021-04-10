@@ -41,7 +41,7 @@ describe('RollupChain', function () {
       .to.emit(rollupChain, 'AssetDeposited')
       .withArgs(users[0].address, 1, depositAmount, 0);
 
-    let [dhash, blockID, status] = await rollupChain.pendingDeposits(0);
+    const [dhash, blockID, status] = await rollupChain.pendingDeposits(0);
     const h = solidityKeccak256(['address', 'uint32', 'uint256'], [users[0].address, 1, depositAmount]);
     expect(dhash).to.equal(h);
     expect(blockID).to.equal(0);
@@ -55,14 +55,14 @@ describe('RollupChain', function () {
     const txs = fs.readFileSync('test/input/data/rollup/dep-wd-tk1-tn').toString().split('\n');
     await rollupChain.commitBlock(0, txs);
 
-    let [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(0, 0);
+    const [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(0, 0);
     expect(account).to.equal(users[0].address);
     expect(assetID).to.equal(1);
     expect(amount).to.equal(withdrawAmount);
 
     await rollupChain.executeBlock([]);
 
-    let totalAmount = await rollupChain.pendingWithdraws(users[0].address, assetID);
+    const totalAmount = await rollupChain.pendingWithdraws(users[0].address, assetID);
     expect(assetID).to.equal(1);
     expect(totalAmount).to.equal(withdrawAmount);
 
@@ -85,7 +85,7 @@ describe('RollupChain', function () {
       .to.emit(rollupChain, 'AssetDeposited')
       .withArgs(users[0].address, 2, depositAmount, 0);
 
-    let [dhash, blockID, status] = await rollupChain.pendingDeposits(0);
+    const [dhash, blockID, status] = await rollupChain.pendingDeposits(0);
     const h = solidityKeccak256(['address', 'uint32', 'uint256'], [users[0].address, 2, depositAmount]);
     expect(dhash).to.equal(h);
     expect(blockID).to.equal(0);
@@ -95,14 +95,14 @@ describe('RollupChain', function () {
     await rollupChain.commitBlock(0, txs);
     expect(await rollupChain.getCurrentBlockId()).to.equal(0);
 
-    let [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(0, 0);
+    const [account, assetID, amount] = await rollupChain.pendingWithdrawCommits(0, 0);
     expect(account).to.equal(users[0].address);
     expect(assetID).to.equal(2);
     expect(amount).to.equal(depositAmount);
 
     await rollupChain.executeBlock([]);
 
-    let totalAmount = await rollupChain.pendingWithdraws(users[0].address, assetID);
+    const totalAmount = await rollupChain.pendingWithdraws(users[0].address, assetID);
     expect(assetID).to.equal(2);
     expect(totalAmount).to.equal(depositAmount);
 
@@ -134,15 +134,15 @@ describe('RollupChain', function () {
       .to.emit(rollupChain, 'RollupBlockExecuted')
       .withArgs(0);
 
-    expect(await strategyDummy.getBalance()).to.equal(parseEther('2'));
-    expect(await strategyWeth.getBalance()).to.equal(parseEther('3'));
+    expect(await strategyDummy.syncBalance()).to.equal(parseEther('2'));
+    expect(await strategyWeth.syncBalance()).to.equal(parseEther('3'));
 
     await rollupChain.commitBlock(1, tns[1]);
     intents = [tns[1][3], tns[1][4]];
     await rollupChain.executeBlock(intents);
 
-    expect(await strategyDummy.getBalance()).to.equal(parseEther('1'));
-    expect(await strategyWeth.getBalance()).to.equal(parseEther('1'));
+    expect(await strategyDummy.syncBalance()).to.equal(parseEther('1'));
+    expect(await strategyWeth.syncBalance()).to.equal(parseEther('1'));
   });
 
   it('should commit and execute blocks with deposit and sync balance transitions', async function () {

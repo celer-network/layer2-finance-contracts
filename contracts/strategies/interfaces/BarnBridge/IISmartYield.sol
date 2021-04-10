@@ -21,5 +21,5 @@ interface IISmartYield {
     /**
      * jToken price * 1e18
      */
-    function price() external view returns (uint256);
+    function price() external returns (uint256);
 }

@@ -50,6 +50,7 @@ describe('Benchmark commitBlock', async function () {
   async function doBenchmark(txType: string, data: string, maxNum: number) {
     it('one rollup block with up to ' + maxNum + ' ' + txType + ' transitions', async function () {
       this.timeout(20000 + 100 * maxNum);
+
       const { registry, rollupChain, strategyDummy, testERC20, user } = await loadFixture(fixture);
       await rollupChain.commitBlock(0, INIT_TX);
       if (txType == 'deposit') {
@@ -81,7 +82,7 @@ describe('Benchmark commitBlock', async function () {
           }
         }
 
-        let txs = [];
+        const txs = [];
         for (let i = 0; i < numTxs; i++) {
           txs.push(data);
         }
@@ -101,7 +102,7 @@ describe('Benchmark commitBlock', async function () {
         blockId++;
         fs.appendFileSync(GAS_USAGE_LOG, numTxs.toString() + '\t' + gasUsed + '\n');
       }
-      let txCost = Math.ceil((lastCost - firstCost) / (maxNum - 1));
+      const txCost = Math.ceil((lastCost - firstCost) / (maxNum - 1));
       fs.appendFileSync(GAS_USAGE_LOG, 'per tn cost after 1st tn: ' + txCost + '\n');
       fs.appendFileSync(GAS_USAGE_LOG, '\n');
     });

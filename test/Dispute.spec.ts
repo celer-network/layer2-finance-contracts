@@ -166,7 +166,7 @@ describe('Dispute', function () {
   });
 
   it('should fail to dispute valid init transition', async function () {
-    const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
+    const { admin, rollupChain } = await loadFixture(fixture);
     const tnData = fs.readFileSync('test/input/data/dispute/init-valid-tn').toString().split('\n');
     const disputeData = DISPUTE_METHOD_SIG + fs.readFileSync('test/input/data/dispute/init-valid-pf').toString().trim();
 
@@ -180,7 +180,7 @@ describe('Dispute', function () {
   });
 
   it('should dispute successfully invalid init transition', async function () {
-    const { admin, rollupChain, testERC20, users } = await loadFixture(fixture);
+    const { admin, rollupChain } = await loadFixture(fixture);
     const tnData = fs.readFileSync('test/input/data/dispute/init-invalid-tn').toString().split('\n');
     const disputeData =
       DISPUTE_METHOD_SIG + fs.readFileSync('test/input/data/dispute/init-invalid-pf').toString().trim();
