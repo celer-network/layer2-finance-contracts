@@ -49,7 +49,7 @@ contract StrategyAlchemixDAI is IStrategy, Ownable {
         return dai;
     }
 
-    function getBalance() external view override returns (uint256) {
+    function syncBalance() external view override returns (uint256) {
         uint256 cdpDepositedAmount = IAlchemist(alchemist).getCdpTotalDeposited(address(this));
         
         // allocated amount by staking to Alchemix Transmuter

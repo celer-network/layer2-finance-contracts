@@ -23,7 +23,7 @@ contract StrategyCompoundEthLendingPool is IStrategy, Ownable {
     using Address for address;
     using SafeMath for uint256;
 
-    // The address of Compound interst-bearing ETH
+    // The address of Compound interest-bearing ETH
     address payable public cEth;
 
     // The address is used for claim COMP token
@@ -60,9 +60,9 @@ contract StrategyCompoundEthLendingPool is IStrategy, Ownable {
         return weth;
     }
 
-    function getBalance() external override returns (uint256) {
+    function syncBalance() external override returns (uint256) {
         // ETH balance of this contract.
-        // ETH balance is equal to the cETH balance multiplyed by the Exchange Rate.
+        // ETH balance is equal to the cETH balance multiplied by the Exchange Rate.
         uint256 ethBalance = ICEth(cEth).balanceOfUnderlying(address(this));
         return ethBalance;
     }

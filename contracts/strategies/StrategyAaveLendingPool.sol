@@ -14,7 +14,7 @@ import "./interfaces/aave/ILendingPool.sol";
 import "./interfaces/aave/IAToken.sol";
 
 /**
- * Deposits ERC20 token into Aave Lending Pool and issues stAaveLendingToken(e.g. stAaveLendingDAI) in L2. Holds aToken (Aave interst-bearing tokens).
+ * Deposits ERC20 token into Aave Lending Pool and issues stAaveLendingToken(e.g. stAaveLendingDAI) in L2. Holds aToken (Aave interest-bearing tokens).
  */
 contract StrategyAaveLendingPool is IStrategy, Ownable {
     using SafeERC20 for IERC20;
@@ -30,7 +30,7 @@ contract StrategyAaveLendingPool is IStrategy, Ownable {
     // The address of supplying token (e.g. DAI, USDT)
     address public supplyToken;
 
-    // The address of Aave interst-bearing token (e.g. aDAI, aUSDT)
+    // The address of Aave interest-bearing token (e.g. aDAI, aUSDT)
     address public aToken;
 
     address public controller;
@@ -53,7 +53,7 @@ contract StrategyAaveLendingPool is IStrategy, Ownable {
         return supplyToken;
     }
 
-    function getBalance() external view override returns (uint256) {
+    function syncBalance() external view override returns (uint256) {
         // Supplying token(e.g. DAI, USDT) balance of this contract.
         // aToken value is pegged to the value of supplying erc20 token at a 1:1 ratio.
         uint256 supplyTokenBalance = IAToken(aToken).balanceOf(address(this));

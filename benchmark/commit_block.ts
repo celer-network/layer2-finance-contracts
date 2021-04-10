@@ -4,6 +4,7 @@ import fs from 'fs';
 import { ethers } from 'hardhat';
 import path from 'path';
 
+import { parseEther } from '@ethersproject/units';
 import { Wallet } from '@ethersproject/wallet';
 
 import { deployContracts, loadFixture } from '../test/common';
@@ -27,14 +28,14 @@ describe('Benchmark commitBlock', async function () {
     const { registry, rollupChain, strategyDummy, testERC20 } = await deployContracts(admin);
     const tokenAddress = testERC20.address;
     await registry.registerAsset(tokenAddress);
-    await rollupChain.setNetDepositLimit(tokenAddress, ethers.utils.parseEther('10000'));
+    await rollupChain.setNetDepositLimit(tokenAddress, parseEther('10000'));
 
-    const user = new ethers.Wallet(USER_KEY).connect(ethers.provider);
+    const user = new Wallet(USER_KEY).connect(ethers.provider);
     await admin.sendTransaction({
       to: user.address,
-      value: ethers.utils.parseEther('10')
+      value: parseEther('10')
     });
-    await testERC20.transfer(user.address, ethers.utils.parseEther('10000'));
+    await testERC20.transfer(user.address, parseEther('10000'));
 
     return {
       admin,
@@ -49,20 +50,20 @@ describe('Benchmark commitBlock', async function () {
   async function doBenchmark(txType: string, data: string, maxNum: number) {
     it('one rollup block with up to ' + maxNum + ' ' + txType + ' transitions', async function () {
       this.timeout(20000 + 100 * maxNum);
+
       const { registry, rollupChain, strategyDummy, testERC20, user } = await loadFixture(fixture);
       await rollupChain.commitBlock(0, INIT_TX);
       if (txType == 'deposit') {
         const depNum = (maxNum * (maxNum + 1)) / 2 + 1;
-        await testERC20
-          .connect(user)
-          .approve(rollupChain.address, ethers.utils.parseEther('1').mul(depNum));
+        await testERC20.connect(user).approve(rollupChain.address, parseEther('1').mul(depNum));
       } else if (txType == 'sync balance') {
         const stAddress = strategyDummy.address;
         await registry.registerStrategy(stAddress);
       }
       fs.appendFileSync(GAS_USAGE_LOG, '-- ' + txType + ' --\n');
-      let blockid = 1;
-      let firtCost, lastCost;
+      let blockId = 1;
+      let firstCost = 0;
+      let lastCost = 0;
       for (let numTxs = 1; numTxs <= maxNum; numTxs++) {
         if (numTxs > 100 && numTxs % 100 != 0) {
           continue;
@@ -72,9 +73,7 @@ describe('Benchmark commitBlock', async function () {
         }
         if (txType == 'deposit') {
           for (let i = 0; i < numTxs; i++) {
-            await rollupChain
-              .connect(user)
-              .deposit(testERC20.address, ethers.utils.parseEther('1'));
+            await rollupChain.connect(user).deposit(testERC20.address, parseEther('1'));
           }
         } else if (txType == 'sync balance') {
           for (let i = 0; i < numTxs; i++) {
@@ -83,26 +82,27 @@ describe('Benchmark commitBlock', async function () {
           }
         }
 
-        let txs = [];
+        const txs = [];
         for (let i = 0; i < numTxs; i++) {
           txs.push(data);
         }
         const gasUsed = (
           await (
-            await rollupChain.commitBlock(blockid, txs, {
+            await rollupChain.commitBlock(blockId, txs, {
               gasLimit: 9500000 // TODO: Remove once estimateGas() works correctly
             })
           ).wait()
         ).gasUsed;
         if (numTxs == 1) {
-          firtCost = gasUsed.toNumber();
-        } else if (numTxs == maxNum) {
+          firstCost = gasUsed.toNumber();
+        }
+        if (numTxs == maxNum) {
           lastCost = gasUsed.toNumber();
         }
-        blockid++;
+        blockId++;
         fs.appendFileSync(GAS_USAGE_LOG, numTxs.toString() + '\t' + gasUsed + '\n');
       }
-      let txCost = Math.ceil((Number(lastCost) - Number(firtCost)) / (maxNum - 1));
+      const txCost = Math.ceil((lastCost - firstCost) / (maxNum - 1));
       fs.appendFileSync(GAS_USAGE_LOG, 'per tn cost after 1st tn: ' + txCost + '\n');
       fs.appendFileSync(GAS_USAGE_LOG, '\n');
     });

@@ -69,7 +69,7 @@ contract RollupChain is Ownable, Pausable {
     // Mapping of account => assetId => pendingWithdrawAmount
     mapping(address => mapping(uint32 => uint256)) public pendingWithdraws;
 
-    // Track pending L1-to-L2 balance sync roundrip across L1->L2->L1.
+    // Track pending L1-to-L2 balance sync roundtrip across L1->L2->L1.
     // Each balance sync record ID is a count++ (i.e. it's a queue).
     // - L1-to-L2 Balance Sync creates in "pending" status
     // - commitBlock() moves it to "done" status
@@ -354,7 +354,7 @@ contract RollupChain is Ownable, Pausable {
 
     /**
      * @notice Sync the latest L1 strategy asset balance to L2
-     * @dev L2 opeartor will submit BalanceSync transition based on the emitted event
+     * @dev L2 operator will submit BalanceSync transition based on the emitted event
      *
      * @param _strategyId Strategy id
      */
@@ -362,7 +362,7 @@ contract RollupChain is Ownable, Pausable {
         address stAddr = registry.strategyIndexToAddress(_strategyId);
         require(stAddr != address(0), "Unknown strategy ID");
 
-        uint256 newBalance = IStrategy(stAddr).getBalance();
+        uint256 newBalance = IStrategy(stAddr).syncBalance();
         uint256 oldBalance = strategyAssetBalances[_strategyId];
         int256 delta;
         if (newBalance >= oldBalance) {

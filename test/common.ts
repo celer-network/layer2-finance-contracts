@@ -1,6 +1,7 @@
 import { Fixture } from 'ethereum-waffle';
 import { ethers, waffle } from 'hardhat';
 
+import { parseEther } from '@ethersproject/units';
 import { Wallet } from '@ethersproject/wallet';
 
 import { Registry__factory } from '../typechain';
@@ -10,7 +11,11 @@ import { TestERC20__factory } from '../typechain/factories/TestERC20__factory';
 import { TransitionDisputer__factory } from '../typechain/factories/TransitionDisputer__factory';
 import { TransitionEvaluator__factory } from '../typechain/factories/TransitionEvaluator__factory';
 import { WETH9__factory } from '../typechain/factories/WETH9__factory';
+import { Registry } from '../typechain/Registry.d';
+import { RollupChain } from '../typechain/RollupChain.d';
+import { StrategyDummy } from '../typechain/StrategyDummy.d';
 import { TestERC20 } from '../typechain/TestERC20';
+import { WETH9 } from '../typechain/WETH9.d';
 
 const userPrivKeys = [
   '0x36f2243a51a0f879b1859fff1a663ac04aeebca1bcff4d7dc5a8b38e53211199',
@@ -21,8 +26,6 @@ const userPrivKeys = [
   '0x0168ea2aa71023864b1c8eb65997996d726e5068c12b20dea81076ef56380465'
 ];
 
-const parseEther = ethers.utils.parseEther;
-
 // Workaround for https://github.com/nomiclabs/hardhat/issues/849
 // TODO: Remove once fixed upstream.
 export function loadFixture<T>(fixture: Fixture<T>): Promise<T> {
@@ -30,7 +33,17 @@ export function loadFixture<T>(fixture: Fixture<T>): Promise<T> {
   return waffle.createFixtureLoader(provider.getWallets(), provider)(fixture);
 }
 
-export async function deployContracts(admin: Wallet) {
+interface DeploymentInfo {
+  admin: Wallet;
+  registry: Registry;
+  rollupChain: RollupChain;
+  strategyDummy: StrategyDummy;
+  strategyWeth: StrategyDummy;
+  testERC20: TestERC20;
+  weth: WETH9;
+}
+
+export async function deployContracts(admin: Wallet): Promise<DeploymentInfo> {
   const registryFactory = (await ethers.getContractFactory('Registry')) as Registry__factory;
   const registry = await registryFactory.deploy();
   await registry.deployed();
@@ -47,9 +60,7 @@ export async function deployContracts(admin: Wallet) {
   const transitionDisputer = await transitionDisputerFactory.deploy(transitionEvaluator.address);
   await transitionDisputer.deployed();
 
-  const rollupChainFactory = (await ethers.getContractFactory(
-    'RollupChain'
-  )) as RollupChain__factory;
+  const rollupChainFactory = (await ethers.getContractFactory('RollupChain')) as RollupChain__factory;
   const rollupChain = await rollupChainFactory.deploy(
     0,
     0,
@@ -68,9 +79,7 @@ export async function deployContracts(admin: Wallet) {
   await weth.deployed();
   await weth.deposit({ value: parseEther('20') });
 
-  const strategyDummyFactory = (await ethers.getContractFactory(
-    'StrategyDummy'
-  )) as StrategyDummy__factory;
+  const strategyDummyFactory = (await ethers.getContractFactory('StrategyDummy')) as StrategyDummy__factory;
   const strategyDummy = await strategyDummyFactory.deploy(
     rollupChain.address,
     testERC20.address,
@@ -92,31 +101,31 @@ export async function deployContracts(admin: Wallet) {
   return { admin, registry, rollupChain, strategyDummy, strategyWeth, testERC20, weth };
 }
 
-export async function getUsers(admin: Wallet, assets: TestERC20[], num: number) {
+export async function getUsers(admin: Wallet, assets: TestERC20[], num: number): Promise<Wallet[]> {
   const users: Wallet[] = [];
-  for (var i = 0; i < num; i++) {
+  for (let i = 0; i < num; i++) {
     users.push(new ethers.Wallet(userPrivKeys[i]).connect(ethers.provider));
     await admin.sendTransaction({
       to: users[i].address,
       value: parseEther('10')
     });
-    for (var j = 0; j < assets.length; j++) {
+    for (let j = 0; j < assets.length; j++) {
       await assets[j].transfer(users[i].address, parseEther('1000'));
     }
   }
   return users;
 }
 
-export async function splitTns(tndata: string[]) {
+export async function splitTns(tnData: string[]): Promise<string[][]> {
   const tns: string[][] = [];
   tns.push([]);
   let j = 0;
-  for (var i = 0; i < tndata.length; i++) {
-    if (tndata[i] == '') {
+  for (let i = 0; i < tnData.length; i++) {
+    if (tnData[i] == '') {
       tns.push([]);
       j++;
     } else {
-      tns[j].push(tndata[i]);
+      tns[j].push(tnData[i]);
     }
   }
   return tns;

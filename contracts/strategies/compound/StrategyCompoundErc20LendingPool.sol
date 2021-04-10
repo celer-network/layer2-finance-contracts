@@ -28,7 +28,7 @@ contract StrategyCompoundErc20LendingPool is IStrategy, Ownable {
     // The address of supplying token (e.g. DAI, USDT)
     address public supplyToken;
 
-    // The address of Compound interst-bearing token (e.g. cDAI, cUSDT)
+    // The address of Compound interest-bearing token (e.g. cDAI, cUSDT)
     address public cErc20;
 
     // The address is used for claim COMP token
@@ -66,9 +66,9 @@ contract StrategyCompoundErc20LendingPool is IStrategy, Ownable {
         return supplyToken;
     }
 
-    function getBalance() external override returns (uint256) {
+    function syncBalance() external override returns (uint256) {
         // Supplying token(e.g. DAI, USDT) balance of this contract.
-        // supplyTokenBalance is equal to the cToken balance multiplyed by the Exchange Rate.
+        // supplyTokenBalance is equal to the cToken balance multiplied by the Exchange Rate.
         uint256 supplyTokenBalance = ICErc20(cErc20).balanceOfUnderlying(address(this));
         return supplyTokenBalance;
     }
@@ -95,9 +95,9 @@ contract StrategyCompoundErc20LendingPool is IStrategy, Ownable {
             );
 
             // Deposit supplying token to Compound Erc20 Lending Pool and mint cToken.
-            uint256 obtainedSupplytokenAmount = IERC20(supplyToken).balanceOf(address(this));
-            IERC20(supplyToken).safeIncreaseAllowance(cErc20, obtainedSupplytokenAmount);
-            uint256 mintResult = ICErc20(cErc20).mint(obtainedSupplytokenAmount);
+            uint256 obtainedSupplyTokenAmount = IERC20(supplyToken).balanceOf(address(this));
+            IERC20(supplyToken).safeIncreaseAllowance(cErc20, obtainedSupplyTokenAmount);
+            uint256 mintResult = ICErc20(cErc20).mint(obtainedSupplyTokenAmount);
             require(mintResult == 0, "Couldn't mint cToken");
         }
     }

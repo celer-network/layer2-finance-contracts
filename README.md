@@ -38,15 +38,28 @@ hardhat deploy --network ropsten --tags TestToken
 hardhat deploy --network ropsten --tags Faucet
 ```
 
-3. Verify on Etherscan
-
-Try:
+3. To verify on Etherscan using Hardhat, try:
 
 ```sh
 hardhat etherscan-verify --network ropsten
 ```
 
-4. (Alternative) Manually verify on Etherscan:
+4. To verify on Etherscan using [solt](https://github.com/hjubb/solt/blob/main/README.md), run:
+
+```sh
+source scripts/solt.sh
+run_solt_write()
+```
+
+Then try:
+
+```sh
+solt verify --license 3 --network <network> solc-input-<contract>.json <deployed address> <contract name>
+```
+
+If the second step fails, go to Etherscan and manually verify using the standard JSON input files.
+
+5. (Not recommended, does not work with ABIEncoderV2) To flatten and manually verify on Etherscan:
 
 First, flatten the contract to verify:
 
