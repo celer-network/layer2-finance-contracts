@@ -106,6 +106,7 @@ contract RollupChain is Ownable, Pausable {
     event BalanceSync(uint32 strategyId, int256 delta, uint256 syncId);
     event AssetDeposited(address account, uint32 assetId, uint256 amount, uint256 depositId);
     event AssetWithdrawn(address account, uint32 assetId, uint256 amount);
+    event OperatorChanged(address previousOperator, address newOperator);
 
     constructor(
         uint256 _blockChallengePeriod,
@@ -515,6 +516,7 @@ contract RollupChain is Ownable, Pausable {
      * @param _operator operator's ETH address
      */
     function setOperator(address _operator) external onlyOwner {
+        emit OperatorChanged(operator, _operator);
         operator = _operator;
     }
 

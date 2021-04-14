@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import * as dotenv from 'dotenv';
-import { ethers, getNamedAccounts, network } from 'hardhat';
+import { ethers } from 'hardhat';
 
 import { getAddress } from '@ethersproject/address';
 import { MaxUint256 } from '@ethersproject/constants';
@@ -9,23 +9,13 @@ import { formatEther, parseEther } from '@ethersproject/units';
 import { ERC20__factory } from '../typechain/factories/ERC20__factory';
 import { StrategyCurve3PoolDAI__factory } from '../typechain/factories/StrategyCurve3PoolDAI__factory';
 import { StrategyCurve3PoolDAI } from '../typechain/StrategyCurve3PoolDAI';
+import { getDeployerSigner } from './common';
 
 dotenv.config();
 
 describe('StrategyCurve3PoolDAI', function () {
   async function deploy() {
-    const impersonatedDeployer = process.env.IMPERSONATED_DEPLOYER;
-    let deployer: string;
-    if (impersonatedDeployer) {
-      await network.provider.request({
-        method: 'hardhat_impersonateAccount',
-        params: [impersonatedDeployer]
-      });
-      deployer = impersonatedDeployer;
-    } else {
-      deployer = (await getNamedAccounts())['deployer'];
-    }
-    const deployerSigner = await ethers.getSigner(deployer);
+    const deployerSigner = await getDeployerSigner();
 
     let strategy: StrategyCurve3PoolDAI;
     const deployedAddress = process.env.STRATEGY_CURVE_3POOL_DAI;
@@ -38,7 +28,7 @@ describe('StrategyCurve3PoolDAI', function () {
       strategy = await strategyCurve3PoolDAIFactory
         .connect(deployerSigner)
         .deploy(
-          deployer,
+          deployerSigner.address,
           process.env.CURVE_DAI as string,
           process.env.CURVE_3POOL as string,
           process.env.CURVE_3POOL_3CRV as string,

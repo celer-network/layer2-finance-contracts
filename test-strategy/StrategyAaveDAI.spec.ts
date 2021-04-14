@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import * as dotenv from 'dotenv';
-import { ethers, getNamedAccounts } from 'hardhat';
+import { ethers } from 'hardhat';
 
 import { getAddress } from '@ethersproject/address';
 import { MaxUint256 } from '@ethersproject/constants';
@@ -9,13 +9,13 @@ import { formatEther, parseEther } from '@ethersproject/units';
 import { ERC20__factory } from '../typechain/factories/ERC20__factory';
 import { StrategyAaveLendingPool__factory } from '../typechain/factories/StrategyAaveLendingPool__factory';
 import { StrategyAaveLendingPool } from '../typechain/StrategyAaveLendingPool.d';
+import { getDeployerSigner } from './common';
 
 dotenv.config();
 
 describe('StrategyAaveDAI', function () {
   async function deploy() {
-    const { deployer } = await getNamedAccounts();
-    const deployerSigner = await ethers.getSigner(deployer);
+    const deployerSigner = await getDeployerSigner();
 
     let strategy: StrategyAaveLendingPool;
     const deployedAddress = process.env.STRATEGY_AAVE_DAI;
@@ -30,7 +30,7 @@ describe('StrategyAaveDAI', function () {
         'DAI',
         process.env.AAVE_DAI as string,
         process.env.AAVE_ADAI as string,
-        deployer
+        deployerSigner.address
       );
       await strategy.deployed();
     }

@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { ethers, getNamedAccounts } from 'hardhat';
+import { ethers } from 'hardhat';
 
 import { getAddress } from '@ethersproject/address';
 import { MaxUint256 } from '@ethersproject/constants';
@@ -8,11 +8,11 @@ import { formatEther, parseEther } from '@ethersproject/units';
 import { ERC20__factory } from '../typechain/factories/ERC20__factory';
 import { StrategyCompoundEthLendingPool__factory } from '../typechain/factories/StrategyCompoundEthLendingPool__factory';
 import { StrategyCompoundEthLendingPool } from '../typechain/StrategyCompoundEthLendingPool.d';
+import { getDeployerSigner } from './common';
 
 describe('StrategyCompoundETH', function () {
   async function deploy() {
-    const { deployer } = await getNamedAccounts();
-    const deployerSigner = await ethers.getSigner(deployer);
+    const deployerSigner = await getDeployerSigner();
 
     let strategy: StrategyCompoundEthLendingPool;
     const deployedAddress = process.env.STRATEGY_COMPOUND_ETH;
@@ -28,7 +28,7 @@ describe('StrategyCompoundETH', function () {
         process.env.COMPOUND_COMP as string,
         process.env.UNISWAP_ROUTER as string,
         process.env.WETH as string,
-        deployer
+        deployerSigner.address
       );
       await strategy.deployed();
     }

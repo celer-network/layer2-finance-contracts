@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import * as dotenv from 'dotenv';
-import { ethers, getNamedAccounts } from 'hardhat';
+import { ethers } from 'hardhat';
 
 import { getAddress } from '@ethersproject/address';
 import { MaxUint256 } from '@ethersproject/constants';
@@ -9,13 +9,13 @@ import { formatEther, parseEther } from '@ethersproject/units';
 import { ERC20__factory } from '../typechain/factories/ERC20__factory';
 import { StrategyCompoundErc20LendingPool__factory } from '../typechain/factories/StrategyCompoundErc20LendingPool__factory';
 import { StrategyCompoundErc20LendingPool } from '../typechain/StrategyCompoundErc20LendingPool.d';
+import { getDeployerSigner } from './common';
 
 dotenv.config();
 
 describe('StrategyCompoundDAI', function () {
   async function deploy() {
-    const { deployer } = await getNamedAccounts();
-    const deployerSigner = await ethers.getSigner(deployer);
+    const deployerSigner = await getDeployerSigner();
 
     let strategy: StrategyCompoundErc20LendingPool;
     const deployedAddress = process.env.STRATEGY_COMPOUND_DAI;
@@ -33,7 +33,7 @@ describe('StrategyCompoundDAI', function () {
         process.env.COMPOUND_COMP as string,
         process.env.UNISWAP_ROUTER as string,
         process.env.WETH as string,
-        deployer
+        deployerSigner.address
       );
       await strategy.deployed();
     }
