@@ -19,7 +19,7 @@ const deployFunc: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
       process.env.ROLLUP_CHAIN,
       process.env.CURVE_DAI,
       process.env.CURVE_3POOL,
-      process.env.CURVE_3CRV,
+      process.env.CURVE_3POOL_3CRV,
       process.env.CURVE_3POOL_GAUGE,
       process.env.CURVE_3POOL_MINTR,
       process.env.CURVE_CRV,
