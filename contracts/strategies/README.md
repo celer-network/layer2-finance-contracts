@@ -4,7 +4,7 @@ Strategies are customized adapters that talk to DeFi protocols. They act on beha
 move funds in and out of the protocols. If the underlying protocol offers yield farming of governance tokens, the
 strategies can also harvest them and compound these additional yields.
 
-A strategy authorizes a controller account, which is just the [`RollupChain`](https://github.com/celer-network/layer2-finance-contracts/blob/d41940d78fdcd3d80cc27bf456572881d8cec483/contracts/RollupChain.sol) contract in the current implementation, to move
+A strategy authorizes a controller account, which is just the [`RollupChain`](../RollupChain.sol) contract in the current implementation, to move
 funds.
 
 Currently, each strategy accepts a single type of `ERC-20` asset like `DAI`.
@@ -16,20 +16,20 @@ Currently, each strategy accepts a single type of `ERC-20` asset like `DAI`.
 
 2. Take a look the [`IStrategy`](https://github.com/celer-network/layer2-finance-contracts/blob/0f8cec2a6a082d2476a7e3cde61f00c8e35f24d/contracts/strategies/interfaces/IStrategy.sol) interfaces:
 
-**getAssetAddress** simply returns the address of the asset token.
+   `getAssetAddress` simply returns the address of the asset token.
 
-**aggregateCommit** is a controller-only method that moves the specified amount of assets from the controller into the
-underlying DeFi protocol.
+   `aggregateCommit` is a controller-only method that moves the specified amount of assets from the controller into the
+   underlying DeFi protocol.
 
-**aggregateUncommit** is a controller-only method that moves the specified amount of assets from the DeFi protocol back to
-the controller.
+   `aggregateUncommit` is a controller-only method that moves the specified amount of assets from the DeFi protocol back to
+   the controller.
 
-**syncBalance** returns the balance of the asset tokens managed by the strategy. It may synchronize the balance with the
-protocol before returning it.
+   `syncBalance` returns the balance of the asset tokens managed by the strategy. It may synchronize the balance with the
+   protocol before returning it.
 
-**harvest** is implemented when the protocol provides additional yields in the form of governance tokens. The method
-usually sells the harvested tokens into the asset token and re-invests the gains back into the protocol. Beware of
-flashloans when implementing this method and if required, restrict it to Externally Owned Accounts (EOA).
+   `harvest` is implemented when the protocol provides additional yields in the form of governance tokens. The method
+   usually sells the harvested tokens into the asset token and re-invests the gains back into the protocol. Beware of
+   flashloans when implementing this method and if required, restrict it to Externally Owned Accounts (EOA).
 
 3. Read [`StrategyDummy`](https://github.com/celer-network/layer2-finance-contracts/blob/0f8cec2a6a082d2476a7e3cde61f00c8e35f24d/contracts/strategies/StrategyDummy.sol) for a skeleton implementation and [`StrategyCompoundErc20LendingPool`](https://github.com/celer-network/layer2-finance-contracts/blob/0f8cec2a6a082d2476a7e3cde61f00c8e35f24d/contracts/strategies/compound/StrategyCompoundErc20LendingPool.sol) for a real
    implementation.
