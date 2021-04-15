@@ -60,6 +60,14 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
         uniswap = _uniswap;
     }
 
+    /**
+     * @dev Require that the caller must be an EOA account to avoid flash loans.
+     */
+    modifier onlyEOA() {
+        require(msg.sender == tx.origin, "Not EOA");
+        _;
+    }
+
     function getAssetAddress() external view override returns (address) {
         return dai;
     }
@@ -70,7 +78,7 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
         return daiBalance;
     }
 
-    function harvest() external override {
+    function harvest() external override onlyEOA {
         // Harvest CRV
         IMintr(mintr).mint(gauge);
         uint256 crvBalance = IERC20(crv).balanceOf(address(this));

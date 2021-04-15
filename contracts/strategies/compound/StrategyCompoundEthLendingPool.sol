@@ -54,6 +54,14 @@ contract StrategyCompoundEthLendingPool is IStrategy, Ownable {
     }
 
     /**
+     * @dev Require that the caller must be an EOA account to avoid flash loans.
+     */
+    modifier onlyEOA() {
+        require(msg.sender == tx.origin, "Not EOA");
+        _;
+    }
+
+    /**
      * @dev Return WETH address. StrategyCompoundETH contract receive WETH from controller.
      */
     function getAssetAddress() external view override returns (address) {
@@ -67,7 +75,7 @@ contract StrategyCompoundEthLendingPool is IStrategy, Ownable {
         return ethBalance;
     }
 
-    function harvest() external override {
+    function harvest() external override onlyEOA {
         // Claim COMP token.
         IComptroller(comptroller).claimComp(address(this));
         uint256 compBalance = IERC20(comp).balanceOf(address(this));
