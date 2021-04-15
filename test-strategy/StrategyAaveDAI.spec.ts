@@ -25,13 +25,15 @@ describe('StrategyAaveDAI', function () {
       const strategyAaveLendingPoolFactory = (await ethers.getContractFactory(
         'StrategyAaveLendingPool'
       )) as StrategyAaveLendingPool__factory;
-      strategy = await strategyAaveLendingPoolFactory.deploy(
-        process.env.AAVE_LENDING_POOL as string,
-        'DAI',
-        process.env.AAVE_DAI as string,
-        process.env.AAVE_ADAI as string,
-        deployerSigner.address
-      );
+      strategy = await strategyAaveLendingPoolFactory
+        .connect(deployerSigner)
+        .deploy(
+          process.env.AAVE_LENDING_POOL as string,
+          'DAI',
+          process.env.AAVE_DAI as string,
+          process.env.AAVE_ADAI as string,
+          deployerSigner.address
+        );
       await strategy.deployed();
     }
 
@@ -58,8 +60,8 @@ describe('StrategyAaveDAI', function () {
       await approveTx.wait();
     }
 
-    console.log('===== Commit 400 DAI =====');
-    const commitAmount = parseEther('400');
+    console.log('===== Commit 0.001 DAI =====');
+    const commitAmount = parseEther('0.001');
     const commitGas = await strategy.estimateGas.aggregateCommit(commitAmount);
     expect(commitGas.lte(300000)).to.be.true;
     const commitTx = await strategy.aggregateCommit(commitAmount, { gasLimit: 300000 });
@@ -73,8 +75,8 @@ describe('StrategyAaveDAI', function () {
     expect(controllerBalanceBeforeCommit.sub(controllerBalanceAfterCommit).eq(commitAmount)).to.be.true;
     console.log('Controller DAI balance after commit:', formatEther(controllerBalanceAfterCommit));
 
-    console.log('===== Uncommit 300 DAI =====');
-    const uncommitAmount = parseEther('300');
+    console.log('===== Uncommit 0.0007 DAI =====');
+    const uncommitAmount = parseEther('0.0007');
     const uncommitGas = await strategy.estimateGas.aggregateUncommit(uncommitAmount);
     expect(uncommitGas.lte(300000)).to.be.true;
     const uncommitTx = await strategy.aggregateUncommit(uncommitAmount, { gasLimit: 300000 });
