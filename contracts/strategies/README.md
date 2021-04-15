@@ -14,7 +14,7 @@ Currently, each strategy accepts a single type of `ERC-20` asset like `DAI`.
 1. Fork the repo and run `yarn install` to install the dependencies. We primarily use `ethers`, `hardhat` and
    `waffle` for development and testing.
 
-2. Take a look the [`IStrategy`](https://github.com/celer-network/layer2-finance-contracts/blob/0f8cec2a6a082d2476a7e3cde61f00c8e35f24d/contracts/strategies/interfaces/IStrategy.sol) interfaces:
+2. Take a look the [`IStrategy`](./interfaces/IStrategy.sol) interfaces:
 
    `getAssetAddress` simply returns the address of the asset token.
 
@@ -31,13 +31,13 @@ Currently, each strategy accepts a single type of `ERC-20` asset like `DAI`.
    usually sells the harvested tokens into the asset token and re-invests the gains back into the protocol. Beware of
    flashloans when implementing this method and if required, restrict it to Externally Owned Accounts (EOA).
 
-3. Read [`StrategyDummy`](https://github.com/celer-network/layer2-finance-contracts/blob/0f8cec2a6a082d2476a7e3cde61f00c8e35f24d/contracts/strategies/StrategyDummy.sol) for a skeleton implementation and [`StrategyCompoundErc20LendingPool`](https://github.com/celer-network/layer2-finance-contracts/blob/0f8cec2a6a082d2476a7e3cde61f00c8e35f24d/contracts/strategies/compound/StrategyCompoundErc20LendingPool.sol) for a real
+3. Read [`StrategyDummy`](./StrategyDummy.sol) for a skeleton implementation and [`StrategyCompoundErc20LendingPool`](./compound/StrategyCompoundErc20LendingPool.sol) for a real
    implementation.
 
 4. Implement your own strategy.
 
-5. To test your strategy, read the test [instructions](https://github.com/celer-network/layer2-finance-contracts/blob/0f8cec2a6a082d2476a7e3cde61f00c8e35f24de/test-strategy/README.md).
+5. To test your strategy, read the test [instructions](../../test-strategy/README.md).
 
-6. (Optional) Write a deployment script. Ours are based on `hardhat-deploy`. See [example](https://github.com/celer-network/layer2-finance-contracts/blob/0f8cec2a6a082d2476a7e3cde61f00c8e35f24d/deploy/strategies/000_compound_dai.ts).
+6. (Optional) Write a deployment script. Ours are based on `hardhat-deploy`. See [example](../../deploy/strategies/000_compound_dai.ts).
 
 7. Open a PR to the repo. We will review your strategy and hopefully add it to Layer2.finance.
