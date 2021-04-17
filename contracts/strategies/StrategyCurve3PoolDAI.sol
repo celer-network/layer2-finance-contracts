@@ -161,6 +161,7 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
     }
 
     function setController(address _controller) external onlyOwner {
+        emit ControllerChanged(controller, _controller);
         controller = _controller;
     }
 }
