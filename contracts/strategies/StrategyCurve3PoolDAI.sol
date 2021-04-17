@@ -24,7 +24,7 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
     using SafeMath for uint256;
 
     uint256 public constant DENOMINATOR = 10000;
-    uint256 public slippage = 100;
+    uint256 public slippage = 5;
     address public triPool;
 
     address public dai;
@@ -161,6 +161,7 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
     }
 
     function setController(address _controller) external onlyOwner {
+        emit ControllerChanged(controller, _controller);
         controller = _controller;
     }
 }
