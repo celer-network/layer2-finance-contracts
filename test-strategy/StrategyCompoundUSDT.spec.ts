@@ -5,16 +5,16 @@ import { testStrategyCompoundErc20LendingPool } from './StrategyCompoundErc20Len
 
 dotenv.config();
 
-describe('StrategyCompoundDAI', function () {
+describe('StrategyCompoundUSDT', function () {
   it(DESCRIPTION, async function () {
     await testStrategyCompoundErc20LendingPool(
       this,
-      process.env.STRATEGY_COMPOUND_DAI,
-      'DAI',
-      18,
-      (process.env.COMPOUND_DAI || process.env.DAI) as string,
-      process.env.COMPOUND_CDAI as string,
-      process.env.DAI_FUNDER as string
+      process.env.STRATEGY_COMPOUND_USDT,
+      'USDT',
+      6,
+      process.env.USDT as string,
+      process.env.COMPOUND_CUSDT as string,
+      process.env.USDT_FUNDER as string
     );
   });
 });

@@ -4,8 +4,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 
 dotenv.config();
 
-const strategyContractName = 'StrategyCompoundErc20LendingPool';
-const strategyDeploymentName = 'StrategyCompoundDAI';
+const strategyContractName = 'StrategyDummy';
 
 const deployFunc: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   const { deployments, getNamedAccounts } = hre;
@@ -15,18 +14,9 @@ const deployFunc: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   await deploy(strategyContractName, {
     from: deployer,
     log: true,
-    args: [
-      'DAI',
-      process.env.COMPOUND_DAI,
-      process.env.COMPOUND_CDAI,
-      process.env.COMPOUND_COMPTROLLER,
-      process.env.COMPOUND_COMP,
-      process.env.UNISWAP_ROUTER,
-      process.env.WETH,
-      process.env.ROLLUP_CHAIN
-    ]
+    args: [process.env.ROLLUP_CHAIN, process.env.DUMMY_ASSET, process.env.DUMMY_FUNDER, process.env.DUMMY_HARVEST_GAIN]
   });
 };
 
-deployFunc.tags = [strategyDeploymentName];
+deployFunc.tags = [process.env.DUMMY_DEPLOYMENT_NAME || 'StrategyDummy'];
 export default deployFunc;

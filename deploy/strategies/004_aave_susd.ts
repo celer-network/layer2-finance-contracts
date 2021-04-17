@@ -4,22 +4,20 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 
 dotenv.config();
 
+const strategyContractName = 'StrategyAaveLendingPool';
+const strategyDeploymentName = 'StrategyAaveSUSD';
+
 const deployFunc: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   const { deployments, getNamedAccounts } = hre;
   const { deploy } = deployments;
   const { deployer } = await getNamedAccounts();
 
-  await deploy('MintableERC20', {
+  await deploy(strategyContractName, {
     from: deployer,
     log: true,
-    args: [
-      process.env.TEST_TOKEN_NAME,
-      process.env.TEST_TOKEN_SYMBOL,
-      process.env.TEST_TOKEN_DECIMALS,
-      process.env.TEST_TOKEN_SUPPLY
-    ]
+    args: [process.env.AAVE_LENDING_POOL, 'SUSD', process.env.SUSD, process.env.AAVE_ASUSD, process.env.ROLLUP_CHAIN]
   });
 };
 
-deployFunc.tags = ['TestToken'];
+deployFunc.tags = [strategyDeploymentName];
 export default deployFunc;

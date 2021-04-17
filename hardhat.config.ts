@@ -19,6 +19,12 @@ const kovanPrivateKey = process.env.KOVAN_PRIVATE_KEY || DEFAULT_PRIVATE_KEY;
 const ropstenEndpoint = process.env.ROPSTEN_ENDPOINT || DEFAULT_ENDPOINT;
 const ropstenPrivateKey = process.env.ROPSTEN_PRIVATE_KEY || DEFAULT_PRIVATE_KEY;
 
+const goerliEndpoint = process.env.GOERLI_ENDPOINT || DEFAULT_ENDPOINT;
+const goerliPrivateKey = process.env.GOERLI_PRIVATE_KEY || DEFAULT_PRIVATE_KEY;
+
+const mainnetEndpoint = process.env.MAINNET_ENDPOINT || DEFAULT_ENDPOINT;
+const mainnetPrivateKey = process.env.MAINNET_PRIVATE_KEY || DEFAULT_PRIVATE_KEY;
+
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
@@ -31,6 +37,14 @@ const config: HardhatUserConfig = {
     ropsten: {
       url: ropstenEndpoint,
       accounts: [`0x${ropstenPrivateKey}`]
+    },
+    goerli: {
+      url: goerliEndpoint,
+      accounts: [`0x${goerliPrivateKey}`]
+    },
+    mainnet: {
+      url: mainnetEndpoint,
+      accounts: [`0x${mainnetPrivateKey}`]
     }
   },
   namedAccounts: {
