@@ -12,14 +12,11 @@
     "strict": true,
     "target": "es2020"
   },
-  "exclude": ["node_modules"],
+  "exclude": ["artifacts", "build", "cache", "node_modules"],
   "include": [
-    "artifacts/**/*",
-    "artifacts/**/*.json",
     "deploy/**/*",
     "benchmark/**/*",
     "scripts/**/*",
-    "tasks/**/*",
     "test/**/*",
     "test-strategy/**/*",
     "typechain/**/*",

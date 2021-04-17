@@ -47,8 +47,7 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
         address _mintr,
         address _crv,
         address _weth,
-        address _uniswap,
-        uint256 _slippage
+        address _uniswap
     ) {
         controller = _controller;
         dai = _dai;
@@ -59,7 +58,14 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
         crv = _crv;
         weth = _weth;
         uniswap = _uniswap;
-        slippage = _slippage;
+    }
+
+    /**
+     * @dev Require that the caller must be an EOA account to avoid flash loans.
+     */
+    modifier onlyEOA() {
+        require(msg.sender == tx.origin, "Not EOA");
+        _;
     }
 
     function getAssetAddress() external view override returns (address) {
@@ -68,11 +74,11 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
 
     function syncBalance() external view override returns (uint256) {
         uint256 triCrvBalance = IGauge(gauge).balanceOf(address(this));
-        uint256 daiBalance = triCrvBalance.mul(ICurveFi(triPool).calc_withdraw_one_coin(triCrvBalance, 0));
+        uint256 daiBalance = triCrvBalance.mul(ICurveFi(triPool).get_virtual_price()).div(1e18);
         return daiBalance;
     }
 
-    function harvest() external override {
+    function harvest() external override onlyEOA {
         // Harvest CRV
         IMintr(mintr).mint(gauge);
         uint256 crvBalance = IERC20(crv).balanceOf(address(this));
@@ -96,10 +102,10 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
             // Re-invest DAI to obtain more 3CRV
             uint256 obtainedDaiAmount = IERC20(dai).balanceOf(address(this));
             IERC20(dai).safeIncreaseAllowance(triPool, obtainedDaiAmount);
-            uint256 virtualPrice = obtainedDaiAmount.mul(1e18).div(ICurveFi(triPool).get_virtual_price());
+            uint256 minMintAmount = obtainedDaiAmount.mul(1e18).div(ICurveFi(triPool).get_virtual_price());
             ICurveFi(triPool).add_liquidity(
                 [obtainedDaiAmount, 0, 0],
-                virtualPrice.mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR)
+                minMintAmount.mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR)
             );
 
             // Stake 3CRV in Gauge to farm more CRV
@@ -118,10 +124,10 @@ contract StrategyCurve3PoolDAI is IStrategy, Ownable {
 
         // Deposit DAI to 3Pool
         IERC20(dai).safeIncreaseAllowance(triPool, _daiAmount);
-        uint256 virtualPrice = _daiAmount.mul(1e18).div(ICurveFi(triPool).get_virtual_price());
+        uint256 minMintAmount = _daiAmount.mul(1e18).div(ICurveFi(triPool).get_virtual_price());
         ICurveFi(triPool).add_liquidity(
             [_daiAmount, 0, 0],
-            virtualPrice.mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR)
+            minMintAmount.mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR)
         );
 
         // Stake 3CRV in Gauge to farm CRV

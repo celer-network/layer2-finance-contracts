@@ -62,6 +62,14 @@ contract StrategyCompoundErc20LendingPool is IStrategy, Ownable {
         controller = _controller;
     }
 
+    /**
+     * @dev Require that the caller must be an EOA account to avoid flash loans.
+     */
+    modifier onlyEOA() {
+        require(msg.sender == tx.origin, "Not EOA");
+        _;
+    }
+
     function getAssetAddress() external view override returns (address) {
         return supplyToken;
     }
@@ -73,7 +81,7 @@ contract StrategyCompoundErc20LendingPool is IStrategy, Ownable {
         return supplyTokenBalance;
     }
 
-    function harvest() external override {
+    function harvest() external override onlyEOA {
         // Claim COMP token.
         IComptroller(comptroller).claimComp(address(this));
         uint256 compBalance = IERC20(comp).balanceOf(address(this));

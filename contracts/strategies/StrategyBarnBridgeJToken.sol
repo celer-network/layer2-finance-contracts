@@ -77,6 +77,14 @@ contract StrategyBarnBridgeJToken is IStrategy, Ownable {
         controller = _controller;
     }
 
+    /**
+     * @dev Require that the caller must be an EOA account to avoid flash loans.
+     */
+    modifier onlyEOA() {
+        require(msg.sender == tx.origin, "Not EOA");
+        _;
+    }
+
     function getAssetAddress() external view override returns (address) {
         return supplyToken;
     }
@@ -89,7 +97,7 @@ contract StrategyBarnBridgeJToken is IStrategy, Ownable {
         return jTokenBalance.mul(jTokenPrice).div(1e18);
     }
 
-    function harvest() external override {
+    function harvest() external override onlyEOA {
         IYieldFarmContinuous(yieldFarm).claim();
         uint256 bondBalance = IERC20(bond).balanceOf(address(this));
         if (bondBalance > 0) {
@@ -175,9 +183,10 @@ contract StrategyBarnBridgeJToken is IStrategy, Ownable {
     }
 
     function redeemJuniorBond() external {
-        require(pendingJBonds.length >= 1, "pending junior BOND does not exist");
         uint arrayLength = pendingJBonds.length;
-        for(uint i = 0; i < arrayLength; i++) {
+        require(arrayLength >= 1, "pending junior BOND does not exist");
+        uint i = 0;
+        while (i < arrayLength) {
             uint256 juniorBondId = pendingJBonds[i];
             ( ,uint256 maturesAt) = smartYieldContract.juniorBonds(juniorBondId);
             if (maturesAt <= block.timestamp) {
@@ -185,11 +194,26 @@ contract StrategyBarnBridgeJToken is IStrategy, Ownable {
                 pendingJBonds[i] = pendingJBonds[arrayLength - 1];
                 delete pendingJBonds[arrayLength - 1];
                 arrayLength--;
+                continue;
             }
+            i++;
         }
 
         uint256 supplyTokenBalance = IERC20(supplyToken).balanceOf(address(this));
         IERC20(supplyToken).safeTransfer(controller, supplyTokenBalance);
+    }
+
+    function maturedJBondExist() external view returns (bool) {
+        uint arrayLength = pendingJBonds.length;
+        require(arrayLength >= 1, "pending junior BOND does not exist");
+        for (uint i = 0; i < arrayLength; i++) {
+            uint256 juniorBondId = pendingJBonds[i];
+            ( ,uint256 maturesAt) = smartYieldContract.juniorBonds(juniorBondId);
+            if (maturesAt <= block.timestamp) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function setController(address _controller) external onlyOwner {
