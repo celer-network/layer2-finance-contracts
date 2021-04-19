@@ -3,13 +3,12 @@ import * as dotenv from 'dotenv';
 import { ethers } from 'hardhat';
 
 import { getAddress } from '@ethersproject/address';
-import { MaxUint256 } from '@ethersproject/constants';
 import { formatEther, parseEther } from '@ethersproject/units';
 
 import { ERC20__factory } from '../typechain/factories/ERC20__factory';
 import { StrategyAaveLendingPool__factory } from '../typechain/factories/StrategyAaveLendingPool__factory';
 import { StrategyAaveLendingPool } from '../typechain/StrategyAaveLendingPool.d';
-import { getDeployerSigner } from './common';
+import { ensureBalanceAndApproval, getDeployerSigner } from './common';
 
 dotenv.config();
 
@@ -51,17 +50,20 @@ describe('StrategyAaveDAI', function () {
 
     const strategyBalanceBeforeCommit = await strategy.syncBalance();
     console.log('Strategy DAI balance before commit:', formatEther(strategyBalanceBeforeCommit));
+
+    const commitAmount = parseEther('0.001');
+    await ensureBalanceAndApproval(
+      dai,
+      'DAI',
+      commitAmount,
+      deployerSigner,
+      strategy.address,
+      process.env.AAVE_DAI_FUNDER as string
+    );
     const controllerBalanceBeforeCommit = await dai.balanceOf(deployerSigner.address);
     console.log('Controller DAI balance before commit:', formatEther(controllerBalanceBeforeCommit));
 
-    console.log('===== Approve DAI =====');
-    if ((await dai.allowance(deployerSigner.address, strategy.address)).eq(0)) {
-      const approveTx = await dai.connect(deployerSigner).approve(strategy.address, MaxUint256);
-      await approveTx.wait();
-    }
-
     console.log('===== Commit 0.001 DAI =====');
-    const commitAmount = parseEther('0.001');
     const commitGas = await strategy.estimateGas.aggregateCommit(commitAmount);
     expect(commitGas.lte(300000)).to.be.true;
     const commitTx = await strategy.aggregateCommit(commitAmount, { gasLimit: 300000 });
