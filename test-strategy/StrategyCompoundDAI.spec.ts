@@ -3,13 +3,12 @@ import * as dotenv from 'dotenv';
 import { ethers } from 'hardhat';
 
 import { getAddress } from '@ethersproject/address';
-import { MaxUint256 } from '@ethersproject/constants';
 import { formatEther, parseEther } from '@ethersproject/units';
 
 import { ERC20__factory } from '../typechain/factories/ERC20__factory';
 import { StrategyCompoundErc20LendingPool__factory } from '../typechain/factories/StrategyCompoundErc20LendingPool__factory';
 import { StrategyCompoundErc20LendingPool } from '../typechain/StrategyCompoundErc20LendingPool.d';
-import { getDeployerSigner } from './common';
+import { ensureBalanceAndApproval, getDeployerSigner } from './common';
 
 dotenv.config();
 
@@ -54,17 +53,20 @@ describe('StrategyCompoundDAI', function () {
 
     const strategyBalanceBeforeCommit = await strategy.callStatic.syncBalance();
     console.log('Strategy DAI balance before commit:', formatEther(strategyBalanceBeforeCommit));
+
+    const commitAmount = parseEther('0.001');
+    await ensureBalanceAndApproval(
+      dai,
+      'DAI',
+      commitAmount,
+      deployerSigner,
+      strategy.address,
+      process.env.COMPOUND_DAI_FUNDER as string
+    );
     const controllerBalanceBeforeCommit = await dai.balanceOf(deployerSigner.address);
     console.log('Controller DAI balance before commit:', formatEther(controllerBalanceBeforeCommit));
 
-    console.log('===== Approve DAI =====');
-    if ((await dai.allowance(deployerSigner.address, strategy.address)).eq(0)) {
-      const approveTx = await dai.connect(deployerSigner).approve(strategy.address, MaxUint256);
-      await approveTx.wait();
-    }
-
     console.log('===== Commit 0.001 DAI =====');
-    const commitAmount = parseEther('0.001');
     const errAmount = parseEther('0.0000001'); // TODO: Investigate why a miniscule error exists
     const commitGas = await strategy.estimateGas.aggregateCommit(commitAmount);
     expect(commitGas.lte(300000)).to.be.true;
@@ -73,6 +75,7 @@ describe('StrategyCompoundDAI', function () {
 
     const strategyBalanceAfterCommit = await strategy.callStatic.syncBalance();
     expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).add(errAmount).gte(commitAmount)).to.be.true;
+    expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).sub(errAmount).lte(commitAmount)).to.be.true;
     console.log('Strategy DAI balance after commit:', formatEther(strategyBalanceAfterCommit));
 
     const controllerBalanceAfterCommit = await dai.balanceOf(deployerSigner.address);
@@ -87,18 +90,30 @@ describe('StrategyCompoundDAI', function () {
     await uncommitTx.wait();
 
     const strategyBalanceAfterUncommit = await strategy.callStatic.syncBalance();
-    expect(strategyBalanceAfterUncommit.add(uncommitAmount).gte(strategyBalanceAfterCommit)).to.be.true;
+    expect(strategyBalanceAfterUncommit.add(uncommitAmount).add(errAmount).gte(strategyBalanceAfterCommit)).to.be.true;
+    expect(strategyBalanceAfterUncommit.add(uncommitAmount).sub(errAmount).lte(strategyBalanceAfterCommit)).to.be.true;
     console.log('Strategy DAI balance after uncommit:', formatEther(strategyBalanceAfterUncommit));
 
     const controllerBalanceAfterUncommit = await dai.balanceOf(deployerSigner.address);
-    expect(controllerBalanceAfterUncommit.sub(controllerBalanceAfterCommit).eq(uncommitAmount)).to.be.true;
+    expect(controllerBalanceAfterUncommit.sub(controllerBalanceAfterCommit).add(errAmount).gte(uncommitAmount)).to.be
+      .true;
+    expect(controllerBalanceAfterUncommit.sub(controllerBalanceAfterCommit).sub(errAmount).lte(uncommitAmount)).to.be
+      .true;
     console.log('Controller DAI balance after uncommit:', formatEther(controllerBalanceAfterUncommit));
 
     console.log('===== Optional harvest =====');
     try {
+      // Send some COMP to the strategy
+      const comp = ERC20__factory.connect(process.env.COMPOUND_COMP as string, deployerSigner);
+      await (
+        await comp
+          .connect(await ethers.getSigner(process.env.COMPOUND_COMP_FUNDER as string))
+          .transfer(strategy.address, parseEther('0.01'))
+      ).wait();
+      console.log('===== Sent COMP to the strategy, harvesting =====');
       const harvestGas = await strategy.estimateGas.harvest();
-      if (harvestGas.lte(300000)) {
-        const harvestTx = await strategy.harvest({ gasLimit: 300000 });
+      if (harvestGas.lte(2000000)) {
+        const harvestTx = await strategy.harvest({ gasLimit: 2000000 });
         await harvestTx.wait();
         const strategyBalanceAfterHarvest = await strategy.callStatic.syncBalance();
         expect(strategyBalanceAfterHarvest.gte(strategyBalanceAfterUncommit)).to.be.true;

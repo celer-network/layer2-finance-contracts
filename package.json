@@ -5,7 +5,7 @@
   "scripts": {
     "clean": "hardhat clean",
     "compile": "hardhat compile",
-    "generate:typechain": "hardhat typechain",
+    "generate:typechain": "rm -rf typechain && hardhat typechain",
     "report-gas:benchmark": "hardhat test benchmark/*.ts",
     "report-gas:summary": "REPORT_GAS=true yarn test",
     "size-contracts": "hardhat size-contracts > reports/contract_sizes.txt",

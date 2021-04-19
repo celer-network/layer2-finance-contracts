@@ -28,7 +28,7 @@ for sanity checks before deployment.
 2. Start a local Ethereum network based on a snapshot of the mainnet:
 
 ```sh
-hardhat node --fork <mainnet-eth-rpc> --fork-block-number <recent-mainchain-block-number>
+hardhat node --no-deploy --fork <mainnet-eth-rpc> --fork-block-number <recent-mainchain-block-number>
 ```
 
 Hardhat recommends specifying `--fork-block-number` to fork from a specific block. While this provides determinism and
