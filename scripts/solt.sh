@@ -14,6 +14,6 @@ solFiles=(
 
 run_solt_write() {
   for f in ${solFiles[@]}; do
-    solt write contracts/$f.sol --npm --runs 200
+    solt write contracts/$f.sol --npm --runs 800
   done
 }
