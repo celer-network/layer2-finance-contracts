@@ -87,12 +87,12 @@ describe('StrategyBarnBridgeJcUSDC', function () {
     console.log('bb_cUSDC price after commit:', formatEther(afterCommitJTokenPrice));
     
     const strategyBalanceAfterCommit = await strategy.callStatic.syncBalance();
-    const errorByJToknPrice = parseUnits('0.000002', 6);
+    const errorByJToknPrice = parseUnits('0.000002', 6); // price difference when commit/uncommit
     const errAmount = parseUnits('0.002', 6); // TODO: Investigate
     expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit)
       .gte(commitAmount.sub(fee).sub(errorByJToknPrice).sub(errAmount))).to.be.true;
     expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit)
-      .lte(commitAmount.add(fee).sub(errorByJToknPrice).sub(errAmount))).to.be.true;
+      .lte(commitAmount.sub(fee).add(errorByJToknPrice).sub(errAmount))).to.be.true;
     console.log('Strategy USDC balance after commit:', formatUnits(strategyBalanceAfterCommit, 6));
     
     const controllerBalanceAfterCommit = await usdc.balanceOf(deployerSigner.address);
