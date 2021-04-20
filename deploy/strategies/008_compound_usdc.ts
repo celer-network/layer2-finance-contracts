@@ -4,8 +4,8 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 
 dotenv.config();
 
-const strategyContractName = 'StrategyCurve3PoolDAI';
-const strategyDeploymentName = 'StrategyCurve3PoolDAI';
+const strategyContractName = 'StrategyCompoundErc20LendingPool';
+const strategyDeploymentName = 'StrategyCompoundUSDC';
 
 const deployFunc: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   const { deployments, getNamedAccounts } = hre;
@@ -16,15 +16,14 @@ const deployFunc: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     from: deployer,
     log: true,
     args: [
-      process.env.ROLLUP_CHAIN,
-      process.env.CURVE_DAI,
-      process.env.CURVE_3POOL,
-      process.env.CURVE_3POOL_3CRV,
-      process.env.CURVE_3POOL_GAUGE,
-      process.env.CURVE_3POOL_MINTR,
-      process.env.CURVE_CRV,
+      'USDC',
+      process.env.USDC,
+      process.env.COMPOUND_CUSDC,
+      process.env.COMPOUND_COMPTROLLER,
+      process.env.COMPOUND_COMP,
+      process.env.UNISWAP_ROUTER,
       process.env.WETH,
-      process.env.UNISWAP_ROUTER
+      process.env.ROLLUP_CHAIN
     ]
   });
 };

@@ -17,7 +17,7 @@ const deployFunc: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     log: true,
     args: [
       'DAI',
-      process.env.COMPOUND_DAI,
+      process.env.COMPOUND_DAI || process.env.DAI,
       process.env.COMPOUND_CDAI,
       process.env.COMPOUND_COMPTROLLER,
       process.env.COMPOUND_COMP,

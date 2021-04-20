@@ -5,16 +5,16 @@ import { testStrategyCurve3Pool } from './StrategyCurve3Pool.spec';
 
 dotenv.config();
 
-describe('StrategyCurve3PoolDAI', function () {
+describe('StrategyCurve3PoolUSDT', function () {
   it(DESCRIPTION, async function () {
     await testStrategyCurve3Pool(
       this,
-      process.env.STRATEGY_CURVE_DAI,
-      'DAI',
-      18,
-      0,
-      process.env.DAI as string,
-      process.env.DAI_FUNDER as string
+      process.env.STRATEGY_CURVE_USDT,
+      'USDT',
+      6,
+      2,
+      process.env.USDT as string,
+      process.env.USDT_FUNDER as string
     );
   });
 });

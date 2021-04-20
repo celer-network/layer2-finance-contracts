@@ -203,6 +203,26 @@ contract StrategyBarnBridgeJToken is IStrategy, Ownable {
         IERC20(supplyToken).safeTransfer(controller, supplyTokenBalance);
     }
 
+    function returnPendingJBonds() external returns (uint256[] memory, uint256[] memory, uint256[] memory) {
+        uint arrayLength = pendingJBonds.length;
+        uint256[] memory jBondIdArray = new uint256[](arrayLength);
+        jBondIdArray = pendingJBonds;
+        // Array of supplying token(e.g. USDC, DAI) redeem amount
+        uint256[] memory tokensArray = new uint256[](arrayLength);
+        // Array of timestamp when junior bond mature
+        uint256[] memory maturesAtArray = new uint256[](arrayLength);
+        // jTokenPrice is jToken price * 1e18
+        uint256 jTokenPrice = IISmartYield(smartYield).price();
+
+        for (uint i = 0; i < arrayLength; i++) {
+            (uint256 tokens, uint256 maturesAt) = smartYieldContract.juniorBonds(pendingJBonds[i]);
+            tokensArray[i] =  tokens.mul(jTokenPrice).div(1e18);
+            maturesAtArray[i] = maturesAt;
+        }
+
+        return (jBondIdArray, tokensArray, maturesAtArray);
+    }
+
     function maturedJBondExist() external view returns (bool) {
         uint arrayLength = pendingJBonds.length;
         require(arrayLength >= 1, "pending junior BOND does not exist");

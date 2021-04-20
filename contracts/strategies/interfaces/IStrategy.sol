@@ -14,6 +14,8 @@ interface IStrategy {
 
     event UnCommitted(uint256 uncommitAmount);
 
+    event ControllerChanged(address previousController, address newController);
+
     /**
      * @dev Returns the address of the asset token.
      */
