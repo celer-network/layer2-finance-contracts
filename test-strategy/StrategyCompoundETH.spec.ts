@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
+import { ethers, network } from 'hardhat';
 
 import { getAddress } from '@ethersproject/address';
 import { formatEther, parseEther } from '@ethersproject/units';
@@ -101,6 +101,10 @@ describe('StrategyCompoundETH', function () {
     try {
       // Send some COMP to the strategy
       const comp = ERC20__factory.connect(process.env.COMPOUND_COMP as string, deployerSigner);
+      await network.provider.request({
+        method: 'hardhat_impersonateAccount',
+        params: [process.env.COMPOUND_COMP_FUNDER]
+      });
       await (
         await comp
           .connect(await ethers.getSigner(process.env.COMPOUND_COMP_FUNDER as string))
