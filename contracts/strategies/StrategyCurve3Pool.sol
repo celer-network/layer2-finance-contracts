@@ -175,4 +175,8 @@ contract StrategyCurve3Pool is IStrategy, Ownable {
         emit ControllerChanged(controller, _controller);
         controller = _controller;
     }
+
+    function setSlippage(uint256 _slippage) external onlyOwner {
+        slippage = _slippage;
+    }
 }
