@@ -9,7 +9,7 @@ describe('StrategyCurve3PoolDAI', function () {
   it(DESCRIPTION, async function () {
     await testStrategyCurve3Pool(
       this,
-      process.env.STRATEGY_CURVE_DAI,
+      process.env.STRATEGY_CURVE_3POOL_DAI,
       'DAI',
       18,
       0,

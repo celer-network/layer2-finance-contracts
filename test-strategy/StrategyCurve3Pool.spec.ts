@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import * as dotenv from 'dotenv';
-import { ethers } from 'hardhat';
+import { ethers, network } from 'hardhat';
 
 import { getAddress } from '@ethersproject/address';
 import { formatUnits, parseEther, parseUnits } from '@ethersproject/units';
@@ -22,7 +22,6 @@ interface DeployStrategyCurve3PoolInfo {
 
 async function deployStrategyCurve3Pool(
   deployedAddress: string | undefined,
-  supplyTokenSymbol: string,
   supplyTokenDecimals: number,
   supplyToken3PoolIndex: number,
   supplyTokenAddress: string
@@ -72,7 +71,6 @@ export async function testStrategyCurve3Pool(
 
   const { strategy, supplyToken, deployerSigner } = await deployStrategyCurve3Pool(
     deployedAddress,
-    supplyTokenSymbol,
     supplyTokenDecimals,
     supplyToken3PoolIndex,
     supplyTokenAddress
@@ -123,7 +121,7 @@ export async function testStrategyCurve3Pool(
   expect(controllerBalanceBeforeCommit.sub(controllerBalanceAfterCommit).sub(slippageAmount).lte(commitAmount)).to.be
     .true;
   console.log(
-    'Controller ${supplyTokenSymbol} balance after commit:',
+    `Controller ${supplyTokenSymbol} balance after commit:`,
     formatUnits(controllerBalanceAfterCommit, supplyTokenDecimals)
   );
 
@@ -159,6 +157,10 @@ export async function testStrategyCurve3Pool(
   try {
     // Send some CRV to the strategy
     const crv = ERC20__factory.connect(process.env.CURVE_CRV as string, deployerSigner);
+    await network.provider.request({
+      method: 'hardhat_impersonateAccount',
+      params: [process.env.CURVE_CRV_FUNDER]
+    });
     await (
       await crv
         .connect(await ethers.getSigner(process.env.CURVE_CRV_FUNDER as string))
