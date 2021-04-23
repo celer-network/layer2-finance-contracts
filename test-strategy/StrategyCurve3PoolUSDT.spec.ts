@@ -9,7 +9,7 @@ describe('StrategyCurve3PoolUSDT', function () {
   it(DESCRIPTION, async function () {
     await testStrategyCurve3Pool(
       this,
-      process.env.STRATEGY_CURVE_USDT,
+      process.env.STRATEGY_CURVE_3POOL_USDT,
       'USDT',
       6,
       2,

@@ -2,6 +2,7 @@ import { ethers, getNamedAccounts, network } from 'hardhat';
 
 import { BigNumber } from '@ethersproject/bignumber';
 import { MaxUint256 } from '@ethersproject/constants';
+import { parseEther } from '@ethersproject/units';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 
 import { ERC20 } from '../typechain/ERC20.d';
@@ -31,6 +32,20 @@ export async function ensureBalanceAndApproval(
   strategyAddress: string,
   tokenFunderAddress: string
 ): Promise<void> {
+  if ((await ethers.provider.getBalance(deployerSigner.address)).lt(parseEther('0.1'))) {
+    const ethFunderAddress = process.env.ETH_FUNDER as string;
+    console.log(`===== Obtain ETH =====`);
+    await network.provider.request({
+      method: 'hardhat_impersonateAccount',
+      params: [ethFunderAddress]
+    });
+    (
+      await (await ethers.getSigner(ethFunderAddress)).sendTransaction({
+        to: deployerSigner.address,
+        value: ethers.utils.parseEther('0.1')
+      })
+    ).wait();
+  }
   if ((await token.balanceOf(deployerSigner.address)).lt(minAmount)) {
     console.log(`===== Obtain ${symbol} =====`);
     await network.provider.request({

@@ -28,20 +28,17 @@ Check `reports/contract_sizes.txt`.
 ### Deployment
 
 1. In the project root directory, update `.env`. Example values are in `.env.template`.
+
 2. Run deployment commands:
 
 ```sh
-hardhat deploy --network ropsten --tags TestToken
-```
-
-```sh
-hardhat deploy --network ropsten --tags Faucet
+hardhat deploy --network <network> --tags <deployment-tags>
 ```
 
 3. To verify on Etherscan using Hardhat, try:
 
 ```sh
-hardhat etherscan-verify --network ropsten
+hardhat etherscan-verify --network <network>
 ```
 
 4. To verify on Etherscan using [solt](https://github.com/hjubb/solt/blob/main/README.md), run:
