@@ -76,8 +76,8 @@ describe('StrategyBarnBridgeJcUSDC', function () {
     )
 
     console.log('===== Commit 1 USDC =====');
-    // Buy junior token fee is 0.3%
-    const fee = parseUnits('0.003', 6);
+    // Currently Buy junior token fee is 0.5%
+    const fee = parseUnits('0.005', 6);
     const commitGas = await strategy.estimateGas.aggregateCommit(commitAmount);
     expect(commitGas.lte(800000)).to.be.true;
     const commitTx = await strategy.aggregateCommit(commitAmount, { gasLimit: 800000 });
@@ -88,11 +88,10 @@ describe('StrategyBarnBridgeJcUSDC', function () {
     
     const strategyBalanceAfterCommit = await strategy.callStatic.syncBalance();
     const errorByJToknPrice = parseUnits('0.000002', 6); // price difference when commit/uncommit
-    const errAmount = parseUnits('0.002', 6); // TODO: Investigate
     expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit)
-      .gte(commitAmount.sub(fee).sub(errorByJToknPrice).sub(errAmount))).to.be.true;
+      .gte(commitAmount.sub(fee).sub(errorByJToknPrice))).to.be.true;
     expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit)
-      .lte(commitAmount.sub(fee).add(errorByJToknPrice).sub(errAmount))).to.be.true;
+      .lte(commitAmount.sub(fee).add(errorByJToknPrice))).to.be.true;
     console.log('Strategy USDC balance after commit:', formatUnits(strategyBalanceAfterCommit, 6));
     
     const controllerBalanceAfterCommit = await usdc.balanceOf(deployerSigner.address);
