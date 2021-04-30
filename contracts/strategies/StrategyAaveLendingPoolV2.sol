@@ -100,7 +100,7 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
 
         // 3. Claims the liquidity incentives
         address[] memory assets = new address[](1);
-        assets[0] = supplyToken;
+        assets[0] = aToken;
         uint256 rewardsBalance = IAaveIncentivesController(incentivesController).getRewardsBalance(assets, address(this)); 
 
         if (rewardsBalance > 0) {
