@@ -30,15 +30,15 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
     uint256 public slippage = 5;
 
     // supply token (WETH) params
-    uint8 public ethIndexInPool = 0; // ETH - 0, sETH - 1
+    uint8 public ethIndexInPool = 0; // ETH - 0, Other - 1
     
     // token addresses
-    address public eCrv; // sETH LP token
+    address public eCrv; // LP token
     address public crv; // CRV token
     address public weth; // WETH token
 
     // contract addresses
-    address public ethPool; // Curve ETH/sETH swap pool
+    address public ethPool; // Curve ETH/? swap pool
     address public gauge; // Curve gauge
     address public mintr; // Curve minter
     address public uniswap; // UniswapV2
@@ -48,7 +48,7 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
     constructor(
         address _controller,
         uint8 _ethIndexInPool,
-        address _triPool,
+        address _ethPool,
         address _eCrv,
         address _gauge,
         address _mintr,
@@ -58,7 +58,7 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
     ) {
         controller = _controller;
         ethIndexInPool = _ethIndexInPool;
-        ethPool = _triPool;
+        ethPool = _ethPool;
         eCrv = _eCrv;
         gauge = _gauge;
         mintr = _mintr;
@@ -129,7 +129,7 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
         // Pull WETH from Controller
         IERC20(weth).safeTransferFrom(msg.sender, address(this), _ethAmount);
 
-        // Convert WETH into ETH since curve sETH pool accepts ETH
+        // Convert WETH into ETH
         IWETH(weth).withdraw(_ethAmount);
 
         // Transfer ETH to ethPool
