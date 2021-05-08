@@ -17,7 +17,7 @@ import "../interfaces/uniswap/IUniswapV2.sol";
 import "../../interfaces/IWETH.sol";
 
 /**
- * @notice Deposits stable coins into Curve 3Pool and issues stCrv3Pool<stable-coin-name> in L2. Holds eCRV (Curve 3Pool
+ * @notice Deposits stable coins into Curve 3Pool and issues stCrv3Pool<stable-coin-name> in L2. Holds lpToken (Curve 3Pool
  * LP tokens).
  */
 contract StrategyCurveEthPool is IStrategy, Ownable {
@@ -27,13 +27,13 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
 
     // slippage tolerance settings
     uint256 public constant DENOMINATOR = 10000;
-    uint256 public slippage = 5;
+    uint256 public slippage = 500;
 
     // supply token (WETH) params
     uint8 public ethIndexInPool = 0; // ETH - 0, Other - 1
-    
+
     // token addresses
-    address public eCrv; // LP token
+    address public lpToken; // LP token
     address public crv; // CRV token
     address public weth; // WETH token
 
@@ -49,7 +49,7 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
         address _controller,
         uint8 _ethIndexInPool,
         address _ethPool,
-        address _eCrv,
+        address _lpToken,
         address _gauge,
         address _mintr,
         address _crv,
@@ -59,7 +59,7 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
         controller = _controller;
         ethIndexInPool = _ethIndexInPool;
         ethPool = _ethPool;
-        eCrv = _eCrv;
+        lpToken = _lpToken;
         gauge = _gauge;
         mintr = _mintr;
         crv = _crv;
@@ -80,8 +80,8 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
     }
 
     function syncBalance() external view override returns (uint256) {
-        uint256 eCrvBalance = IGauge(gauge).balanceOf(address(this));
-        uint256 supplyTokenBalance = eCrvBalance.mul(ICurveFi(ethPool).get_virtual_price()).div(1e18);
+        uint256 lpTokenBalance = IGauge(gauge).balanceOf(address(this));
+        uint256 supplyTokenBalance = lpTokenBalance.mul(ICurveFi(ethPool).get_virtual_price()).div(1e18);
         return supplyTokenBalance;
     }
 
@@ -89,7 +89,7 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
         // Harvest CRV
         IMintr(mintr).mint(gauge);
         uint256 crvBalance = IERC20(crv).balanceOf(address(this));
-        
+
         if (crvBalance > 0) {
             // Sell CRV for more supply token
             IERC20(crv).safeIncreaseAllowance(uniswap, crvBalance);
@@ -106,18 +106,21 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
                 block.timestamp.add(1800)
             );
 
-            // Re-invest supply token to obtain more eCRV
-            uint256 obtainedEthAmount = IERC20(weth).balanceOf(address(this));
-            uint256 minMintAmount = obtainedEthAmount
-                .mul(1e18).div(ICurveFi(ethPool).get_virtual_price())
-                .mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR);
+            // Re-invest supply token to obtain more lpToken
+            uint256 obtainedEthAmount = address(this).balance;
+            uint256 minMintAmount =
+                obtainedEthAmount
+                    .mul(1e18)
+                    .div(ICurveFi(ethPool).get_virtual_price())
+                    .mul(DENOMINATOR.sub(slippage))
+                    .div(DENOMINATOR);
             uint256[2] memory amounts;
             amounts[ethIndexInPool] = obtainedEthAmount;
             ICurveFi(ethPool).add_liquidity{value: obtainedEthAmount}(amounts, minMintAmount);
 
-            // Stake eCRV in Gauge to farm more CRV
-            uint256 obtainedTriCrvBalance = IERC20(eCrv).balanceOf(address(this));
-            IERC20(eCrv).safeIncreaseAllowance(gauge, obtainedTriCrvBalance);
+            // Stake lpToken in Gauge to farm more CRV
+            uint256 obtainedTriCrvBalance = IERC20(lpToken).balanceOf(address(this));
+            IERC20(lpToken).safeIncreaseAllowance(gauge, obtainedTriCrvBalance);
             IGauge(gauge).deposit(obtainedTriCrvBalance);
         }
     }
@@ -133,17 +136,18 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
         IWETH(weth).withdraw(_ethAmount);
 
         // Transfer ETH to ethPool
-        uint256 minMintAmount = 
-            _ethAmount.mul(1e18).div(ICurveFi(ethPool).get_virtual_price())
-            .mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR);
+        uint256 minMintAmount =
+            _ethAmount.mul(1e18).div(ICurveFi(ethPool).get_virtual_price()).mul(DENOMINATOR.sub(slippage)).div(
+                DENOMINATOR
+            );
         uint256[2] memory amounts;
         amounts[ethIndexInPool] = _ethAmount;
         ICurveFi(ethPool).add_liquidity{value: _ethAmount}(amounts, minMintAmount);
 
-        // Stake eCRV in Gauge to farm CRV
-        uint256 eCrvBalance = IERC20(eCrv).balanceOf(address(this));
-        IERC20(eCrv).safeIncreaseAllowance(gauge, eCrvBalance);
-        IGauge(gauge).deposit(eCrvBalance);
+        // Stake lpToken in Gauge to farm CRV
+        uint256 lpTokenBalance = IERC20(lpToken).balanceOf(address(this));
+        IERC20(lpToken).safeIncreaseAllowance(gauge, lpTokenBalance);
+        IGauge(gauge).deposit(lpTokenBalance);
 
         emit Committed(_ethAmount);
     }
@@ -153,13 +157,15 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
         require(_ethAmount > 0, "Nothing to uncommit");
 
         // Unstake some sCRV from Gauge
-        uint256 eCrvAmount = _ethAmount
-            .mul(1e18).div(ICurveFi(ethPool).get_virtual_price())
-            .mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR);
-        IGauge(gauge).withdraw(eCrvAmount);
+        uint256 lpTokenAmount = _ethAmount.mul(1e18).div(ICurveFi(ethPool).get_virtual_price());
+        IGauge(gauge).withdraw(lpTokenAmount);
 
-        // Withdraw supply token from 3Pool
-        ICurveFi(ethPool).remove_liquidity_one_coin(eCrvAmount, ethIndexInPool, eCrvAmount);
+        // Withdraw supply token from pool
+        ICurveFi(ethPool).remove_liquidity_one_coin(
+            lpTokenAmount,
+            ethIndexInPool,
+            lpTokenAmount.mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR)
+        );
 
         // Convert ETH back to WETH and transfer to the controller
         uint256 ethBalance = address(this).balance;
@@ -177,4 +183,9 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
     function setSlippage(uint256 _slippage) external onlyOwner {
         slippage = _slippage;
     }
+
+    // This is needed to receive ETH when calling `ICEth.redeemUnderlying` and `IWETH.withdraw`
+    receive() external payable {}
+
+    fallback() external payable {}
 }
