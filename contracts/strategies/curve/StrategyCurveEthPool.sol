@@ -14,6 +14,7 @@ import "../interfaces/curve/IGauge.sol";
 import "../interfaces/curve/IMintr.sol";
 import "../interfaces/IStrategy.sol";
 import "../interfaces/uniswap/IUniswapV2.sol";
+import "../../interfaces/IWETH.sol";
 
 /**
  * @notice Deposits stable coins into Curve 3Pool and issues stCrv3Pool<stable-coin-name> in L2. Holds eCRV (Curve 3Pool
@@ -28,29 +29,25 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
     uint256 public constant DENOMINATOR = 10000;
     uint256 public slippage = 5;
 
-    // The address of supplying token (wETH)
-    uint8 public supplyTokenDecimals;
-    uint8 public supplyTokenPoolIndex; // ETH - 0, sETH - 1
+    // supply token (WETH) params
+    uint8 public ethIndexInPool = 0; // ETH - 0, sETH - 1
     
     // token addresses
-    address public supplyToken; // the token the controller deposits to or withdraws from this contract
     address public eCrv; // sETH LP token
     address public crv; // CRV token
     address public weth; // WETH token
 
     // contract addresses
-    address public sEthPool; // sETH pool contract
-    address public gauge; // Curve gauge contract
-    address public mintr; // Curve minter contract
-    address public uniswap; // UniswapV2 contract
+    address public ethPool; // Curve ETH/sETH swap pool
+    address public gauge; // Curve gauge
+    address public mintr; // Curve minter
+    address public uniswap; // UniswapV2
 
     address public controller;
 
     constructor(
         address _controller,
-        address _supplyToken,
-        uint8 _supplyTokenDecimals,
-        uint8 _supplyTokenTriPoolIndex,
+        uint8 _ethIndexInPool,
         address _triPool,
         address _eCrv,
         address _gauge,
@@ -60,10 +57,8 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
         address _uniswap
     ) {
         controller = _controller;
-        supplyToken = _supplyToken;
-        supplyTokenDecimals = _supplyTokenDecimals;
-        supplyTokenPoolIndex = _supplyTokenTriPoolIndex;
-        sEthPool = _triPool;
+        ethIndexInPool = _ethIndexInPool;
+        ethPool = _triPool;
         eCrv = _eCrv;
         gauge = _gauge;
         mintr = _mintr;
@@ -81,13 +76,12 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
     }
 
     function getAssetAddress() external view override returns (address) {
-        return supplyToken;
+        return weth;
     }
 
     function syncBalance() external view override returns (uint256) {
         uint256 eCrvBalance = IGauge(gauge).balanceOf(address(this));
-        uint256 supplyTokenBalance =
-            eCrvBalance.mul(ICurveFi(sEthPool).get_virtual_price()).div(1e18).div(10**(18 - supplyTokenDecimals));
+        uint256 supplyTokenBalance = eCrvBalance.mul(ICurveFi(ethPool).get_virtual_price()).div(1e18);
         return supplyTokenBalance;
     }
 
@@ -95,16 +89,16 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
         // Harvest CRV
         IMintr(mintr).mint(gauge);
         uint256 crvBalance = IERC20(crv).balanceOf(address(this));
+        
         if (crvBalance > 0) {
             // Sell CRV for more supply token
             IERC20(crv).safeIncreaseAllowance(uniswap, crvBalance);
 
-            address[] memory paths = new address[](3);
+            address[] memory paths = new address[](2);
             paths[0] = crv;
             paths[1] = weth;
-            paths[2] = supplyToken;
 
-            IUniswapV2(uniswap).swapExactTokensForTokens(
+            IUniswapV2(uniswap).swapExactTokensForETH(
                 crvBalance,
                 uint256(0),
                 paths,
@@ -113,15 +107,13 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
             );
 
             // Re-invest supply token to obtain more eCRV
-            uint256 obtainedSupplyTokenAmount = IERC20(supplyToken).balanceOf(address(this));
-            IERC20(supplyToken).safeIncreaseAllowance(sEthPool, obtainedSupplyTokenAmount);
-            uint256 minMintAmount =
-                obtainedSupplyTokenAmount.mul(1e18).mul(10**(18 - supplyTokenDecimals)).div(
-                    ICurveFi(sEthPool).get_virtual_price()
-                );
+            uint256 obtainedEthAmount = IERC20(weth).balanceOf(address(this));
+            uint256 minMintAmount = obtainedEthAmount
+                .mul(1e18).div(ICurveFi(ethPool).get_virtual_price())
+                .mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR);
             uint256[2] memory amounts;
-            amounts[supplyTokenPoolIndex] = obtainedSupplyTokenAmount;
-            ICurveFi(sEthPool).add_liquidity(amounts, minMintAmount.mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR));
+            amounts[ethIndexInPool] = obtainedEthAmount;
+            ICurveFi(ethPool).add_liquidity{value: obtainedEthAmount}(amounts, minMintAmount);
 
             // Stake eCRV in Gauge to farm more CRV
             uint256 obtainedTriCrvBalance = IERC20(eCrv).balanceOf(address(this));
@@ -130,50 +122,51 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
         }
     }
 
-    function aggregateCommit(uint256 _supplyTokenAmount) external override {
+    function aggregateCommit(uint256 _ethAmount) external override {
         require(msg.sender == controller, "Not controller");
-        require(_supplyTokenAmount > 0, "Nothing to commit");
+        require(_ethAmount > 0, "Nothing to commit");
 
-        // Pull supply token from Controller
-        IERC20(supplyToken).safeTransferFrom(msg.sender, address(this), _supplyTokenAmount);
+        // Pull WETH from Controller
+        IERC20(weth).safeTransferFrom(msg.sender, address(this), _ethAmount);
 
-        // Deposit supply token to sEthPool
-        IERC20(supplyToken).safeIncreaseAllowance(sEthPool, _supplyTokenAmount);
-        uint256 minMintAmount =
-            _supplyTokenAmount.mul(1e18).mul(10**(18 - supplyTokenDecimals)).div(ICurveFi(sEthPool).get_virtual_price());
+        // Convert WETH into ETH since curve sETH pool accepts ETH
+        IWETH(weth).withdraw(_ethAmount);
+
+        // Transfer ETH to ethPool
+        uint256 minMintAmount = 
+            _ethAmount.mul(1e18).div(ICurveFi(ethPool).get_virtual_price())
+            .mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR);
         uint256[2] memory amounts;
-        amounts[supplyTokenPoolIndex] = _supplyTokenAmount;
-        ICurveFi(sEthPool).add_liquidity(amounts, minMintAmount.mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR));
+        amounts[ethIndexInPool] = _ethAmount;
+        ICurveFi(ethPool).add_liquidity{value: _ethAmount}(amounts, minMintAmount);
 
         // Stake eCRV in Gauge to farm CRV
-        uint256 triCrvBalance = IERC20(eCrv).balanceOf(address(this));
-        IERC20(eCrv).safeIncreaseAllowance(gauge, triCrvBalance);
-        IGauge(gauge).deposit(triCrvBalance);
+        uint256 eCrvBalance = IERC20(eCrv).balanceOf(address(this));
+        IERC20(eCrv).safeIncreaseAllowance(gauge, eCrvBalance);
+        IGauge(gauge).deposit(eCrvBalance);
 
-        emit Committed(_supplyTokenAmount);
+        emit Committed(_ethAmount);
     }
 
-    function aggregateUncommit(uint256 _supplyTokenAmount) external override {
+    function aggregateUncommit(uint256 _ethAmount) external override {
         require(msg.sender == controller, "Not controller");
-        require(_supplyTokenAmount > 0, "Nothing to uncommit");
+        require(_ethAmount > 0, "Nothing to uncommit");
 
         // Unstake some sCRV from Gauge
-        uint256 eCrvAmount =
-            _supplyTokenAmount.mul(1e18).mul(10**(18 - supplyTokenDecimals)).div(ICurveFi(sEthPool).get_virtual_price());
+        uint256 eCrvAmount = _ethAmount
+            .mul(1e18).div(ICurveFi(ethPool).get_virtual_price())
+            .mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR);
         IGauge(gauge).withdraw(eCrvAmount);
 
         // Withdraw supply token from 3Pool
-        ICurveFi(sEthPool).remove_liquidity_one_coin(
-            eCrvAmount,
-            supplyTokenPoolIndex,
-            eCrvAmount.mul(DENOMINATOR.sub(slippage)).div(DENOMINATOR).div(10**(18 - supplyTokenDecimals))
-        );
+        ICurveFi(ethPool).remove_liquidity_one_coin(eCrvAmount, ethIndexInPool, eCrvAmount);
 
-        // Transfer supply token to Controller
-        uint256 supplyTokenBalance = IERC20(supplyToken).balanceOf(address(this));
-        IERC20(supplyToken).safeTransfer(msg.sender, supplyTokenBalance);
+        // Convert ETH back to WETH and transfer to the controller
+        uint256 ethBalance = address(this).balance;
+        IWETH(weth).deposit{value: ethBalance}();
+        IERC20(weth).safeTransfer(msg.sender, ethBalance);
 
-        emit UnCommitted(_supplyTokenAmount);
+        emit UnCommitted(ethBalance);
     }
 
     function setController(address _controller) external onlyOwner {
