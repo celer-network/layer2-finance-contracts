@@ -141,7 +141,7 @@ contract StrategyCreamLendingPool is IStrategy, Ownable {
             );
         }
 
-        reditribute()
+        reditribute();
     }
 
     function aggregateCommit(uint256 _commitAmount) external override {
