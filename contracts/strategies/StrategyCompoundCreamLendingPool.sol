@@ -150,7 +150,19 @@ contract StrategyCreamLendingPool is IStrategy, Ownable {
 
         // Pull supplying token(e.g. DAI, USDT) from Controller
         IERC20(supplyToken).safeTransferFrom(msg.sender, address(this), _commitAmount);
-        reditribute();
+        uint256 mintResult;
+
+        if (ICErc20(cErc20).supplyRatePerBlock() > ICErc20(crErc20).supplyRatePerBlock()) {
+            // Deposit supplying token to Compound Erc20 Lending Pool and mint cErc20.
+            IERC20(supplyToken).safeIncreaseAllowance(cErc20, _commitAmount);
+            mintResult = ICErc20(cErc20).mint(_commitAmount);
+        } else {
+            // Deposit supplying token to Cream Erc20 Lending Pool and mint crErc20.
+            IERC20(supplyToken).safeIncreaseAllowance(crErc20, _commitAmount);
+            mintResult = ICErc20(crErc20).mint(_commitAmount);
+        }
+
+        require(mintResult == 0, "Couldn't mint cToken/crToken");
 
         emit Committed(_commitAmount);
     }
