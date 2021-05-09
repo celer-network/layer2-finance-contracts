@@ -118,12 +118,6 @@ contract StrategyCreamLendingPool is IStrategy, Ownable {
                 address(this),
                 block.timestamp.add(1800)
             );
-
-            // Deposit supplying token to Cream Erc20 Lending Pool and mint cToken.
-            uint256 obtainedSupplyTokenAmount = IERC20(supplyToken).balanceOf(address(this));
-            IERC20(supplyToken).safeIncreaseAllowance(cErc20, obtainedSupplyTokenAmount);
-            uint256 mintResult = ICErc20(cErc20).mint(obtainedSupplyTokenAmount);
-            require(mintResult == 0, "Couldn't mint cToken");
         }
 
         // Claim CREAM token.
@@ -145,13 +139,9 @@ contract StrategyCreamLendingPool is IStrategy, Ownable {
                 address(this),
                 block.timestamp.add(1800)
             );
-
-            // Deposit supplying token to Cream Erc20 Lending Pool and mint cToken.
-            uint256 obtainedSupplyTokenAmount = IERC20(supplyToken).balanceOf(address(this));
-            IERC20(supplyToken).safeIncreaseAllowance(crErc20, obtainedSupplyTokenAmount);
-            uint256 mintResult = ICErc20(crErc20).mint(obtainedSupplyTokenAmount);
-            require(mintResult == 0, "Couldn't mint crToken");
         }
+
+        reditribute()
     }
 
     function aggregateCommit(uint256 _commitAmount) external override {
@@ -207,7 +197,7 @@ contract StrategyCreamLendingPool is IStrategy, Ownable {
         emit UnCommitted(_uncommitAmount);
     }
 
-    function reditribute() external {
+    function reditribute() public {
         require(msg.sender == controller, "Not controller");
 
         ICErc20 lowRateProtocol = ICErc20(cErc20);
