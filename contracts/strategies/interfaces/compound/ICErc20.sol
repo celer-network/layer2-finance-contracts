@@ -26,4 +26,10 @@ interface ICErc20 {
      * @return 0 = success, otherwise a failure
      */
     function redeemUnderlying(uint256 redeemAmount) external returns (uint256);
+
+    /**
+     * @notice Returns the current per-block supply interest rate for this cToken
+     * @return The supply interest rate per block, scaled by 1e18
+     */
+    function supplyRatePerBlock() external view returns (uint256);
 }
