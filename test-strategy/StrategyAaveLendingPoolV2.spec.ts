@@ -1,8 +1,8 @@
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
+import { ethers, network } from 'hardhat';
 
 import { getAddress } from '@ethersproject/address';
-import { formatUnits, parseUnits } from '@ethersproject/units';
+import { formatUnits, parseEther, parseUnits } from '@ethersproject/units';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 
 import { ERC20 } from '../typechain/ERC20.d';
@@ -44,7 +44,8 @@ async function deployStrategyAaveLendingPoolV2(
         process.env.AAVE_STAKETOKEN as string,
         process.env.AAVE_AAVE as string,
         process.env.UNISWAP_ROUTER as string,
-        process.env.WETH as string
+        process.env.WETH as string,
+        60*60*24*10
       );
     await strategy.deployed();
   }
@@ -140,15 +141,52 @@ export async function testStrategyAaveLendingPoolV2(
 
   console.log('===== Optional harvest =====');
   try {
+    // Send some AAVE to the strategy
+    const aave = ERC20__factory.connect(process.env.AAVE_AAVE as string, deployerSigner);
+    await network.provider.request({
+      method: 'hardhat_impersonateAccount',
+      params: [process.env.AAVE_AAVE_FUNDER]
+    });
+    await (
+      await aave
+        .connect(await ethers.getSigner(process.env.AAVE_AAVE_FUNDER as string))
+        .transfer(strategy.address, parseEther('0.01'))
+    ).wait();
+    console.log('===== Sent AAVE to the strategy, harvesting =====');
+
     const harvestGas = await strategy.estimateGas.harvest();
-    if (harvestGas.lte(500000)) {
-      const harvestTx = await strategy.harvest({ gasLimit: 500000 });
+    if (harvestGas.lte(2000000)) {
+      const harvestTx = await strategy.harvest({ gasLimit: 2000000 });
       await harvestTx.wait();
       const strategyBalanceAfterHarvest = await strategy.callStatic.syncBalance();
       expect(strategyBalanceAfterHarvest.gte(strategyBalanceAfterUncommit)).to.be.true;
       console.log(
         `Strategy ${supplyTokenSymbol} balance after harvest:`,
         formatUnits(strategyBalanceAfterHarvest, supplyTokenDecimals)
+      );
+
+      // Simulate 10 days past
+      await ethers.provider.send("evm_increaseTime", [60*60*24*10 + 60*60]);
+
+      // Send some AAVE to the strategy
+      await network.provider.request({
+        method: 'hardhat_impersonateAccount',
+        params: [process.env.AAVE_AAVE_FUNDER]
+      });
+      await (
+        await aave
+          .connect(await ethers.getSigner(process.env.AAVE_AAVE_FUNDER as string))
+          .transfer(strategy.address, parseEther('0.01'))
+      ).wait();
+      console.log('===== Sent AAVE to the strategy 2nd time, harvesting =====');
+
+      const harvestTx2 = await strategy.harvest({ gasLimit: 2000000 });
+      await harvestTx2.wait();
+      const strategyBalanceAfterHarvest2 = await strategy.callStatic.syncBalance();
+      expect(strategyBalanceAfterHarvest2.gt(strategyBalanceAfterUncommit)).to.be.true;
+      console.log(
+        `Strategy ${supplyTokenSymbol} balance after harvest2:`,
+        formatUnits(strategyBalanceAfterHarvest2, supplyTokenDecimals)
       );
     }
   } catch (e) {

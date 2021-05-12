@@ -51,6 +51,10 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
     // The address of WETH token
     address public weth;
 
+    uint256 public cooldownSeconds;
+
+    uint256 public lastCooldownTimestamp;
+
     constructor(
         address _lendingPool,
         string memory _symbol,
@@ -61,7 +65,8 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
         address _stakeToken,
         address _aave,
         address _uniswap,
-        address _weth
+        address _weth,
+        uint256 _cooldownSeconds
     ) {
         lendingPool = _lendingPool;
         symbol = _symbol;
@@ -73,6 +78,7 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
         aave = _aave;
         uniswap = _uniswap;
         weth = _weth;
+        cooldownSeconds = _cooldownSeconds;
     }
 
     function getAssetAddress() external view override returns (address) {
@@ -87,6 +93,10 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
     }
 
     function harvest() external override {
+        require(
+            block.timestamp > lastCooldownTimestamp.add(cooldownSeconds), 'INSUFFICIENT_COOLDOWN'
+        );
+        lastCooldownTimestamp = block.timestamp;
 
         // 1. Claims the StkAAVE staking rewards
         uint256 stakingRewards = IStakeAave(stakeToken).getTotalRewardsBalance(address(this));
@@ -96,7 +106,7 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
         }
 
         // 2. Redeems staked tokens, note that it won't be success while this account not in redeem-available period 
-        stakeToken.call(abi.encodeWithSignature("redeem(address,uint256)", address(this), IERC20(stakeToken).balanceOf(address(this))));
+        stakeToken.call(abi.encodeWithSelector(IStakeAave.redeem.selector, address(this), IERC20(stakeToken).balanceOf(address(this))));
 
         // 3. Claims the liquidity incentives
         address[] memory assets = new address[](1);
@@ -168,5 +178,9 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
     function setController(address _controller) external onlyOwner {
         emit ControllerChanged(controller, _controller);
         controller = _controller;
+    }
+
+    function setCooldownSeconds(uint256 _cooldownSeconds) external onlyOwner {
+        cooldownSeconds = _cooldownSeconds;
     }
 }
