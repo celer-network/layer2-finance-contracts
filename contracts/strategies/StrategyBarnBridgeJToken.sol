@@ -91,10 +91,18 @@ contract StrategyBarnBridgeJToken is IStrategy, Ownable {
 
     function syncBalance() external override returns (uint256) {
         uint256 jTokenBalance = yieldFarmContract.balances(address(this));
+        // Calculate share of jTokenBalance in the debt
+        uint256 forfeits = calForfeits(jTokenBalance);
         // jTokenPrice is jToken price * 1e18
         uint256 jTokenPrice = IISmartYield(smartYield).price();
-        // return supplying token(e.g. USDC, DAI) balance
-        return jTokenBalance.mul(jTokenPrice).div(1e18);
+        return jTokenBalance.mul(jTokenPrice).div(1e18).sub(forfeits);
+    }
+
+    function calForfeits(uint256 jTokenAmount) public view returns (uint256) {
+        // share of jTokenAmount in the debt
+        uint256 debtShare = jTokenAmount.mul(1e18).div(IERC20(jToken).totalSupply());
+        uint256 forfeits = IISmartYield(smartYield).abondDebt().mul(debtShare).div(1e18);
+        return forfeits;
     }
 
     function harvest() external override onlyEOA {
@@ -164,79 +172,22 @@ contract StrategyBarnBridgeJToken is IStrategy, Ownable {
         uint256 jTokenWithdrawAmount = _uncommitAmount.mul(1e18).div(jTokenPrice);
         IYieldFarmContinuous(yieldFarm).withdraw(jTokenWithdrawAmount);
 
-        // Buy Junior bond
-        // maxMaturesAt param refer to barnbridge two-step-withdraw frontend (https://github.com/BarnBridge/barnbridge-frontend/blob/8aabd18a5d2ac35bbfb250b8d5a40bb2a8a86620/src/modules/smart-yield/views/withdraw-view/two-step-withdraw/index.tsx)
-        IERC20(jToken).safeIncreaseAllowance(smartYield, jTokenWithdrawAmount);
-        ( , , ,uint256 maturesAt, ) = smartYieldContract.abond();
-        uint256 maxMaturesAt = maturesAt.div(1e18).add(1);
-        IISmartYield(smartYield).buyJuniorBond(
+        // Instant withdraw
+        IISmartYield(smartYield).sellTokens(
             jTokenWithdrawAmount,
-            maxMaturesAt,
+            uint256(0),
             block.timestamp.add(1800)
         );
 
-        // NFT Id of junior bond
-        uint256 juniorBondId = smartYieldContract.juniorBondId();   
-        pendingJBonds.push(juniorBondId);
-
+        // Transfer supply token to Controller
+        uint256 supplyTokenBalance = IERC20(supplyToken).balanceOf(address(this));
+        IERC20(supplyToken).safeTransfer(controller, supplyTokenBalance);
+        
         emit UnCommitted(_uncommitAmount);
     }
 
-    function redeemJuniorBond() external {
-        uint arrayLength = pendingJBonds.length;
-        require(arrayLength >= 1, "pending junior BOND does not exist");
-        uint i = 0;
-        while (i < arrayLength) {
-            uint256 juniorBondId = pendingJBonds[i];
-            ( ,uint256 maturesAt) = smartYieldContract.juniorBonds(juniorBondId);
-            if (maturesAt <= block.timestamp) {
-                IISmartYield(smartYield).redeemJuniorBond(juniorBondId);
-                pendingJBonds[i] = pendingJBonds[arrayLength - 1];
-                delete pendingJBonds[arrayLength - 1];
-                arrayLength--;
-                continue;
-            }
-            i++;
-        }
-
-        uint256 supplyTokenBalance = IERC20(supplyToken).balanceOf(address(this));
-        IERC20(supplyToken).safeTransfer(controller, supplyTokenBalance);
-    }
-
-    function returnPendingJBonds() external returns (uint256[] memory, uint256[] memory, uint256[] memory) {
-        uint arrayLength = pendingJBonds.length;
-        uint256[] memory jBondIdArray = new uint256[](arrayLength);
-        jBondIdArray = pendingJBonds;
-        // Array of supplying token(e.g. USDC, DAI) redeem amount
-        uint256[] memory tokensArray = new uint256[](arrayLength);
-        // Array of timestamp when junior bond mature
-        uint256[] memory maturesAtArray = new uint256[](arrayLength);
-        // jTokenPrice is jToken price * 1e18
-        uint256 jTokenPrice = IISmartYield(smartYield).price();
-
-        for (uint i = 0; i < arrayLength; i++) {
-            (uint256 tokens, uint256 maturesAt) = smartYieldContract.juniorBonds(pendingJBonds[i]);
-            tokensArray[i] =  tokens.mul(jTokenPrice).div(1e18);
-            maturesAtArray[i] = maturesAt;
-        }
-
-        return (jBondIdArray, tokensArray, maturesAtArray);
-    }
-
-    function maturedJBondExist() external view returns (bool) {
-        uint arrayLength = pendingJBonds.length;
-        require(arrayLength >= 1, "pending junior BOND does not exist");
-        for (uint i = 0; i < arrayLength; i++) {
-            uint256 juniorBondId = pendingJBonds[i];
-            ( ,uint256 maturesAt) = smartYieldContract.juniorBonds(juniorBondId);
-            if (maturesAt <= block.timestamp) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     function setController(address _controller) external onlyOwner {
+        emit ControllerChanged(controller, _controller);
         controller = _controller;
     }
 }

@@ -75,9 +75,10 @@ describe('StrategyBarnBridgeJcUSDC', function () {
       process.env.USDC_FUNDER as string
     )
 
-    console.log('===== Commit 1 USDC =====');
-    // Currently Buy junior token fee is 0.5%
+    console.log('===== Commit 1 USDC =====');  
+    // Currently buy junior token fee is 0.5% 
     const fee = parseUnits('0.005', 6);
+
     const commitGas = await strategy.estimateGas.aggregateCommit(commitAmount);
     expect(commitGas.lte(800000)).to.be.true;
     const commitTx = await strategy.aggregateCommit(commitAmount, { gasLimit: 800000 });
@@ -87,17 +88,21 @@ describe('StrategyBarnBridgeJcUSDC', function () {
     console.log('bb_cUSDC price after commit:', formatEther(afterCommitJTokenPrice));
     
     const strategyBalanceAfterCommit = await strategy.callStatic.syncBalance();
-    const errorByJToknPrice = parseUnits('0.000002', 6); // price difference when commit/uncommit
+    // debt share at block-number 12400000
+    // arg is (1 - fee) / afterCommitJTokenPrice
+    const afterCommitForfeits = await strategy.callStatic.calForfeits(parseUnits('0.959', 6));
+    const errorByJToknPrice = parseUnits('0.000002', 6); // price difference when commit/uncommit 
+    
     expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit)
-      .gte(commitAmount.sub(fee).sub(errorByJToknPrice))).to.be.true;
+      .gte(commitAmount.sub(fee).sub(afterCommitForfeits).sub(errorByJToknPrice))).to.be.true;
     expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit)
-      .lte(commitAmount.sub(fee).add(errorByJToknPrice))).to.be.true;
+      .lte(commitAmount.sub(fee).sub(afterCommitForfeits).add(errorByJToknPrice))).to.be.true;
     console.log('Strategy USDC balance after commit:', formatUnits(strategyBalanceAfterCommit, 6));
     
     const controllerBalanceAfterCommit = await usdc.balanceOf(deployerSigner.address);
     expect(controllerBalanceBeforeCommit.sub(controllerBalanceAfterCommit).eq(commitAmount)).to.be.true;
     console.log('Controller USDC balance after commit:', formatUnits(controllerBalanceAfterCommit, 6));
-
+   
     console.log('===== Uncommit 0.5 USDC =====');
     const uncommitAmount = parseUnits('0.5', 6);
     const uncommitGas = await strategy.estimateGas.aggregateUncommit(uncommitAmount);
@@ -108,24 +113,22 @@ describe('StrategyBarnBridgeJcUSDC', function () {
     const afterUncommitJTokenPrice = await smartYield.callStatic.price();
     console.log('bb_cUSDC price after commit:', formatEther(afterUncommitJTokenPrice));
 
-    const pendingJBonds = await strategy.callStatic.returnPendingJBonds();
-    const {0: jBondArray, 1: tokensArray, 2: maturesAtArray} = pendingJBonds;
-    const arrayLength = jBondArray.length;
-    console.log('Junior Bond id:', jBondArray[arrayLength-1].toString());
     const strategyBalanceAfterUncommit = await strategy.callStatic.syncBalance();
+    // debt share at block-number 12400000
+    // arg is 0.5 / afterUncommitJTokenPrice
+    const afterUncommitForfeits = await strategy.callStatic.calForfeits(parseUnits('0.482', 6));
+    expect(strategyBalanceAfterCommit.sub(strategyBalanceAfterUncommit)
+      .gte(uncommitAmount.sub(afterUncommitForfeits).sub(errorByJToknPrice))).to.be.true;
+    expect(strategyBalanceAfterCommit.sub(strategyBalanceAfterUncommit)
+      .lte(uncommitAmount.sub(afterUncommitForfeits).add(errorByJToknPrice))).to.be.true;
     console.log('Strategy USDC balance after uncommit:', formatUnits(strategyBalanceAfterUncommit, 6));
-    expect(uncommitAmount.add(errorByJToknPrice).gte(tokensArray[arrayLength-1])).to.be.true;
-    expect(uncommitAmount.sub(errorByJToknPrice).lte(tokensArray[arrayLength-1])).to.be.true;
-    console.log('USDC redeem amount:', formatUnits(tokensArray[arrayLength-1], 6));
-    console.log('Timestamp when junior bond mature:', maturesAtArray[arrayLength-1].toString());
 
-    const maturedJBondExist = await strategy.callStatic.maturedJBondExist();
-    if (maturedJBondExist) {
-      const redeemTx = await strategy.redeemJuniorBond();
-      redeemTx.wait();
-      const controllerBalanceAfterRedeem = await usdc.balanceOf(deployerSigner.address);
-      console.log('Controller USDC balance after redeem:', formatUnits(controllerBalanceAfterRedeem, 6));
-    }
+    const controllerBalanceAfterUncommit = await usdc.balanceOf(deployerSigner.address);
+    expect(controllerBalanceAfterUncommit.sub(controllerBalanceAfterCommit)
+      .gte(uncommitAmount.sub(afterUncommitForfeits).sub(errorByJToknPrice))).to.be.true;
+    expect(controllerBalanceAfterUncommit.sub(controllerBalanceAfterCommit)
+      .lte(uncommitAmount.sub(afterUncommitForfeits).add(errorByJToknPrice))).to.be.true;
+    console.log('Controller USDC balance after uncommit:', formatUnits(controllerBalanceAfterUncommit, 6));
 
     console.log('===== Optional harvest =====');
     try {

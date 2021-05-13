@@ -9,17 +9,14 @@ interface IISmartYield {
     function buyTokens(uint256 underlyingAmount_, uint256 minTokens_, uint256 deadline_) external;
 
     /**
-     * buy an nft with tokenAmount_ jTokens, that matures at abond maturesAt
-     */ 
-    function buyJuniorBond(uint256 tokenAmount_, uint256 maxMaturesAt_, uint256 deadline_) external;
-
-    /**
-     * once matured, redeem a jBond for underlying
-     */ 
-    function redeemJuniorBond(uint256 jBondId_) external;
+     * sell _tokens for at least _minUnderlying, before _deadline and forfeit potential future gains
+     */
+    function sellTokens(uint256 tokenAmount_, uint256 minUnderlying_, uint256 deadline_) external;
 
     /**
      * jToken price * 1e18
      */
     function price() external returns (uint256);
+
+    function abondDebt() external view returns (uint256);
 }
