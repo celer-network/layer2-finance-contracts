@@ -5,7 +5,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 dotenv.config();
 
 const strategyContractName = 'StrategyAaveLendingPoolV2';
-const strategyDeploymentName = 'StrategyV2AaveUSDC';
+const strategyDeploymentName = 'StrategyAaveV2USDC';
 
 const deployFunc: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   const { deployments, getNamedAccounts } = hre;

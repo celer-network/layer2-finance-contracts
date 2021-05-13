@@ -5,7 +5,7 @@ import { testStrategyAaveLendingPoolV2 } from './StrategyAaveLendingPoolV2.spec'
 
 dotenv.config();
 
-describe('StrategyV2AaveUSDC', function () {
+describe('StrategyAaveV2USDC', function () {
   it(DESCRIPTION, async function () {
     await testStrategyAaveLendingPoolV2(
       this,
