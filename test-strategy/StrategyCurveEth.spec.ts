@@ -1,51 +1,56 @@
-import { getAddress } from '@ethersproject/address';
-import { formatUnits, parseEther, parseUnits } from '@ethersproject/units';
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 import { expect } from 'chai';
 import * as dotenv from 'dotenv';
 import { ethers, network } from 'hardhat';
-import { ERC20 } from '../typechain/ERC20.d';
+
+import { getAddress } from '@ethersproject/address';
+import { formatUnits, parseEther, parseUnits } from '@ethersproject/units';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
+
+import { ERC20 } from '../typechain/ERC20';
 import { ERC20__factory } from '../typechain/factories/ERC20__factory';
-import { StrategyCurveEthPool__factory } from '../typechain/factories/StrategyCurveEthPool__factory';
-import { StrategyCurveEthPool } from '../typechain/StrategyCurveEthPool';
+import { StrategyCurveEth__factory } from '../typechain/factories/StrategyCurveEth__factory';
+import { StrategyCurveEth } from '../typechain/StrategyCurveEth';
 import { ensureBalanceAndApproval, getDeployerSigner } from './common';
 
 dotenv.config();
 
 const ETH_DECIMALS = 18;
 
-interface DeployStrategyCurveEthPoolInfo {
-  strategy: StrategyCurveEthPool;
+interface DeployStrategyCurveEthInfo {
+  strategy: StrategyCurveEth;
   weth: ERC20;
   deployerSigner: SignerWithAddress;
 }
 
-async function deployStrategyCurveEthPool(
+async function deployStrategyCurveEth(
   deployedAddress: string | undefined,
-  ethIndexInPool: number
-): Promise<DeployStrategyCurveEthPoolInfo> {
+  ethIndexInPool: number,
+  poolAddress: string,
+  lpTokenAddress: string,
+  gaugeAddress: string
+): Promise<DeployStrategyCurveEthInfo> {
   const deployerSigner = await getDeployerSigner();
 
-  let strategy: StrategyCurveEthPool;
+  let strategy: StrategyCurveEth;
 
   // connect to strategy contract, deploy the contract if it's not deployed yet
   if (deployedAddress) {
-    strategy = StrategyCurveEthPool__factory.connect(deployedAddress, deployerSigner);
+    strategy = StrategyCurveEth__factory.connect(deployedAddress, deployerSigner);
   } else {
-    const StrategyCurveEthPoolFactory = (await ethers.getContractFactory(
-      'StrategyCurveEthPool'
-    )) as StrategyCurveEthPool__factory;
-    strategy = await StrategyCurveEthPoolFactory.connect(deployerSigner).deploy(
-      deployerSigner.address,
-      ethIndexInPool,
-      process.env.CURVE_ETH_STETH_POOL as string,
-      process.env.CURVE_ETH_STETH_POOL_LPTOKEN as string,
-      process.env.CURVE_ETH_STETH_POOL_GAUGE as string,
-      process.env.CURVE_MINTR as string,
-      process.env.CURVE_CRV as string,
-      process.env.WETH as string,
-      process.env.UNISWAP_ROUTER as string
-    );
+    const strategyCurveEthFactory = (await ethers.getContractFactory('StrategyCurveEth')) as StrategyCurveEth__factory;
+    strategy = await strategyCurveEthFactory
+      .connect(deployerSigner)
+      .deploy(
+        deployerSigner.address,
+        ethIndexInPool,
+        poolAddress,
+        lpTokenAddress,
+        gaugeAddress,
+        process.env.CURVE_MINTR as string,
+        process.env.CURVE_CRV as string,
+        process.env.WETH as string,
+        process.env.UNISWAP_ROUTER as string
+      );
     await strategy.deployed();
   }
 
@@ -54,14 +59,23 @@ async function deployStrategyCurveEthPool(
   return { strategy, weth, deployerSigner };
 }
 
-export async function testStrategyCurveEthPool(
+export async function testStrategyCurveEth(
   context: Mocha.Context,
   deployedAddress: string | undefined,
   ethIndexInPool: number,
+  poolAddress: string,
+  lpTokenAddress: string,
+  gaugeAddress: string,
   supplyTokenFunder: string
 ): Promise<void> {
   context.timeout(300000);
-  const { strategy, weth, deployerSigner } = await deployStrategyCurveEthPool(deployedAddress, ethIndexInPool);
+  const { strategy, weth, deployerSigner } = await deployStrategyCurveEth(
+    deployedAddress,
+    ethIndexInPool,
+    poolAddress,
+    lpTokenAddress,
+    gaugeAddress
+  );
   expect(getAddress(await strategy.getAssetAddress())).to.equal(getAddress(weth.address));
 
   const strategyBalanceBeforeCommit = await strategy.syncBalance();
@@ -81,8 +95,8 @@ export async function testStrategyCurveEthPool(
   await commitTx.wait();
 
   const strategyBalanceAfterCommit = await strategy.syncBalance();
-  // expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).add(slippageAmount).gte(commitAmount)).to.be.true;
-  // expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).sub(slippageAmount).lte(commitAmount)).to.be.true;
+  expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).add(slippageAmount).gte(commitAmount)).to.be.true;
+  expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).sub(slippageAmount).lte(commitAmount)).to.be.true;
   console.log(`Strategy WETH balance after commit:`, formatUnits(strategyBalanceAfterCommit, ETH_DECIMALS));
 
   const controllerBalanceAfterCommit = await weth.balanceOf(deployerSigner.address);

@@ -17,17 +17,16 @@ import "../interfaces/uniswap/IUniswapV2.sol";
 import "../../interfaces/IWETH.sol";
 
 /**
- * @notice Deposits stable coins into Curve 3Pool and issues stCrv3Pool<stable-coin-name> in L2. Holds lpToken (Curve 3Pool
- * LP tokens).
+ * @notice Deposits ETH into a Curve ETH pool and issues stTokens in L2. Holds Curve lpToken.
  */
-contract StrategyCurveEthPool is IStrategy, Ownable {
+contract StrategyCurveEth is IStrategy, Ownable {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
 
     // slippage tolerance settings
     uint256 public constant DENOMINATOR = 10000;
-    uint256 public slippage = 500;
+    uint256 public slippage = 5;
 
     // supply token (WETH) params
     uint8 public ethIndexInPool = 0; // ETH - 0, Other - 1
@@ -156,7 +155,7 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
         require(msg.sender == controller, "Not controller");
         require(_ethAmount > 0, "Nothing to uncommit");
 
-        // Unstake some sCRV from Gauge
+        // Unstake some lpToken from Gauge
         uint256 lpTokenAmount = _ethAmount.mul(1e18).div(ICurveFi(ethPool).get_virtual_price());
         IGauge(gauge).withdraw(lpTokenAmount);
 
@@ -184,7 +183,7 @@ contract StrategyCurveEthPool is IStrategy, Ownable {
         slippage = _slippage;
     }
 
-    // This is needed to receive ETH when calling `ICEth.redeemUnderlying` and `IWETH.withdraw`
+    // This is needed to receive ETH when calling `ICurveFi.remove_liquidity_one_coin` and `IWETH.withdraw`
     receive() external payable {}
 
     fallback() external payable {}
