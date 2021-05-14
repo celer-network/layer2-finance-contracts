@@ -5,16 +5,16 @@ import { testStrategyAaveLendingPoolV2 } from './StrategyAaveLendingPoolV2.spec'
 
 dotenv.config();
 
-describe('StrategyAaveV2USDC', function () {
+describe('StrategyAaveV2DAI', function () {
   it(DESCRIPTION, async function () {
     await testStrategyAaveLendingPoolV2(
       this,
-      process.env.STRATEGY_AAVE_V2_USDC,
-      'USDC',
-      6,
-      process.env.USDC as string,
-      process.env.AAVE_AUSDC as string,
-      process.env.USDC_FUNDER as string
+      process.env.STRATEGY_AAVE_V2_DAI,
+      'DAI',
+      18,
+      process.env.DAI as string,
+      process.env.AAVE_ADAI as string,
+      process.env.DAI_FUNDER as string
     );
   });
 });
