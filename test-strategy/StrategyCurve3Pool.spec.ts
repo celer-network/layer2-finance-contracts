@@ -1,11 +1,9 @@
-import { expect } from 'chai';
-import * as dotenv from 'dotenv';
-import { ethers, network } from 'hardhat';
-
 import { getAddress } from '@ethersproject/address';
 import { formatUnits, parseEther, parseUnits } from '@ethersproject/units';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
-
+import { expect } from 'chai';
+import * as dotenv from 'dotenv';
+import { ethers, network } from 'hardhat';
 import { ERC20 } from '../typechain/ERC20.d';
 import { ERC20__factory } from '../typechain/factories/ERC20__factory';
 import { StrategyCurve3Pool__factory } from '../typechain/factories/StrategyCurve3Pool__factory';
@@ -45,7 +43,7 @@ async function deployStrategyCurve3Pool(
         process.env.CURVE_3POOL as string,
         process.env.CURVE_3POOL_3CRV as string,
         process.env.CURVE_3POOL_GAUGE as string,
-        process.env.CURVE_3POOL_MINTR as string,
+        process.env.CURVE_MINTR as string,
         process.env.CURVE_CRV as string,
         process.env.WETH as string,
         process.env.UNISWAP_ROUTER as string

@@ -23,7 +23,7 @@ const deployFunc: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
       process.env.CURVE_3POOL,
       process.env.CURVE_3POOL_3CRV,
       process.env.CURVE_3POOL_GAUGE,
-      process.env.CURVE_3POOL_MINTR,
+      process.env.CURVE_MINTR,
       process.env.CURVE_CRV,
       process.env.WETH,
       process.env.UNISWAP_ROUTER
