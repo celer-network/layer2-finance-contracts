@@ -1,51 +1,45 @@
 import { expect } from 'chai';
-import { ethers, network } from 'hardhat';
+import { ethers } from 'hardhat';
 
 import { getAddress } from '@ethersproject/address';
-import { formatUnits, parseEther, parseUnits } from '@ethersproject/units';
+import { formatUnits, parseUnits } from '@ethersproject/units';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 
-import { ERC20 } from '../typechain/ERC20.d';
-import { ERC20__factory } from '../typechain/factories/ERC20__factory';
-import { StrategyAaveLendingPoolV2__factory } from '../typechain/factories/StrategyAaveLendingPoolV2__factory';
-import { StrategyAaveLendingPoolV2 } from '../typechain/StrategyAaveLendingPoolV2';
-import { ensureBalanceAndApproval, getDeployerSigner } from './common';
+import { ERC20 } from '../../typechain/ERC20.d';
+import { ERC20__factory } from '../../typechain/factories/ERC20__factory';
+import { StrategyAaveLendingPool__factory } from '../../typechain/factories/StrategyAaveLendingPool__factory';
+import { StrategyAaveLendingPool } from '../../typechain/StrategyAaveLendingPool';
+import { ensureBalanceAndApproval, getDeployerSigner } from '../common';
 
-interface DeployStrategyAaveLendingPoolV2Info {
-  strategy: StrategyAaveLendingPoolV2;
+interface DeployStrategyAaveLendingPoolInfo {
+  strategy: StrategyAaveLendingPool;
   supplyToken: ERC20;
   deployerSigner: SignerWithAddress;
 }
 
-async function deployStrategyAaveLendingPoolV2(
+async function deployStrategyAaveLendingPool(
   deployedAddress: string | undefined,
   supplyTokenSymbol: string,
   supplyTokenAddress: string,
   aaveSupplyTokenAddress: string
-): Promise<DeployStrategyAaveLendingPoolV2Info> {
+): Promise<DeployStrategyAaveLendingPoolInfo> {
   const deployerSigner = await getDeployerSigner();
 
-  let strategy: StrategyAaveLendingPoolV2;
+  let strategy: StrategyAaveLendingPool;
   if (deployedAddress) {
-    strategy = StrategyAaveLendingPoolV2__factory.connect(deployedAddress, deployerSigner);
+    strategy = StrategyAaveLendingPool__factory.connect(deployedAddress, deployerSigner);
   } else {
-    const strategyAaveLendingPoolV2Factory = (await ethers.getContractFactory(
-      'StrategyAaveLendingPoolV2'
-    )) as StrategyAaveLendingPoolV2__factory;
-    strategy = await strategyAaveLendingPoolV2Factory
+    const strategyAaveLendingPoolFactory = (await ethers.getContractFactory(
+      'StrategyAaveLendingPool'
+    )) as StrategyAaveLendingPool__factory;
+    strategy = await strategyAaveLendingPoolFactory
       .connect(deployerSigner)
       .deploy(
         process.env.AAVE_LENDING_POOL as string,
         supplyTokenSymbol,
         supplyTokenAddress,
         aaveSupplyTokenAddress,
-        deployerSigner.address,
-        process.env.AAVE_INCENTIVES_CONTROLLER as string,
-        process.env.AAVE_STAKE_TOKEN as string,
-        process.env.AAVE_AAVE as string,
-        process.env.UNISWAP_ROUTER as string,
-        process.env.WETH as string,
-        60*60*24*10
+        deployerSigner.address
       );
     await strategy.deployed();
   }
@@ -55,7 +49,7 @@ async function deployStrategyAaveLendingPoolV2(
   return { strategy, supplyToken, deployerSigner };
 }
 
-export async function testStrategyAaveLendingPoolV2(
+export async function testStrategyAaveLendingPool(
   context: Mocha.Context,
   deployedAddress: string | undefined,
   supplyTokenSymbol: string,
@@ -66,7 +60,7 @@ export async function testStrategyAaveLendingPoolV2(
 ): Promise<void> {
   context.timeout(300000);
 
-  const { strategy, supplyToken, deployerSigner } = await deployStrategyAaveLendingPoolV2(
+  const { strategy, supplyToken, deployerSigner } = await deployStrategyAaveLendingPool(
     deployedAddress,
     supplyTokenSymbol,
     supplyTokenAddress,
@@ -141,52 +135,15 @@ export async function testStrategyAaveLendingPoolV2(
 
   console.log('===== Optional harvest =====');
   try {
-    // Send some AAVE to the strategy
-    const aave = ERC20__factory.connect(process.env.AAVE_AAVE as string, deployerSigner);
-    await network.provider.request({
-      method: 'hardhat_impersonateAccount',
-      params: [process.env.AAVE_AAVE_FUNDER]
-    });
-    await (
-      await aave
-        .connect(await ethers.getSigner(process.env.AAVE_AAVE_FUNDER as string))
-        .transfer(strategy.address, parseEther('0.01'))
-    ).wait();
-    console.log('===== Sent AAVE to the strategy, harvesting =====');
-
     const harvestGas = await strategy.estimateGas.harvest();
-    if (harvestGas.lte(2000000)) {
-      const harvestTx = await strategy.harvest({ gasLimit: 2000000 });
+    if (harvestGas.lte(500000)) {
+      const harvestTx = await strategy.harvest({ gasLimit: 500000 });
       await harvestTx.wait();
       const strategyBalanceAfterHarvest = await strategy.callStatic.syncBalance();
       expect(strategyBalanceAfterHarvest.gte(strategyBalanceAfterUncommit)).to.be.true;
       console.log(
         `Strategy ${supplyTokenSymbol} balance after harvest:`,
         formatUnits(strategyBalanceAfterHarvest, supplyTokenDecimals)
-      );
-
-      // Simulate 10 days past
-      await ethers.provider.send("evm_increaseTime", [60*60*24*10 + 60*60]);
-
-      // Send some AAVE to the strategy
-      await network.provider.request({
-        method: 'hardhat_impersonateAccount',
-        params: [process.env.AAVE_AAVE_FUNDER]
-      });
-      await (
-        await aave
-          .connect(await ethers.getSigner(process.env.AAVE_AAVE_FUNDER as string))
-          .transfer(strategy.address, parseEther('0.01'))
-      ).wait();
-      console.log('===== Sent AAVE to the strategy 2nd time, harvesting =====');
-
-      const harvestTx2 = await strategy.harvest({ gasLimit: 2000000 });
-      await harvestTx2.wait();
-      const strategyBalanceAfterHarvest2 = await strategy.callStatic.syncBalance();
-      expect(strategyBalanceAfterHarvest2.gt(strategyBalanceAfterUncommit)).to.be.true;
-      console.log(
-        `Strategy ${supplyTokenSymbol} balance after harvest2:`,
-        formatUnits(strategyBalanceAfterHarvest2, supplyTokenDecimals)
       );
     }
   } catch (e) {

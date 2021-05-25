@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 
-import { DESCRIPTION } from './common';
+import { DESCRIPTION } from '../common';
 import { testStrategyAaveLendingPoolV2 } from './StrategyAaveLendingPoolV2.spec';
 
 dotenv.config();

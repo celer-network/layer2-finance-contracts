@@ -9,12 +9,12 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./interfaces/IStrategy.sol";
-import "./interfaces/aave/ILendingPool.sol";
-import "./interfaces/aave/IAToken.sol";
-import "./interfaces/aave/IAaveIncentivesController.sol";
-import "./interfaces/aave/IStakeAave.sol";
-import "./interfaces/uniswap/IUniswapV2.sol";
+import "../interfaces/IStrategy.sol";
+import "../interfaces/aave/ILendingPool.sol";
+import "../interfaces/aave/IAToken.sol";
+import "../interfaces/aave/IAaveIncentivesController.sol";
+import "../interfaces/aave/IStakeAave.sol";
+import "../interfaces/uniswap/IUniswapV2.sol";
 
 /**
  * Deposits ERC20 token into Aave Lending Pool and issues stAaveLendingToken(e.g. stAaveLendingDAI) in L2. Holds aToken (Aave interest-bearing tokens).
@@ -93,9 +93,7 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
     }
 
     function harvest() external override {
-        require(
-            block.timestamp > lastCooldownTimestamp.add(cooldownSeconds), 'INSUFFICIENT_COOLDOWN'
-        );
+        require(block.timestamp > lastCooldownTimestamp.add(cooldownSeconds), "INSUFFICIENT_COOLDOWN");
         lastCooldownTimestamp = block.timestamp;
 
         // 1. Claims the StkAAVE staking rewards
@@ -105,23 +103,30 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
             IStakeAave(stakeToken).claimRewards(address(this), stakingRewards);
         }
 
-        // 2. Redeems staked tokens, note that it won't be success while this account not in redeem-available period 
-        stakeToken.call(abi.encodeWithSelector(IStakeAave.redeem.selector, address(this), IERC20(stakeToken).balanceOf(address(this))));
+        // 2. Redeems staked tokens, note that it won't be success while this account not in redeem-available period
+        stakeToken.call(
+            abi.encodeWithSelector(
+                IStakeAave.redeem.selector,
+                address(this),
+                IERC20(stakeToken).balanceOf(address(this))
+            )
+        );
 
         // 3. Claims the liquidity incentives
         address[] memory assets = new address[](1);
         assets[0] = aToken;
-        uint256 rewardsBalance = IAaveIncentivesController(incentivesController).getRewardsBalance(assets, address(this)); 
+        uint256 rewardsBalance =
+            IAaveIncentivesController(incentivesController).getRewardsBalance(assets, address(this));
 
         if (rewardsBalance > 0) {
             IAaveIncentivesController(incentivesController).claimRewards(assets, rewardsBalance, address(this));
         }
 
-        // 4. Activates the cooldown period if there is balance in the aave safety module now 
+        // 4. Activates the cooldown period if there is balance in the aave safety module now
         if (IERC20(stakeToken).balanceOf(address(this)) > 0) {
             IStakeAave(stakeToken).cooldown();
         }
-        
+
         // 5. Sells the aave token and the stake token for obtain more supplying token
         uint256 aaveBalance = IERC20(aave).balanceOf(address(this));
         if (aaveBalance > 0) {

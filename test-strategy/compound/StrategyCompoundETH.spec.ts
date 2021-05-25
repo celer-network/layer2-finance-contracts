@@ -4,10 +4,10 @@ import { ethers, network } from 'hardhat';
 import { getAddress } from '@ethersproject/address';
 import { formatEther, parseEther } from '@ethersproject/units';
 
-import { ERC20__factory } from '../typechain/factories/ERC20__factory';
-import { StrategyCompoundEthLendingPool__factory } from '../typechain/factories/StrategyCompoundEthLendingPool__factory';
-import { StrategyCompoundEthLendingPool } from '../typechain/StrategyCompoundEthLendingPool.d';
-import { ensureBalanceAndApproval, getDeployerSigner } from './common';
+import { ERC20__factory } from '../../typechain/factories/ERC20__factory';
+import { StrategyCompoundEthLendingPool__factory } from '../../typechain/factories/StrategyCompoundEthLendingPool__factory';
+import { StrategyCompoundEthLendingPool } from '../../typechain/StrategyCompoundEthLendingPool.d';
+import { ensureBalanceAndApproval, getDeployerSigner } from '../common';
 
 describe('StrategyCompoundETH', function () {
   async function deploy() {

@@ -1,14 +1,16 @@
-import { getAddress } from '@ethersproject/address';
-import { formatUnits, parseEther, parseUnits } from '@ethersproject/units';
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 import { expect } from 'chai';
 import * as dotenv from 'dotenv';
 import { ethers, network } from 'hardhat';
-import { ERC20 } from '../typechain/ERC20.d';
-import { ERC20__factory } from '../typechain/factories/ERC20__factory';
-import { StrategyCurve3Pool__factory } from '../typechain/factories/StrategyCurve3Pool__factory';
-import { StrategyCurve3Pool } from '../typechain/StrategyCurve3Pool';
-import { ensureBalanceAndApproval, getDeployerSigner } from './common';
+
+import { getAddress } from '@ethersproject/address';
+import { formatUnits, parseEther, parseUnits } from '@ethersproject/units';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
+
+import { ERC20 } from '../../typechain/ERC20';
+import { ERC20__factory } from '../../typechain/factories/ERC20__factory';
+import { StrategyCurve3Pool__factory } from '../../typechain/factories/StrategyCurve3Pool__factory';
+import { StrategyCurve3Pool } from '../../typechain/StrategyCurve3Pool';
+import { ensureBalanceAndApproval, getDeployerSigner } from '../common';
 
 dotenv.config();
 
