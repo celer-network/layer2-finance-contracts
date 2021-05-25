@@ -9,7 +9,7 @@ interface ICurveFi {
         // EURs
         uint256[2] calldata amounts,
         uint256 min_mint_amount
-    ) external;
+    ) payable external;
 
     function add_liquidity(
         // sBTC pool

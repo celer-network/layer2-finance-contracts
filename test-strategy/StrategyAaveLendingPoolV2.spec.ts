@@ -1,52 +1,51 @@
+import { expect } from 'chai';
+import { ethers, network } from 'hardhat';
+
 import { getAddress } from '@ethersproject/address';
 import { formatUnits, parseEther, parseUnits } from '@ethersproject/units';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
-import { expect } from 'chai';
-import * as dotenv from 'dotenv';
-import { ethers, network } from 'hardhat';
+
 import { ERC20 } from '../typechain/ERC20.d';
 import { ERC20__factory } from '../typechain/factories/ERC20__factory';
-import { StrategyCurve3Pool__factory } from '../typechain/factories/StrategyCurve3Pool__factory';
-import { StrategyCurve3Pool } from '../typechain/StrategyCurve3Pool';
+import { StrategyAaveLendingPoolV2__factory } from '../typechain/factories/StrategyAaveLendingPoolV2__factory';
+import { StrategyAaveLendingPoolV2 } from '../typechain/StrategyAaveLendingPoolV2';
 import { ensureBalanceAndApproval, getDeployerSigner } from './common';
 
-dotenv.config();
-
-interface DeployStrategyCurve3PoolInfo {
-  strategy: StrategyCurve3Pool;
+interface DeployStrategyAaveLendingPoolV2Info {
+  strategy: StrategyAaveLendingPoolV2;
   supplyToken: ERC20;
   deployerSigner: SignerWithAddress;
 }
 
-async function deployStrategyCurve3Pool(
+async function deployStrategyAaveLendingPoolV2(
   deployedAddress: string | undefined,
-  supplyTokenDecimals: number,
-  supplyToken3PoolIndex: number,
-  supplyTokenAddress: string
-): Promise<DeployStrategyCurve3PoolInfo> {
+  supplyTokenSymbol: string,
+  supplyTokenAddress: string,
+  aaveSupplyTokenAddress: string
+): Promise<DeployStrategyAaveLendingPoolV2Info> {
   const deployerSigner = await getDeployerSigner();
 
-  let strategy: StrategyCurve3Pool;
+  let strategy: StrategyAaveLendingPoolV2;
   if (deployedAddress) {
-    strategy = StrategyCurve3Pool__factory.connect(deployedAddress, deployerSigner);
+    strategy = StrategyAaveLendingPoolV2__factory.connect(deployedAddress, deployerSigner);
   } else {
-    const strategyCurve3PoolFactory = (await ethers.getContractFactory(
-      'StrategyCurve3Pool'
-    )) as StrategyCurve3Pool__factory;
-    strategy = await strategyCurve3PoolFactory
+    const strategyAaveLendingPoolV2Factory = (await ethers.getContractFactory(
+      'StrategyAaveLendingPoolV2'
+    )) as StrategyAaveLendingPoolV2__factory;
+    strategy = await strategyAaveLendingPoolV2Factory
       .connect(deployerSigner)
       .deploy(
-        deployerSigner.address,
+        process.env.AAVE_LENDING_POOL as string,
+        supplyTokenSymbol,
         supplyTokenAddress,
-        supplyTokenDecimals,
-        supplyToken3PoolIndex,
-        process.env.CURVE_3POOL as string,
-        process.env.CURVE_3POOL_3CRV as string,
-        process.env.CURVE_3POOL_GAUGE as string,
-        process.env.CURVE_MINTR as string,
-        process.env.CURVE_CRV as string,
+        aaveSupplyTokenAddress,
+        deployerSigner.address,
+        process.env.AAVE_INCENTIVES_CONTROLLER as string,
+        process.env.AAVE_STAKE_TOKEN as string,
+        process.env.AAVE_AAVE as string,
+        process.env.UNISWAP_ROUTER as string,
         process.env.WETH as string,
-        process.env.UNISWAP_ROUTER as string
+        60*60*24*10
       );
     await strategy.deployed();
   }
@@ -56,22 +55,22 @@ async function deployStrategyCurve3Pool(
   return { strategy, supplyToken, deployerSigner };
 }
 
-export async function testStrategyCurve3Pool(
+export async function testStrategyAaveLendingPoolV2(
   context: Mocha.Context,
   deployedAddress: string | undefined,
   supplyTokenSymbol: string,
   supplyTokenDecimals: number,
-  supplyToken3PoolIndex: number,
   supplyTokenAddress: string,
+  aaveSupplyTokenAddress: string,
   supplyTokenFunder: string
 ): Promise<void> {
   context.timeout(300000);
 
-  const { strategy, supplyToken, deployerSigner } = await deployStrategyCurve3Pool(
+  const { strategy, supplyToken, deployerSigner } = await deployStrategyAaveLendingPoolV2(
     deployedAddress,
-    supplyTokenDecimals,
-    supplyToken3PoolIndex,
-    supplyTokenAddress
+    supplyTokenSymbol,
+    supplyTokenAddress,
+    aaveSupplyTokenAddress
   );
 
   expect(getAddress(await strategy.getAssetAddress())).to.equal(getAddress(supplyToken.address));
@@ -99,25 +98,20 @@ export async function testStrategyCurve3Pool(
   );
 
   console.log(`===== Commit ${displayCommitAmount} ${supplyTokenSymbol} =====`);
-  const slippageAmount = parseUnits('0.06', supplyTokenDecimals);
   const commitGas = await strategy.estimateGas.aggregateCommit(commitAmount);
-  expect(commitGas.lte(1000000)).to.be.true;
-  const commitTx = await strategy.aggregateCommit(commitAmount, { gasLimit: 1000000 });
+  expect(commitGas.lte(500000)).to.be.true;
+  const commitTx = await strategy.aggregateCommit(commitAmount, { gasLimit: 500000 });
   await commitTx.wait();
 
   const strategyBalanceAfterCommit = await strategy.syncBalance();
-  expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).add(slippageAmount).gte(commitAmount)).to.be.true;
-  expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).sub(slippageAmount).lte(commitAmount)).to.be.true;
+  expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).gte(commitAmount)).to.be.true;
   console.log(
     `Strategy ${supplyTokenSymbol} balance after commit:`,
     formatUnits(strategyBalanceAfterCommit, supplyTokenDecimals)
   );
 
   const controllerBalanceAfterCommit = await supplyToken.balanceOf(deployerSigner.address);
-  expect(controllerBalanceBeforeCommit.sub(controllerBalanceAfterCommit).add(slippageAmount).gte(commitAmount)).to.be
-    .true;
-  expect(controllerBalanceBeforeCommit.sub(controllerBalanceAfterCommit).sub(slippageAmount).lte(commitAmount)).to.be
-    .true;
+  expect(controllerBalanceBeforeCommit.sub(controllerBalanceAfterCommit).eq(commitAmount)).to.be.true;
   console.log(
     `Controller ${supplyTokenSymbol} balance after commit:`,
     formatUnits(controllerBalanceAfterCommit, supplyTokenDecimals)
@@ -127,25 +121,19 @@ export async function testStrategyCurve3Pool(
   const uncommitAmount = parseUnits(displayUncommitAmount, supplyTokenDecimals);
   console.log(`===== Uncommit ${displayUncommitAmount} ${supplyTokenSymbol} =====`);
   const uncommitGas = await strategy.estimateGas.aggregateUncommit(uncommitAmount);
-  expect(uncommitGas.lte(1000000)).to.be.true;
-  const uncommitTx = await strategy.aggregateUncommit(uncommitAmount, { gasLimit: 1000000 });
+  expect(uncommitGas.lte(500000)).to.be.true;
+  const uncommitTx = await strategy.aggregateUncommit(uncommitAmount, { gasLimit: 500000 });
   await uncommitTx.wait();
 
   const strategyBalanceAfterUncommit = await strategy.syncBalance();
-  expect(strategyBalanceAfterUncommit.add(uncommitAmount).add(slippageAmount).gte(strategyBalanceAfterCommit)).to.be
-    .true;
-  expect(strategyBalanceAfterUncommit.add(uncommitAmount).sub(slippageAmount).lte(strategyBalanceAfterCommit)).to.be
-    .true;
+  expect(strategyBalanceAfterUncommit.add(uncommitAmount).gte(strategyBalanceAfterCommit)).to.be.true;
   console.log(
     `Strategy ${supplyTokenSymbol} balance after uncommit:`,
     formatUnits(strategyBalanceAfterUncommit, supplyTokenDecimals)
   );
 
   const controllerBalanceAfterUncommit = await supplyToken.balanceOf(deployerSigner.address);
-  expect(controllerBalanceAfterUncommit.sub(controllerBalanceAfterCommit).add(slippageAmount).gte(uncommitAmount)).to.be
-    .true;
-  expect(controllerBalanceAfterUncommit.sub(controllerBalanceAfterCommit).sub(slippageAmount).lte(uncommitAmount)).to.be
-    .true;
+  expect(controllerBalanceAfterUncommit.sub(controllerBalanceAfterCommit).eq(uncommitAmount)).to.be.true;
   console.log(
     `Controller ${supplyTokenSymbol} balance after uncommit:`,
     formatUnits(controllerBalanceAfterUncommit, supplyTokenDecimals)
@@ -153,27 +141,52 @@ export async function testStrategyCurve3Pool(
 
   console.log('===== Optional harvest =====');
   try {
-    // Send some CRV to the strategy
-    const crv = ERC20__factory.connect(process.env.CURVE_CRV as string, deployerSigner);
+    // Send some AAVE to the strategy
+    const aave = ERC20__factory.connect(process.env.AAVE_AAVE as string, deployerSigner);
     await network.provider.request({
       method: 'hardhat_impersonateAccount',
-      params: [process.env.CURVE_CRV_FUNDER]
+      params: [process.env.AAVE_AAVE_FUNDER]
     });
     await (
-      await crv
-        .connect(await ethers.getSigner(process.env.CURVE_CRV_FUNDER as string))
-        .transfer(strategy.address, parseEther('1'))
+      await aave
+        .connect(await ethers.getSigner(process.env.AAVE_AAVE_FUNDER as string))
+        .transfer(strategy.address, parseEther('0.01'))
     ).wait();
-    console.log('===== Sent CRV to the strategy, harvesting =====');
+    console.log('===== Sent AAVE to the strategy, harvesting =====');
+
     const harvestGas = await strategy.estimateGas.harvest();
-    if (harvestGas.lte(1000000)) {
-      const harvestTx = await strategy.harvest({ gasLimit: 1000000 });
+    if (harvestGas.lte(2000000)) {
+      const harvestTx = await strategy.harvest({ gasLimit: 2000000 });
       await harvestTx.wait();
-      const strategyBalanceAfterHarvest = await strategy.syncBalance();
+      const strategyBalanceAfterHarvest = await strategy.callStatic.syncBalance();
       expect(strategyBalanceAfterHarvest.gte(strategyBalanceAfterUncommit)).to.be.true;
       console.log(
         `Strategy ${supplyTokenSymbol} balance after harvest:`,
         formatUnits(strategyBalanceAfterHarvest, supplyTokenDecimals)
+      );
+
+      // Simulate 10 days past
+      await ethers.provider.send("evm_increaseTime", [60*60*24*10 + 60*60]);
+
+      // Send some AAVE to the strategy
+      await network.provider.request({
+        method: 'hardhat_impersonateAccount',
+        params: [process.env.AAVE_AAVE_FUNDER]
+      });
+      await (
+        await aave
+          .connect(await ethers.getSigner(process.env.AAVE_AAVE_FUNDER as string))
+          .transfer(strategy.address, parseEther('0.01'))
+      ).wait();
+      console.log('===== Sent AAVE to the strategy 2nd time, harvesting =====');
+
+      const harvestTx2 = await strategy.harvest({ gasLimit: 2000000 });
+      await harvestTx2.wait();
+      const strategyBalanceAfterHarvest2 = await strategy.callStatic.syncBalance();
+      expect(strategyBalanceAfterHarvest2.gt(strategyBalanceAfterUncommit)).to.be.true;
+      console.log(
+        `Strategy ${supplyTokenSymbol} balance after harvest2:`,
+        formatUnits(strategyBalanceAfterHarvest2, supplyTokenDecimals)
       );
     }
   } catch (e) {
