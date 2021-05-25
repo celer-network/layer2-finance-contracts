@@ -9,9 +9,9 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./interfaces/IStrategy.sol";
-import "./interfaces/aave/ILendingPool.sol";
-import "./interfaces/aave/IAToken.sol";
+import "../interfaces/IStrategy.sol";
+import "../interfaces/aave/ILendingPool.sol";
+import "../interfaces/aave/IAToken.sol";
 
 /**
  * Deposits ERC20 token into Aave Lending Pool and issues stAaveLendingToken(e.g. stAaveLendingDAI) in L2. Holds aToken (Aave interest-bearing tokens).

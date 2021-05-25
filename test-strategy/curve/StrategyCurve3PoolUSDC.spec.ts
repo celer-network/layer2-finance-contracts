@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 
-import { DESCRIPTION } from './common';
+import { DESCRIPTION } from '../common';
 import { testStrategyCurve3Pool } from './StrategyCurve3Pool.spec';
 
 dotenv.config();

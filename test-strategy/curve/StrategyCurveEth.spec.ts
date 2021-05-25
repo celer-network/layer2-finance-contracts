@@ -6,11 +6,11 @@ import { getAddress } from '@ethersproject/address';
 import { formatUnits, parseEther, parseUnits } from '@ethersproject/units';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 
-import { ERC20 } from '../typechain/ERC20';
-import { ERC20__factory } from '../typechain/factories/ERC20__factory';
-import { StrategyCurveEth__factory } from '../typechain/factories/StrategyCurveEth__factory';
-import { StrategyCurveEth } from '../typechain/StrategyCurveEth';
-import { ensureBalanceAndApproval, getDeployerSigner } from './common';
+import { ERC20 } from '../../typechain/ERC20';
+import { ERC20__factory } from '../../typechain/factories/ERC20__factory';
+import { StrategyCurveEth__factory } from '../../typechain/factories/StrategyCurveEth__factory';
+import { StrategyCurveEth } from '../../typechain/StrategyCurveEth';
+import { ensureBalanceAndApproval, getDeployerSigner } from '../common';
 
 dotenv.config();
 

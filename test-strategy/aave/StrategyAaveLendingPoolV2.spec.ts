@@ -5,44 +5,47 @@ import { getAddress } from '@ethersproject/address';
 import { formatUnits, parseEther, parseUnits } from '@ethersproject/units';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 
-import { ERC20 } from '../typechain/ERC20.d';
-import { ERC20__factory } from '../typechain/factories/ERC20__factory';
-import { StrategyCompoundErc20LendingPool__factory } from '../typechain/factories/StrategyCompoundErc20LendingPool__factory';
-import { StrategyCompoundErc20LendingPool } from '../typechain/StrategyCompoundErc20LendingPool';
-import { ensureBalanceAndApproval, getDeployerSigner } from './common';
+import { ERC20 } from '../../typechain/ERC20.d';
+import { ERC20__factory } from '../../typechain/factories/ERC20__factory';
+import { StrategyAaveLendingPoolV2__factory } from '../../typechain/factories/StrategyAaveLendingPoolV2__factory';
+import { StrategyAaveLendingPoolV2 } from '../../typechain/StrategyAaveLendingPoolV2';
+import { ensureBalanceAndApproval, getDeployerSigner } from '../common';
 
-interface DeployStrategyCompoundErc20LendingPoolInfo {
-  strategy: StrategyCompoundErc20LendingPool;
+interface DeployStrategyAaveLendingPoolV2Info {
+  strategy: StrategyAaveLendingPoolV2;
   supplyToken: ERC20;
   deployerSigner: SignerWithAddress;
 }
 
-async function deployStrategyCompoundErc20LendingPool(
+async function deployStrategyAaveLendingPoolV2(
   deployedAddress: string | undefined,
   supplyTokenSymbol: string,
   supplyTokenAddress: string,
-  compoundSupplyTokenAddress: string
-): Promise<DeployStrategyCompoundErc20LendingPoolInfo> {
+  aaveSupplyTokenAddress: string
+): Promise<DeployStrategyAaveLendingPoolV2Info> {
   const deployerSigner = await getDeployerSigner();
 
-  let strategy: StrategyCompoundErc20LendingPool;
+  let strategy: StrategyAaveLendingPoolV2;
   if (deployedAddress) {
-    strategy = StrategyCompoundErc20LendingPool__factory.connect(deployedAddress, deployerSigner);
+    strategy = StrategyAaveLendingPoolV2__factory.connect(deployedAddress, deployerSigner);
   } else {
-    const strategyCompoundErc20LendingPoolFactory = (await ethers.getContractFactory(
-      'StrategyCompoundErc20LendingPool'
-    )) as StrategyCompoundErc20LendingPool__factory;
-    strategy = await strategyCompoundErc20LendingPoolFactory
+    const strategyAaveLendingPoolV2Factory = (await ethers.getContractFactory(
+      'StrategyAaveLendingPoolV2'
+    )) as StrategyAaveLendingPoolV2__factory;
+    strategy = await strategyAaveLendingPoolV2Factory
       .connect(deployerSigner)
       .deploy(
+        process.env.AAVE_LENDING_POOL as string,
         supplyTokenSymbol,
         supplyTokenAddress,
-        compoundSupplyTokenAddress,
-        process.env.COMPOUND_COMPTROLLER as string,
-        process.env.COMPOUND_COMP as string,
+        aaveSupplyTokenAddress,
+        deployerSigner.address,
+        process.env.AAVE_INCENTIVES_CONTROLLER as string,
+        process.env.AAVE_STAKE_TOKEN as string,
+        process.env.AAVE_AAVE as string,
         process.env.UNISWAP_ROUTER as string,
         process.env.WETH as string,
-        deployerSigner.address
+        60 * 60 * 24 * 10
       );
     await strategy.deployed();
   }
@@ -52,27 +55,27 @@ async function deployStrategyCompoundErc20LendingPool(
   return { strategy, supplyToken, deployerSigner };
 }
 
-export async function testStrategyCompoundErc20LendingPool(
+export async function testStrategyAaveLendingPoolV2(
   context: Mocha.Context,
   deployedAddress: string | undefined,
   supplyTokenSymbol: string,
   supplyTokenDecimals: number,
   supplyTokenAddress: string,
-  compoundSupplyTokenAddress: string,
+  aaveSupplyTokenAddress: string,
   supplyTokenFunder: string
 ): Promise<void> {
   context.timeout(300000);
 
-  const { strategy, supplyToken, deployerSigner } = await deployStrategyCompoundErc20LendingPool(
+  const { strategy, supplyToken, deployerSigner } = await deployStrategyAaveLendingPoolV2(
     deployedAddress,
     supplyTokenSymbol,
     supplyTokenAddress,
-    compoundSupplyTokenAddress
+    aaveSupplyTokenAddress
   );
 
   expect(getAddress(await strategy.getAssetAddress())).to.equal(getAddress(supplyToken.address));
 
-  const strategyBalanceBeforeCommit = await strategy.callStatic.syncBalance();
+  const strategyBalanceBeforeCommit = await strategy.syncBalance();
   console.log(
     `Strategy ${supplyTokenSymbol} balance before commit:`,
     formatUnits(strategyBalanceBeforeCommit, supplyTokenDecimals)
@@ -95,15 +98,13 @@ export async function testStrategyCompoundErc20LendingPool(
   );
 
   console.log(`===== Commit ${displayCommitAmount} ${supplyTokenSymbol} =====`);
-  const errAmount = parseUnits('0.001', supplyTokenDecimals); // TODO: Investigate why a miniscule error exists
   const commitGas = await strategy.estimateGas.aggregateCommit(commitAmount);
   expect(commitGas.lte(500000)).to.be.true;
   const commitTx = await strategy.aggregateCommit(commitAmount, { gasLimit: 500000 });
   await commitTx.wait();
 
-  const strategyBalanceAfterCommit = await strategy.callStatic.syncBalance();
-  expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).add(errAmount).gte(commitAmount)).to.be.true;
-  expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).sub(errAmount).lte(commitAmount)).to.be.true;
+  const strategyBalanceAfterCommit = await strategy.syncBalance();
+  expect(strategyBalanceAfterCommit.sub(strategyBalanceBeforeCommit).gte(commitAmount)).to.be.true;
   console.log(
     `Strategy ${supplyTokenSymbol} balance after commit:`,
     formatUnits(strategyBalanceAfterCommit, supplyTokenDecimals)
@@ -117,26 +118,22 @@ export async function testStrategyCompoundErc20LendingPool(
   );
 
   const displayUncommitAmount = '70';
-  console.log(`===== Uncommit ${displayUncommitAmount} ${supplyTokenSymbol} =====`);
   const uncommitAmount = parseUnits(displayUncommitAmount, supplyTokenDecimals);
+  console.log(`===== Uncommit ${displayUncommitAmount} ${supplyTokenSymbol} =====`);
   const uncommitGas = await strategy.estimateGas.aggregateUncommit(uncommitAmount);
   expect(uncommitGas.lte(500000)).to.be.true;
   const uncommitTx = await strategy.aggregateUncommit(uncommitAmount, { gasLimit: 500000 });
   await uncommitTx.wait();
 
-  const strategyBalanceAfterUncommit = await strategy.callStatic.syncBalance();
-  expect(strategyBalanceAfterUncommit.add(uncommitAmount).add(errAmount).gte(strategyBalanceAfterCommit)).to.be.true;
-  expect(strategyBalanceAfterUncommit.add(uncommitAmount).sub(errAmount).lte(strategyBalanceAfterCommit)).to.be.true;
+  const strategyBalanceAfterUncommit = await strategy.syncBalance();
+  expect(strategyBalanceAfterUncommit.add(uncommitAmount).gte(strategyBalanceAfterCommit)).to.be.true;
   console.log(
     `Strategy ${supplyTokenSymbol} balance after uncommit:`,
     formatUnits(strategyBalanceAfterUncommit, supplyTokenDecimals)
   );
 
   const controllerBalanceAfterUncommit = await supplyToken.balanceOf(deployerSigner.address);
-  expect(controllerBalanceAfterUncommit.sub(controllerBalanceAfterCommit).add(errAmount).gte(uncommitAmount)).to.be
-    .true;
-  expect(controllerBalanceAfterUncommit.sub(controllerBalanceAfterCommit).sub(errAmount).lte(uncommitAmount)).to.be
-    .true;
+  expect(controllerBalanceAfterUncommit.sub(controllerBalanceAfterCommit).eq(uncommitAmount)).to.be.true;
   console.log(
     `Controller ${supplyTokenSymbol} balance after uncommit:`,
     formatUnits(controllerBalanceAfterUncommit, supplyTokenDecimals)
@@ -144,18 +141,19 @@ export async function testStrategyCompoundErc20LendingPool(
 
   console.log('===== Optional harvest =====');
   try {
-    // Send some COMP to the strategy
-    const comp = ERC20__factory.connect(process.env.COMPOUND_COMP as string, deployerSigner);
+    // Send some AAVE to the strategy
+    const aave = ERC20__factory.connect(process.env.AAVE_AAVE as string, deployerSigner);
     await network.provider.request({
       method: 'hardhat_impersonateAccount',
-      params: [process.env.COMPOUND_COMP_FUNDER]
+      params: [process.env.AAVE_AAVE_FUNDER]
     });
     await (
-      await comp
-        .connect(await ethers.getSigner(process.env.COMPOUND_COMP_FUNDER as string))
+      await aave
+        .connect(await ethers.getSigner(process.env.AAVE_AAVE_FUNDER as string))
         .transfer(strategy.address, parseEther('0.01'))
     ).wait();
-    console.log('===== Sent COMP to the strategy, harvesting =====');
+    console.log('===== Sent AAVE to the strategy, harvesting =====');
+
     const harvestGas = await strategy.estimateGas.harvest();
     if (harvestGas.lte(2000000)) {
       const harvestTx = await strategy.harvest({ gasLimit: 2000000 });
@@ -165,6 +163,30 @@ export async function testStrategyCompoundErc20LendingPool(
       console.log(
         `Strategy ${supplyTokenSymbol} balance after harvest:`,
         formatUnits(strategyBalanceAfterHarvest, supplyTokenDecimals)
+      );
+
+      // Simulate 10 days past
+      await ethers.provider.send('evm_increaseTime', [60 * 60 * 24 * 10 + 60 * 60]);
+
+      // Send some AAVE to the strategy
+      await network.provider.request({
+        method: 'hardhat_impersonateAccount',
+        params: [process.env.AAVE_AAVE_FUNDER]
+      });
+      await (
+        await aave
+          .connect(await ethers.getSigner(process.env.AAVE_AAVE_FUNDER as string))
+          .transfer(strategy.address, parseEther('0.01'))
+      ).wait();
+      console.log('===== Sent AAVE to the strategy 2nd time, harvesting =====');
+
+      const harvestTx2 = await strategy.harvest({ gasLimit: 2000000 });
+      await harvestTx2.wait();
+      const strategyBalanceAfterHarvest2 = await strategy.callStatic.syncBalance();
+      expect(strategyBalanceAfterHarvest2.gt(strategyBalanceAfterUncommit)).to.be.true;
+      console.log(
+        `Strategy ${supplyTokenSymbol} balance after harvest2:`,
+        formatUnits(strategyBalanceAfterHarvest2, supplyTokenDecimals)
       );
     }
   } catch (e) {
