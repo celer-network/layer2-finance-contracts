@@ -75,6 +75,14 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
         weth = _weth;
     }
 
+    /**
+     * @dev Require that the caller must be an EOA account to avoid flash loans.
+     */
+    modifier onlyEOA() {
+        require(msg.sender == tx.origin, "Not EOA");
+        _;
+    }
+
     function getAssetAddress() external view override returns (address) {
         return supplyToken;
     }
@@ -86,7 +94,7 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
         return supplyTokenBalance;
     }
 
-    function harvest() external override {
+    function harvest() external override onlyEOA {
         // 1. Claims the liquidity incentives
         address[] memory assets = new address[](1);
         assets[0] = aToken;
