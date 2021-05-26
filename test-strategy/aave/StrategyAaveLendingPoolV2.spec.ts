@@ -41,11 +41,10 @@ async function deployStrategyAaveLendingPoolV2(
         aaveSupplyTokenAddress,
         deployerSigner.address,
         process.env.AAVE_INCENTIVES_CONTROLLER as string,
-        process.env.AAVE_STAKE_TOKEN as string,
+        process.env.AAVE_STAKED_AAVE as string,
         process.env.AAVE_AAVE as string,
         process.env.UNISWAP_ROUTER as string,
-        process.env.WETH as string,
-        60 * 60 * 24 * 10
+        process.env.WETH as string
       );
     await strategy.deployed();
   }
@@ -153,40 +152,90 @@ export async function testStrategyAaveLendingPoolV2(
         .transfer(strategy.address, parseEther('0.01'))
     ).wait();
     console.log('===== Sent AAVE to the strategy, harvesting =====');
-
+    console.log(
+      'Simulate the passing of 60 days to accumulate staked AAVE. First harvest tx should trigger cooldown()'
+    );
+    await ethers.provider.send('evm_increaseTime', [60 * 60 * 24 * 60]);
     const harvestGas = await strategy.estimateGas.harvest();
     if (harvestGas.lte(2000000)) {
       const harvestTx = await strategy.harvest({ gasLimit: 2000000 });
       await harvestTx.wait();
-      const strategyBalanceAfterHarvest = await strategy.callStatic.syncBalance();
+      const strategyBalanceAfterHarvest = await strategy.syncBalance();
       expect(strategyBalanceAfterHarvest.gte(strategyBalanceAfterUncommit)).to.be.true;
       console.log(
         `Strategy ${supplyTokenSymbol} balance after harvest:`,
         formatUnits(strategyBalanceAfterHarvest, supplyTokenDecimals)
       );
 
-      // Simulate 10 days past
-      await ethers.provider.send('evm_increaseTime', [60 * 60 * 24 * 10 + 60 * 60]);
-
-      // Send some AAVE to the strategy
-      await network.provider.request({
-        method: 'hardhat_impersonateAccount',
-        params: [process.env.AAVE_AAVE_FUNDER]
-      });
-      await (
-        await aave
-          .connect(await ethers.getSigner(process.env.AAVE_AAVE_FUNDER as string))
-          .transfer(strategy.address, parseEther('0.01'))
-      ).wait();
-      console.log('===== Sent AAVE to the strategy 2nd time, harvesting =====');
-
+      console.log('Simulate the passing of the 10-day cooldown period.');
+      await ethers.provider.send('evm_increaseTime', [60 * 60 * 24 * 10]);
       const harvestTx2 = await strategy.harvest({ gasLimit: 2000000 });
       await harvestTx2.wait();
-      const strategyBalanceAfterHarvest2 = await strategy.callStatic.syncBalance();
+      const strategyBalanceAfterHarvest2 = await strategy.syncBalance();
       expect(strategyBalanceAfterHarvest2.gt(strategyBalanceAfterUncommit)).to.be.true;
       console.log(
         `Strategy ${supplyTokenSymbol} balance after harvest2:`,
         formatUnits(strategyBalanceAfterHarvest2, supplyTokenDecimals)
+      );
+
+      console.log('Simulate the passing of another 1 day.');
+      await ethers.provider.send('evm_increaseTime', [60 * 60 * 24 * 1]);
+      const harvestTx3 = await strategy.harvest({ gasLimit: 2000000 });
+      await harvestTx3.wait();
+      const strategyBalanceAfterHarvest3 = await strategy.syncBalance();
+      expect(strategyBalanceAfterHarvest3.gt(strategyBalanceAfterUncommit)).to.be.true;
+      console.log(
+        `Strategy ${supplyTokenSymbol} balance after harvest3:`,
+        formatUnits(strategyBalanceAfterHarvest3, supplyTokenDecimals)
+      );
+      console.log(
+        'diff',
+        formatUnits(strategyBalanceAfterHarvest3.sub(strategyBalanceAfterHarvest2), supplyTokenDecimals)
+      );
+
+      console.log('Simulate the passing of another 1 day.');
+      await ethers.provider.send('evm_increaseTime', [60 * 60 * 24 * 1]);
+      const harvestTx4 = await strategy.harvest({ gasLimit: 2000000 });
+      await harvestTx4.wait();
+      const strategyBalanceAfterHarvest4 = await strategy.syncBalance();
+      expect(strategyBalanceAfterHarvest4.gt(strategyBalanceAfterUncommit)).to.be.true;
+      console.log(
+        `Strategy ${supplyTokenSymbol} balance after harvest4:`,
+        formatUnits(strategyBalanceAfterHarvest4, supplyTokenDecimals)
+      );
+      console.log(
+        'diff',
+        formatUnits(strategyBalanceAfterHarvest4.sub(strategyBalanceAfterHarvest3), supplyTokenDecimals)
+      );
+
+      console.log('Simulate the passing of another 1 day.');
+      await ethers.provider.send('evm_increaseTime', [60 * 60 * 24 * 1]);
+      const harvestTx5 = await strategy.harvest({ gasLimit: 2000000 });
+      await harvestTx5.wait();
+      const strategyBalanceAfterHarvest5 = await strategy.syncBalance();
+      expect(strategyBalanceAfterHarvest5.gt(strategyBalanceAfterUncommit)).to.be.true;
+      console.log(
+        `Strategy ${supplyTokenSymbol} balance after harvest5:`,
+        formatUnits(strategyBalanceAfterHarvest5, supplyTokenDecimals)
+      );
+      console.log(
+        'diff',
+        formatUnits(strategyBalanceAfterHarvest5.sub(strategyBalanceAfterHarvest4), supplyTokenDecimals)
+      );
+
+      console.log('Simulate the passing of another 1 day.');
+      await ethers.provider.send('evm_increaseTime', [60 * 60 * 24 * 1]);
+      const harvestTx6 = await strategy.harvest({ gasLimit: 2000000 });
+      await harvestTx6.wait();
+      const strategyBalanceAfterHarvest6 = await strategy.syncBalance();
+      expect(strategyBalanceAfterHarvest6.gt(strategyBalanceAfterUncommit)).to.be.true;
+      console.log(
+        `Strategy ${supplyTokenSymbol} balance after harvest6:`,
+        formatUnits(strategyBalanceAfterHarvest6, supplyTokenDecimals)
+      );
+      console.log(
+        'diff',
+        formatUnits(strategyBalanceAfterHarvest6.sub(strategyBalanceAfterHarvest5), supplyTokenDecimals)
       );
     }
   } catch (e) {

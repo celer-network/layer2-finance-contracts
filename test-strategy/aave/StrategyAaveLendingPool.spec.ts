@@ -139,7 +139,7 @@ export async function testStrategyAaveLendingPool(
     if (harvestGas.lte(500000)) {
       const harvestTx = await strategy.harvest({ gasLimit: 500000 });
       await harvestTx.wait();
-      const strategyBalanceAfterHarvest = await strategy.callStatic.syncBalance();
+      const strategyBalanceAfterHarvest = await strategy.syncBalance();
       expect(strategyBalanceAfterHarvest.gte(strategyBalanceAfterUncommit)).to.be.true;
       console.log(
         `Strategy ${supplyTokenSymbol} balance after harvest:`,
