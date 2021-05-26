@@ -170,7 +170,8 @@ export async function testStrategyCurve3Pool(
     const harvestGas = await strategy.estimateGas.harvest();
     if (harvestGas.lte(1000000)) {
       const harvestTx = await strategy.harvest({ gasLimit: 1000000 });
-      await harvestTx.wait();
+      const receipt = await harvestTx.wait();
+      console.log('Harvest gas used:', receipt.gasUsed.toString());
       const strategyBalanceAfterHarvest = await strategy.syncBalance();
       expect(strategyBalanceAfterHarvest.gte(strategyBalanceAfterUncommit)).to.be.true;
       console.log(

@@ -114,7 +114,8 @@ describe('StrategyCompoundETH', function () {
       const harvestGas = await strategy.estimateGas.harvest();
       if (harvestGas.lte(2000000)) {
         const harvestTx = await strategy.harvest({ gasLimit: 2000000 });
-        await harvestTx.wait();
+        const receipt = await harvestTx.wait();
+        console.log('Harvest gas used:', receipt.gasUsed.toString());
         const strategyBalanceAfterHarvest = await strategy.callStatic.syncBalance();
         expect(strategyBalanceAfterHarvest.gte(strategyBalanceAfterUncommit)).to.be.true;
         console.log('Strategy WETH balance after harvest:', formatEther(strategyBalanceAfterHarvest));
