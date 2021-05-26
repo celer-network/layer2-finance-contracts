@@ -13,7 +13,7 @@ import "../interfaces/IStrategy.sol";
 import "../interfaces/aave/ILendingPool.sol";
 import "../interfaces/aave/IAToken.sol";
 import "../interfaces/aave/IAaveIncentivesController.sol";
-import "../interfaces/aave/IStakeAave.sol";
+import "../interfaces/aave/IStakedAave.sol";
 import "../interfaces/uniswap/IUniswapV2.sol";
 
 /**
@@ -41,19 +41,15 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
     // The address of Aave Incentives Controller
     address public incentivesController;
 
-    // The address of Aave StakeToken contract
-    address public stakeToken;
+    // The address of Aave StakedAave contract
+    address public stakedAave;
 
-    // The address of Aave token
+    // The address of AAVE token
     address public aave;
 
     address public uniswap;
     // The address of WETH token
     address public weth;
-
-    uint256 public cooldownSeconds;
-
-    uint256 public lastCooldownTimestamp;
 
     constructor(
         address _lendingPool,
@@ -62,11 +58,10 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
         address _aToken,
         address _controller,
         address _incentivesController,
-        address _stakeToken,
+        address _stakedAave,
         address _aave,
         address _uniswap,
-        address _weth,
-        uint256 _cooldownSeconds
+        address _weth
     ) {
         lendingPool = _lendingPool;
         symbol = _symbol;
@@ -74,11 +69,10 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
         aToken = _aToken;
         controller = _controller;
         incentivesController = _incentivesController;
-        stakeToken = _stakeToken;
+        stakedAave = _stakedAave;
         aave = _aave;
         uniswap = _uniswap;
         weth = _weth;
-        cooldownSeconds = _cooldownSeconds;
     }
 
     function getAssetAddress() external view override returns (address) {
@@ -93,41 +87,41 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
     }
 
     function harvest() external override {
-        require(block.timestamp > lastCooldownTimestamp.add(cooldownSeconds), "INSUFFICIENT_COOLDOWN");
-        lastCooldownTimestamp = block.timestamp;
-
-        // 1. Claims the StkAAVE staking rewards
-        uint256 stakingRewards = IStakeAave(stakeToken).getTotalRewardsBalance(address(this));
-
-        if (stakingRewards > 0) {
-            IStakeAave(stakeToken).claimRewards(address(this), stakingRewards);
-        }
-
-        // 2. Redeems staked tokens, note that it won't be success while this account not in redeem-available period
-        stakeToken.call(
-            abi.encodeWithSelector(
-                IStakeAave.redeem.selector,
-                address(this),
-                IERC20(stakeToken).balanceOf(address(this))
-            )
-        );
-
-        // 3. Claims the liquidity incentives
+        // 1. Claims the liquidity incentives
         address[] memory assets = new address[](1);
         assets[0] = aToken;
         uint256 rewardsBalance =
             IAaveIncentivesController(incentivesController).getRewardsBalance(assets, address(this));
-
         if (rewardsBalance > 0) {
             IAaveIncentivesController(incentivesController).claimRewards(assets, rewardsBalance, address(this));
         }
 
-        // 4. Activates the cooldown period if there is balance in the aave safety module now
-        if (IERC20(stakeToken).balanceOf(address(this)) > 0) {
-            IStakeAave(stakeToken).cooldown();
+        // 2. Activates the cooldown period if not already activated
+        uint256 stakedAaveBalance = IERC20(stakedAave).balanceOf(address(this));
+        if (stakedAaveBalance > 0 && IStakedAave(stakedAave).stakersCooldowns(address(this)) == 0) {
+            IStakedAave(stakedAave).cooldown();
         }
 
-        // 5. Sells the aave token and the stake token for obtain more supplying token
+        // 3. Claims the AAVE staking rewards
+        uint256 stakingRewards = IStakedAave(stakedAave).getTotalRewardsBalance(address(this));
+        if (stakingRewards > 0) {
+            IStakedAave(stakedAave).claimRewards(address(this), stakingRewards);
+        }
+
+        // 4. Redeems staked AAVE if possible
+        uint256 cooldownStartTimestamp = IStakedAave(stakedAave).stakersCooldowns(address(this));
+        if (
+            stakedAaveBalance > 0 &&
+            block.timestamp > cooldownStartTimestamp.add(IStakedAave(stakedAave).COOLDOWN_SECONDS()) &&
+            block.timestamp <=
+            cooldownStartTimestamp.add(IStakedAave(stakedAave).COOLDOWN_SECONDS()).add(
+                IStakedAave(stakedAave).UNSTAKE_WINDOW()
+            )
+        ) {
+            IStakedAave(stakedAave).redeem(address(this), stakedAaveBalance);
+        }
+
+        // 5. Sells the reward AAVE token and the redeemed staked AAVE for obtain more supplying token
         uint256 aaveBalance = IERC20(aave).balanceOf(address(this));
         if (aaveBalance > 0) {
             IERC20(aave).safeIncreaseAllowance(uniswap, aaveBalance);
@@ -145,7 +139,7 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
                 block.timestamp.add(1800)
             );
 
-            // Deposit supplying token to Compound Erc20 Lending Pool and mint cToken.
+            // Deposit supplying token to Aave Lending Pool and mint aToken.
             uint256 obtainedSupplyTokenAmount = IERC20(supplyToken).balanceOf(address(this));
             IERC20(supplyToken).safeIncreaseAllowance(lendingPool, obtainedSupplyTokenAmount);
             ILendingPool(lendingPool).deposit(supplyToken, obtainedSupplyTokenAmount, address(this), 0);
@@ -183,9 +177,5 @@ contract StrategyAaveLendingPoolV2 is IStrategy, Ownable {
     function setController(address _controller) external onlyOwner {
         emit ControllerChanged(controller, _controller);
         controller = _controller;
-    }
-
-    function setCooldownSeconds(uint256 _cooldownSeconds) external onlyOwner {
-        cooldownSeconds = _cooldownSeconds;
     }
 }
