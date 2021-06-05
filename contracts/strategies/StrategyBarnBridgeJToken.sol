@@ -51,9 +51,6 @@ contract StrategyBarnBridgeJToken is IStrategy, Ownable {
 
     address public controller;
 
-    // NFT Id array of pending junior bond
-    uint256[] public pendingJBonds;
-
     constructor(
         address _smartYield,
         address _compProviderPool,
