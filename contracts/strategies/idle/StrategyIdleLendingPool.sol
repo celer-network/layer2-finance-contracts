@@ -8,18 +8,23 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./GovTokenRegistry.sol";
 
-import "./interfaces/IStrategy.sol";
-import "./interfaces/idle/IIdleToken.sol";
-import "./interfaces/uniswap/IUniswapV2.sol";
+import "../interfaces/IStrategy.sol";
+import "../interfaces/idle/IIdleToken.sol";
+import "../interfaces/aave/IStakedAave.sol";
+import "../interfaces/uniswap/IUniswapV2.sol";
 
 /**
- * Deposits ERC20 token into Idle Lending Pool. Holds IdleErc20(e.g. IdleDAI, IdleUSDC).
+ * Deposits ERC20 token into Idle Lending Pool V4. Holds IdleErc20(e.g. IdleDAI, IdleUSDC).
  */ 
 contract StrategyIdleLendingPool is IStrategy, Ownable {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
+
+    // Governance token registry
+    GovTokenRegistry govTokenRegistry;
 
     // The address of Idle Lending Pool(e.g. IdleDAI, IdleUSDC)
     address public iToken;
@@ -31,6 +36,9 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
     address public supplyToken;
     // Supplying token decimals
     uint8 public decimals;
+    
+    // The address of Aave StakedAave contract
+    address public stakedAave;
 
     address public weth;
     address public sushiswap;
@@ -42,6 +50,8 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
         string memory _symbol,
         address _supplyToken,
         uint8 _decimals,
+        address _govTokenRegistryAddress,
+        address _stakedAave,
         address _weth,
         address _sushiswap,
         address _controller
@@ -50,6 +60,8 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
         symbol = _symbol;
         supplyToken = _supplyToken;
         decimals = _decimals;
+        govTokenRegistry = GovTokenRegistry(_govTokenRegistryAddress);
+        stakedAave = _stakedAave;
         weth = _weth;
         sushiswap = _sushiswap;
         controller = _controller;
@@ -71,9 +83,36 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
         // Claim governance tokens without redeeming supply token
         IIdleToken(iToken).redeemIdleToken(uint256(0));
 
-        // Swap governance tokens to supply token via sushiswap
-        address[] memory govTokens = IIdleToken(iToken).getGovTokens();
-        for(uint i = 0; i < govTokens.length; i++) {
+        // Idle finance transfer stkAAVE to this contract
+        // Activates the cooldown period if not already activated
+        uint256 stakedAaveBalance = IERC20(stakedAave).balanceOf(address(this));
+        if (stakedAaveBalance > 0 && IStakedAave(stakedAave).stakersCooldowns(address(this)) == 0) {
+            IStakedAave(stakedAave).cooldown();
+        }
+
+        // Claims the AAVE staking rewards
+        uint256 stakingRewards = IStakedAave(stakedAave).getTotalRewardsBalance(address(this));
+        if (stakingRewards > 0) {
+            IStakedAave(stakedAave).claimRewards(address(this), stakingRewards);
+        }
+
+        // Redeems staked AAVE if possible
+        uint256 cooldownStartTimestamp = IStakedAave(stakedAave).stakersCooldowns(address(this));
+        if (
+            stakedAaveBalance > 0 &&
+            block.timestamp > cooldownStartTimestamp.add(IStakedAave(stakedAave).COOLDOWN_SECONDS()) &&
+            block.timestamp <=
+            cooldownStartTimestamp.add(IStakedAave(stakedAave).COOLDOWN_SECONDS()).add(
+                IStakedAave(stakedAave).UNSTAKE_WINDOW()
+            )
+        ) {
+            IStakedAave(stakedAave).redeem(address(this), stakedAaveBalance);
+        }
+
+        // Swap governance tokens to supply token on the sushiswap
+        uint govTokenLength = govTokenRegistry.getGovTokensLength();
+        address[] memory govTokens = govTokenRegistry.getGovTokens();
+        for(uint32 i = 0; i < govTokenLength; i++) {
             uint256 govTokenBalance = IERC20(govTokens[i]).balanceOf(address(this));
             if (govTokenBalance > 0) {
                 IERC20(govTokens[i]).safeIncreaseAllowance(sushiswap, govTokenBalance);
