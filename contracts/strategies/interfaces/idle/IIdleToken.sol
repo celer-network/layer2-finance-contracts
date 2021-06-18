@@ -11,11 +11,26 @@ interface IIdleToken {
     function getGovTokens() external view returns (address[] memory);
 
     /**
+     * Map which saves avg idleToken minting price per user
+     * Used in calculating redeem price
+     *
+     * @return price : price in underlying token
+     */
+    function userAvgPrices(address user) external view returns (uint256 price);
+
+    /**
      * IdleToken price calculation, in underlying
      *
      * @return : price in underlying token
      */
     function tokenPrice() external view returns (uint256);
+
+    /**
+     * Current fee on interest gained
+     *
+     * @return fee : fee on interest gained
+     */
+    function fee() external view returns (uint256 fee);
 
     /**
      * Used to mint IdleTokens, given an underlying amount (eg. DAI).

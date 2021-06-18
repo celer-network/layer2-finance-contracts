@@ -45,6 +45,8 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
 
     address public controller;
 
+    uint256 constant public FULL_ALLOC = 100000;
+
     constructor(
         address _iToken,
         string memory _symbol,
@@ -116,19 +118,32 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
             uint256 govTokenBalance = IERC20(govTokens[i]).balanceOf(address(this));
             if (govTokenBalance > 0) {
                 IERC20(govTokens[i]).safeIncreaseAllowance(sushiswap, govTokenBalance);
+                if (supplyToken != weth) {
+                    address[] memory paths = new address[](3);
+                    paths[0] = govTokens[i];
+                    paths[1] = weth;
+                    paths[2] = supplyToken;
 
-                address[] memory paths = new address[](3);
-                paths[0] = govTokens[i];
-                paths[1] = weth;
-                paths[2] = supplyToken;
+                    IUniswapV2(sushiswap).swapExactTokensForTokens(
+                        govTokenBalance,
+                        uint256(0),
+                        paths,
+                        address(this),
+                        block.timestamp.add(1800)
+                    );
+                } else {
+                    address[] memory paths = new address[](2);
+                    paths[0] = govTokens[i];
+                    paths[1] = weth;
 
-                IUniswapV2(sushiswap).swapExactTokensForTokens(
-                    govTokenBalance,
-                    uint256(0),
-                    paths,
-                    address(this),
-                    block.timestamp.add(1800)
-                );
+                    IUniswapV2(sushiswap).swapExactTokensForTokens(
+                        govTokenBalance,
+                        uint256(0),
+                        paths,
+                        address(this),
+                        block.timestamp.add(1800)
+                    );
+                }
             }
         }
 
@@ -141,7 +156,7 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
     function syncBalance() external view override returns (uint256) {
         uint256 iTokenPrice = IIdleToken(iToken).tokenPrice();
         uint256 iTokenBalance = IERC20(iToken).balanceOf(address(this));
-        uint256 supplyTokenBalance = iTokenBalance.mul(iTokenPrice).div(10**uint256(decimals));
+        uint256 supplyTokenBalance = iTokenBalance.mul(iTokenPrice).div(10**decimals).div(10**(18 - decimals));
         return supplyTokenBalance;
     }
 
@@ -165,9 +180,9 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
 
         // Redeem supply token amount + interests and claim governance tokens
         // When `harvest` function is called, this contract lend obtained governance token to save gas
-        uint256 iTokenPrice = IIdleToken(iToken).tokenPrice();
-        uint256 iTokenAmount = _supplyTokenAmount.div(iTokenPrice).mul(10**uint256(decimals));
-        IIdleToken(iToken).redeemIdleToken(iTokenAmount);
+        uint256 iTokenRedeemPrice = getRedeemPrice();
+        uint256 iTokenBurnAmount = _supplyTokenAmount.div(iTokenRedeemPrice).mul(10**(decimals)).mul(10**(18 - decimals));
+        IIdleToken(iToken).redeemIdleToken(iTokenBurnAmount);
 
         // Transfer supply token to Controller
         uint256 supplyTokenBalance = IERC20(supplyToken).balanceOf(address(this));
@@ -179,5 +194,47 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
     function setController(address _controller) external onlyOwner {
         emit ControllerChanged(controller, _controller);
         controller = _controller;
+    }
+
+    // Refer to IdleTokenHelper.sol(https://github.com/emilianobonassi/idle-token-helper/blob/master/IdleTokenHelper.sol)
+    function getRedeemPrice() public view returns (uint256) {
+        /*
+         *  As per https://github.com/Idle-Labs/idle-contracts/blob/ad0f18fef670ea6a4030fe600f64ece3d3ac2202/contracts/IdleTokenGovernance.sol#L878-L900
+         *
+         *  Price on minting is currentPrice
+         *  Price on redeem must consider the fee
+         *
+         *  Below the implementation of the following redeemPrice formula
+         *
+         *  redeemPrice := underlyingAmount/idleTokenAmount
+         *
+         *  redeemPrice = currentPrice * (1 - scaledFee * ΔP%)
+         *
+         *  where:
+         *  - scaledFee   := fee/FULL_ALLOC
+         *  - ΔP% := 0 when currentPrice < userAvgPrice (no gain) and (currentPrice-userAvgPrice)/currentPrice
+         *
+         *  n.b: gain := idleTokenAmount * ΔP% * currentPrice
+         */
+        uint256 userAvgPrice = IIdleToken(iToken).userAvgPrices(address(this));
+        uint256 currentPrice = IIdleToken(iToken).tokenPrice();
+
+        // When no deposits userAvgPrice is 0 equiv currentPrice
+        // and in the case of 
+        uint256 redeemPrice;
+        if (userAvgPrice == 0 || currentPrice < userAvgPrice) {
+            redeemPrice = currentPrice;
+        } else {
+            uint256 fee = IIdleToken(iToken).fee();
+
+            redeemPrice = ((currentPrice.mul(FULL_ALLOC))
+                .sub(
+                    fee.mul(
+                         currentPrice.sub(userAvgPrice)
+                    )
+                )).div(FULL_ALLOC);
+        }
+
+        return redeemPrice;
     }
 }
