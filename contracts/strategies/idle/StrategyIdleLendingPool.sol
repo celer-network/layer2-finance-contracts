@@ -84,70 +84,11 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
     function harvest() external override onlyEOA {
         // Claim governance tokens without redeeming supply token
         IIdleToken(iToken).redeemIdleToken(uint256(0));
+        
+        harvestAAVE();
+        swapGovTokensToSupplyToken();
 
-        // Idle finance transfer stkAAVE to this contract
-        // Activates the cooldown period if not already activated
-        uint256 stakedAaveBalance = IERC20(stakedAave).balanceOf(address(this));
-        if (stakedAaveBalance > 0 && IStakedAave(stakedAave).stakersCooldowns(address(this)) == 0) {
-            IStakedAave(stakedAave).cooldown();
-        }
-
-        // Claims the AAVE staking rewards
-        uint256 stakingRewards = IStakedAave(stakedAave).getTotalRewardsBalance(address(this));
-        if (stakingRewards > 0) {
-            IStakedAave(stakedAave).claimRewards(address(this), stakingRewards);
-        }
-
-        // Redeems staked AAVE if possible
-        uint256 cooldownStartTimestamp = IStakedAave(stakedAave).stakersCooldowns(address(this));
-        if (
-            stakedAaveBalance > 0 &&
-            block.timestamp > cooldownStartTimestamp.add(IStakedAave(stakedAave).COOLDOWN_SECONDS()) &&
-            block.timestamp <=
-            cooldownStartTimestamp.add(IStakedAave(stakedAave).COOLDOWN_SECONDS()).add(
-                IStakedAave(stakedAave).UNSTAKE_WINDOW()
-            )
-        ) {
-            IStakedAave(stakedAave).redeem(address(this), stakedAaveBalance);
-        }
-
-        // Swap governance tokens to supply token on the sushiswap
-        uint govTokenLength = govTokenRegistry.getGovTokensLength();
-        address[] memory govTokens = govTokenRegistry.getGovTokens();
-        for(uint32 i = 0; i < govTokenLength; i++) {
-            uint256 govTokenBalance = IERC20(govTokens[i]).balanceOf(address(this));
-            if (govTokenBalance > 0) {
-                IERC20(govTokens[i]).safeIncreaseAllowance(sushiswap, govTokenBalance);
-                if (supplyToken != weth) {
-                    address[] memory paths = new address[](3);
-                    paths[0] = govTokens[i];
-                    paths[1] = weth;
-                    paths[2] = supplyToken;
-
-                    IUniswapV2(sushiswap).swapExactTokensForTokens(
-                        govTokenBalance,
-                        uint256(0),
-                        paths,
-                        address(this),
-                        block.timestamp.add(1800)
-                    );
-                } else {
-                    address[] memory paths = new address[](2);
-                    paths[0] = govTokens[i];
-                    paths[1] = weth;
-
-                    IUniswapV2(sushiswap).swapExactTokensForTokens(
-                        govTokenBalance,
-                        uint256(0),
-                        paths,
-                        address(this),
-                        block.timestamp.add(1800)
-                    );
-                }
-            }
-        }
-
-        // Deposit ontained supply token to Idle Lending Pool
+        // Deposit obtained supply token to Idle Lending Pool
         uint256 obtainedSupplyTokenAmount = IERC20(supplyToken).balanceOf(address(this));
         IERC20(supplyToken).safeIncreaseAllowance(iToken, obtainedSupplyTokenAmount);
         IIdleToken(iToken).mintIdleToken(obtainedSupplyTokenAmount, false, address(0));
@@ -196,7 +137,7 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
         controller = _controller;
     }
 
-    // Refer to IdleTokenHelper.sol(https://github.com/emilianobonassi/idle-token-helper/blob/master/IdleTokenHelper.sol)
+    // Refer to IdleTokenHelper.sol (https://github.com/emilianobonassi/idle-token-helper/blob/master/IdleTokenHelper.sol)
     function getRedeemPrice() public view returns (uint256) {
         /*
          *  As per https://github.com/Idle-Labs/idle-contracts/blob/ad0f18fef670ea6a4030fe600f64ece3d3ac2202/contracts/IdleTokenGovernance.sol#L878-L900
@@ -236,5 +177,70 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
         }
 
         return redeemPrice;
+    }
+
+    function harvestAAVE() internal {
+        // Idle finance transfer stkAAVE to this contract
+        // Activates the cooldown period if not already activated
+        uint256 stakedAaveBalance = IERC20(stakedAave).balanceOf(address(this));
+        if (stakedAaveBalance > 0 && IStakedAave(stakedAave).stakersCooldowns(address(this)) == 0) {
+            IStakedAave(stakedAave).cooldown();
+        }
+
+        // Claims the AAVE staking rewards
+        uint256 stakingRewards = IStakedAave(stakedAave).getTotalRewardsBalance(address(this));
+        if (stakingRewards > 0) {
+            IStakedAave(stakedAave).claimRewards(address(this), stakingRewards);
+        }
+
+        // Redeems staked AAVE if possible
+        uint256 cooldownStartTimestamp = IStakedAave(stakedAave).stakersCooldowns(address(this));
+        if (
+            stakedAaveBalance > 0 &&
+            block.timestamp > cooldownStartTimestamp.add(IStakedAave(stakedAave).COOLDOWN_SECONDS()) &&
+            block.timestamp <=
+            cooldownStartTimestamp.add(IStakedAave(stakedAave).COOLDOWN_SECONDS()).add(
+                IStakedAave(stakedAave).UNSTAKE_WINDOW()
+            )
+        ) {
+            IStakedAave(stakedAave).redeem(address(this), stakedAaveBalance);
+        }
+    }
+
+    function swapGovTokensToSupplyToken() internal {
+        uint govTokenLength = govTokenRegistry.getGovTokensLength();
+        address[] memory govTokens = govTokenRegistry.getGovTokens();
+        for(uint32 i = 0; i < govTokenLength; i++) {
+            uint256 govTokenBalance = IERC20(govTokens[i]).balanceOf(address(this));
+            if (govTokenBalance > 0) {
+                IERC20(govTokens[i]).safeIncreaseAllowance(sushiswap, govTokenBalance);
+                if (supplyToken != weth) {
+                    address[] memory paths = new address[](3);
+                    paths[0] = govTokens[i];
+                    paths[1] = weth;
+                    paths[2] = supplyToken;
+
+                    IUniswapV2(sushiswap).swapExactTokensForTokens(
+                        govTokenBalance,
+                        uint256(0),
+                        paths,
+                        address(this),
+                        block.timestamp.add(1800)
+                    );
+                } else {
+                    address[] memory paths = new address[](2);
+                    paths[0] = govTokens[i];
+                    paths[1] = weth;
+
+                    IUniswapV2(sushiswap).swapExactTokensForTokens(
+                        govTokenBalance,
+                        uint256(0),
+                        paths,
+                        address(this),
+                        block.timestamp.add(1800)
+                    );
+                }
+            }
+        }
     }
 }
