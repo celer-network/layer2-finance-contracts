@@ -179,7 +179,7 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
         return redeemPrice;
     }
 
-    function harvestAAVE() internal {
+    function harvestAAVE() private {
         // Idle finance transfer stkAAVE to this contract
         // Activates the cooldown period if not already activated
         uint256 stakedAaveBalance = IERC20(stakedAave).balanceOf(address(this));
@@ -207,7 +207,7 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
         }
     }
 
-    function swapGovTokensToSupplyToken() internal {
+    function swapGovTokensToSupplyToken() private {
         uint govTokenLength = govTokenRegistry.getGovTokensLength();
         address[] memory govTokens = govTokenRegistry.getGovTokens();
         for(uint32 i = 0; i < govTokenLength; i++) {
