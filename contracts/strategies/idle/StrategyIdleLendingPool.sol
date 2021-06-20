@@ -96,7 +96,6 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
 
     function syncBalance() external view override returns (uint256) {
         uint256 iTokenPrice = IIdleToken(iToken).tokenPrice();
-        //uint256 iTokenPrice = getRedeemPrice();
         uint256 iTokenBalance = IERC20(iToken).balanceOf(address(this));
         uint256 supplyTokenBalance = iTokenBalance.mul(iTokenPrice).div(10**decimals).div(10**(18 - decimals));
         return supplyTokenBalance;
