@@ -84,7 +84,7 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
     function harvest() external override onlyEOA {
         // Claim governance tokens without redeeming supply token
         IIdleToken(iToken).redeemIdleToken(uint256(0));
-        
+
         harvestAAVE();
         swapGovTokensToSupplyToken();
 
@@ -96,6 +96,7 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
 
     function syncBalance() external view override returns (uint256) {
         uint256 iTokenPrice = IIdleToken(iToken).tokenPrice();
+        //uint256 iTokenPrice = getRedeemPrice();
         uint256 iTokenBalance = IERC20(iToken).balanceOf(address(this));
         uint256 supplyTokenBalance = iTokenBalance.mul(iTokenPrice).div(10**decimals).div(10**(18 - decimals));
         return supplyTokenBalance;
@@ -122,7 +123,7 @@ contract StrategyIdleLendingPool is IStrategy, Ownable {
         // Redeem supply token amount + interests and claim governance tokens
         // When `harvest` function is called, this contract lend obtained governance token to save gas
         uint256 iTokenRedeemPrice = getRedeemPrice();
-        uint256 iTokenBurnAmount = _supplyTokenAmount.div(iTokenRedeemPrice).mul(10**(decimals)).mul(10**(18 - decimals));
+        uint256 iTokenBurnAmount = _supplyTokenAmount.mul(10**(decimals)).div(iTokenRedeemPrice).mul(10**(18 - decimals));
         IIdleToken(iToken).redeemIdleToken(iTokenBurnAmount);
 
         // Transfer supply token to Controller
