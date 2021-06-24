@@ -10,6 +10,7 @@ contract GovTokenRegistry is Ownable {
     address[] public govTokens;
 
     event GovTokenRegistered(address govTokenAddress);
+    event GovTokenUnregistered(address govTokenAddress);
 
     constructor(
         address _comp,
@@ -50,6 +51,8 @@ contract GovTokenRegistry is Ownable {
             if (govTokens[i] == _govToken) {
                 govTokens[i] = govTokens[govTokens.length-1];
                 delete govTokens[govTokens.length-1];
+                
+                emit GovTokenUnregistered(_govToken);
             }
         }
     }
