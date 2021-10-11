@@ -32,7 +32,7 @@ dld_solc() {
 run_solc() {
   mkdir -p genfiles
   for f in ${solFiles[@]}; do
-    solc --base-path $PWD --allow-paths contracts --overwrite --optimize --abi --bin -o genfiles '@openzeppelin/'=contracts/$OPENZEPPELIN/ contracts/$f.sol
+    solc --base-path $PWD --allow-paths contracts --overwrite --optimize --optimize-runs 800 --abi --bin -o genfiles '@openzeppelin/'=contracts/$OPENZEPPELIN/ contracts/$f.sol
   done
 }
 
