@@ -10,7 +10,7 @@ Use the `l2gen` tool to generate contract inputs from transition proto list
 
 #### Transition flags
 
-Use the followings flag to mark transition for testing:
+Use the following flag to mark transition for testing:
 
 - 1: generate dispute data
 - 2: generate invalid root and dispute data
